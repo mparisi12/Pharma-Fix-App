@@ -124,10 +124,12 @@ textarea.field{min-height:60px;resize:vertical}
   <h1>Pharma-Fix</h1><div class="label" style="margin-top:6px">Fermi macchina · accesso tecnico</div>
   <p>Inserisci nome e cognome. Devono essere nell'elenco dei manutentori abilitati.</p>
   <form id="lform" novalidate>
+    <div id="pinwrap"><label class="label" for="lpin">Codice reparto</label><input class="field" id="lpin" type="password" autocomplete="off" inputmode="text">
+      <div class="hint">Lo chiedi al responsabile. Serve solo la prima volta su questo telefono.</div></div>
     <label class="label" for="lnome">Nome</label><input class="field" id="lnome" autocomplete="given-name" autocapitalize="words" required>
     <label class="label" for="lcogn">Cognome</label><input class="field" id="lcogn" autocomplete="family-name" autocapitalize="words" required>
     <div class="err" id="lerr" hidden></div>
-    <button class="submit" type="submit">Entra</button>
+    <button class="submit" type="submit" id="lgo">Entra</button>
   </form>
 </div></div>
 <div id="scanwrap"></div>
@@ -185,11 +187,18 @@ function enqueue(op) {
 }
 
 /* ================= Backend ================= */
-async function apiGet() {
+const getPin = () => load('pin', '');
+const setPin = p => save('pin', p);
+const isPinErr = e => /Codice reparto/.test(e && e.message || '');
+function pinInvalid() { // il codice è stato cambiato dal responsabile: si richiede
+  const had = !!getPin(); setPin(''); try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null);
+  showLogin(); if (had) { const e = $('#lerr'); e.textContent = 'Il codice reparto è cambiato: inseriscilo di nuovo.'; e.hidden = false; }
+}
+async function apiGet(pin = getPin()) {
   if (MOCK) { const db = load('mockdb', { fermi: [] }); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: db.fermi }; }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
   try {
-    const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(CFG.KEY), { signal: ctl.signal });
+    const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(pin), { signal: ctl.signal });
     const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore server'); return j;
   } finally { clearTimeout(t); }
 }
@@ -203,18 +212,19 @@ async function apiPost(op) {
   }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
   try {
-    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: CFG.KEY }), signal: ctl.signal });
+    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: getPin() }), signal: ctl.signal });
     const j = await r.json(); if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
   } finally { clearTimeout(t); }
 }
 let syncing = false, retryT = null;
 async function sync() {
-  if (syncing) return; syncing = true; clearTimeout(retryT);
+  if (syncing || (!MOCK && !getPin())) return; syncing = true; clearTimeout(retryT);
   try {
     while (OUTBOX.length) {
       const op = OUTBOX[0];
       try { await apiPost(op); }
       catch (e) {
+        if (isPinErr(e)) { pinInvalid(); return; }
         if (e.server && /non trovato|solo fermi aperti|non abilitato/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
@@ -223,16 +233,16 @@ async function sync() {
     await refresh();
   } finally { syncing = false; }
 }
+function applyInit(j) {
+  if (j.equipment && j.equipment.length) S.equipment = j.equipment;
+  if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
+  S.fermi = j.fermi || []; S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
+  save('cache', { equipment: S.equipment, liste: S.liste, fermi: S.fermi });
+}
 async function refresh() {
-  try {
-    const j = await apiGet();
-    if (j.equipment && j.equipment.length) S.equipment = j.equipment;
-    if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
-    S.fermi = j.fermi || []; S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-    save('cache', { equipment: S.equipment, liste: S.liste, fermi: S.fermi });
-  } catch (e) {
-    S.net = 'off'; if (/Chiave/.test(e.message)) toast(e.message);
-  }
+  if (!MOCK && !getPin()) return;
+  try { applyInit(await apiGet()); }
+  catch (e) { if (isPinErr(e)) { pinInvalid(); return; } S.net = 'off'; }
   render();
 }
 
@@ -422,20 +432,32 @@ function getSession() {
 }
 function showLogin() {
   S.man = ''; renderHeader(); $('#login').hidden = false;
+  $('#pinwrap').hidden = MOCK || !!getPin(); $('#lpin').value = '';
   $('#lerr').hidden = true; $('#lnome').value = ''; $('#lcogn').value = '';
   setTimeout(() => $('#lnome').focus(), 50);
 }
-$('#lform').onsubmit = e => {
+$('#lform').onsubmit = async e => {
   e.preventDefault();
-  const n = $('#lnome').value, c = $('#lcogn').value, err = $('#lerr');
-  if (!norm(n) || !norm(c)) { err.textContent = 'Scrivi sia il nome sia il cognome.'; err.hidden = false; return; }
-  const t = findTecnico(n, c);
+  const n = $('#lnome').value, c = $('#lcogn').value, err = $('#lerr'), btn = $('#lgo');
+  const fail = msg => { err.textContent = msg; err.hidden = false; btn.disabled = false; btn.textContent = 'Entra'; };
+  if (!norm(n) || !norm(c)) return fail('Scrivi sia il nome sia il cognome.');
+  if (!MOCK && !getPin()) { // primo accesso su questo telefono: verifica del codice reparto
+    const pin = $('#lpin').value.trim();
+    if (!pin) return fail('Inserisci il codice reparto.');
+    btn.disabled = true; btn.textContent = 'Verifica…';
+    try { applyInit(await apiGet(pin)); setPin(pin); }
+    catch (ex) { return fail(isPinErr(ex) ? 'Codice reparto errato.' : 'Per il primo accesso serve la connessione: riprova quando c\'è rete.'); }
+  }
+  let t = findTecnico(n, c);
+  if (!t && !MOCK) { btn.disabled = true; btn.textContent = 'Verifica…'; await refresh(); t = findTecnico(n, c); } // magari è stato aggiunto ora
+  btn.disabled = false; btn.textContent = 'Entra';
   if (!t) { err.textContent = 'Non trovo "' + n.trim() + ' ' + c.trim() + '" tra i manutentori abilitati. Controlla come è scritto o chiedi al responsabile di aggiungerti.'; err.hidden = false; return; }
   const sess = { man: t, exp: Date.now() + SESSION_H * 3600e3 };
   try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {}
   save('sess', sess);
   S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t);
   if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; afterScan(e2); }
+  sync();
 };
 function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null); closeSh(); showLogin(); }
 function needMan(next) { if (S.man) next(); else showLogin(); }

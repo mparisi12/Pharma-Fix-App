@@ -50,12 +50,12 @@ L'app è fatta di due parti che vivono in posti diversi:
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
 
-### Chiave e indirizzo
+### Indirizzo e codice reparto
 
-- **API_URL**: l'indirizzo `/exec` dello script. Dice all'app *dove* mandare i dati.
-- **KEY**: una parola segreta generata da `setup()`. Lo script accetta dati solo se arrivano con la chiave giusta, così nessuno può scrivere nel foglio per caso.
+- **API_URL**: l'indirizzo `/exec` dello script. Dice all'app *dove* mandare i dati. Sta in `config.js` (pubblico: da solo non serve a niente).
+- **Codice reparto**: la parola d'ordine che apre il foglio. È salvata **solo nello script** (Apps Script → Impostazioni progetto → Proprietà script → `KEY`) e la conoscono i tecnici. **Non è scritta da nessuna parte su GitHub.** Ogni tecnico la inserisce una sola volta sul suo telefono, al primo accesso; senza il codice giusto lo script non legge e non scrive niente.
 
-Entrambi vanno in `config.js`. Finché `API_URL` è vuoto l'app gira in **modalità demo**: funziona, ma i dati restano solo sul telefono (scritta "MODALITÀ DEMO" in alto).
+Finché `API_URL` è vuoto l'app gira in **modalità demo**: i dati restano solo sul telefono (scritta "MODALITÀ DEMO" in alto).
 
 ---
 
@@ -64,8 +64,8 @@ Entrambi vanno in `config.js`. Finché `API_URL` è vuoto l'app gira in **modali
 | File | Cosa contiene | Va modificato? |
 |---|---|---|
 | `index.html` | L'app: accesso, scanner QR, scheda macchina, apertura e chiusura fermo, coda offline. | No |
-| `config.js` | Indirizzo dello script (`API_URL`) e chiave (`KEY`). | **Sì, una volta**, dopo l'installazione |
-| `defaults.js` | Liste e macchine "di partenza", usate in modalità demo e finché il foglio non risponde. Con il foglio collegato vale quello che c'è nel foglio. | No (le liste si cambiano nel foglio) |
+| `config.js` | Indirizzo dello script (`API_URL`). Il codice reparto **non** va qui. | **Sì, una volta**, dopo l'installazione |
+| `defaults.js` | Liste e macchine "di partenza", usate finché il foglio non risponde. Non contiene i nomi dei tecnici (stanno solo nel foglio). Con il foglio collegato vale quello che c'è nel foglio. | No (le liste si cambiano nel foglio) |
 | `qr.html` | Pagina per stampare le etichette QR, una per macchina, prese dal foglio Equipment. | No |
 | `manifest.webmanifest` | Nome e icona quando si installa l'app sul telefono. | No |
 | `sw.js` | Permette all'app di aprirsi anche senza rete. | No |
@@ -91,8 +91,7 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 5. Salva (icona dischetto).
 6. In alto, nel menu a tendina delle funzioni, scegli **setup** e premi **Esegui**.
    - Google chiede le autorizzazioni: **Rivedi autorizzazioni** → scegli il tuo account → **Avanzate** → **Vai a Pharma-Fix Fermi (non sicuro)** → **Consenti**. È normale: lo script è tuo e Google non l'ha "verificato".
-7. In basso si apre il **Registro di esecuzione** con la riga
-   `FATTO. Chiave da copiare in config.js → KEY: xxxxxxxxxxxx` → **copia la chiave**.
+7. **Scegli il codice reparto**: icona ⚙️ **Impostazioni progetto** → in fondo **Proprietà script** → riga **KEY** → **Modifica** → scrivi il codice che vuoi (almeno 6 caratteri, meglio lettere e numeri) → **Salva**. È il codice che darai ai tecnici.
 8. Torna al Google Sheet: ora ci sono i fogli **Fermi, Equipment, Liste, KPI**.
 
 ### 3.2 Pubblicare lo script come App web
@@ -105,11 +104,10 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 ### 3.3 Collegare l'app al foglio
 
 1. Su GitHub apri `fermi/config.js` → matita ✏️.
-2. Incolla i due valori:
+2. Incolla l'indirizzo:
    ```js
    window.PF_CONFIG = {
-     API_URL: 'https://script.google.com/macros/s/AKfy……/exec',
-     KEY: 'xxxxxxxxxxxx'
+     API_URL: 'https://script.google.com/macros/s/AKfy……/exec'
    };
    ```
 3. **Commit changes**. Dopo un minuto l'app è collegata: in alto compare "Sincronizzato hh:mm" al posto di "MODALITÀ DEMO".
@@ -118,7 +116,7 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 
 1. Foglio **Liste** → colonna **Manutentori**: controlla che ci siano tutti i tecnici, scritti `COGNOME Nome` (vedi [5.1](#51-tecnici-abilitati)).
 2. Foglio **Equipment**: controlla e completa le macchine (vedi [5.2](#52-lista-macchine-foglio-equipment)).
-3. Dal PC apri **https://mparisi12.github.io/Pharma-Fix-App/fermi/qr.html** → scegli la linea → **Stampa** al 100% su carta adesiva o da plastificare → attacca ogni etichetta sulla sua macchina, lato operatore.
+3. Dal PC apri **https://mparisi12.github.io/Pharma-Fix-App/fermi/qr.html** → scrivi il codice reparto → **Carica macchine** → scegli la linea → **Stampa** al 100% su carta adesiva o da plastificare → attacca ogni etichetta sulla sua macchina, lato operatore.
 
 ### 3.5 Installare l'app sui telefoni
 
@@ -131,7 +129,8 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 ## 4. Uso quotidiano — per i tecnici
 
 ### Accesso
-All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "nicolo greco" va bene). Ogni fermo viene registrato a nome di chi è entrato.
+All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
+La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la rete); poi non lo chiede più, finché il responsabile non lo cambia.
 L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo nome in alto → **Esci**.
 
 ### Aprire un fermo (~10 secondi)
@@ -164,7 +163,7 @@ Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca du
 Tutto si gestisce dal **Google Sheet**: l'app rilegge liste e macchine a ogni apertura, non serve toccare GitHub.
 
 ### 5.1 Tecnici abilitati
-Foglio **Liste**, colonna **Manutentori**: un nome per cella, formato `COGNOME Nome` (es. `GRECO Nicolò`).
+Foglio **Liste**, colonna **Manutentori**: un nome per cella, formato `COGNOME Nome` (es. `ROSSI Mario`).
 - **Nuovo tecnico** → aggiungi una cella. Può entrare subito.
 - **Tecnico che lascia** → cancella la cella. Lo storico resta; non potrà più registrare (lo blocca anche lo script).
 - Il nome scritto qui è quello che finisce nella colonna **Manutentore** del foglio Fermi.
@@ -233,8 +232,8 @@ Contano solo i fermi **chiusi**. I KPI considerano tutto lo storico: per un peri
 | "Non trovo … tra i manutentori abilitati" | Il nome non è nella colonna Manutentori del foglio Liste, o è scritto diverso. Aggiungilo/correggilo; il tecnico riapre l'app. |
 | La fotocamera non si apre per lo scanner | Permesso negato: impostazioni del telefono → app/browser → Fotocamera → Consenti. Intanto usa **Fotografa QR** o **Scegli macchina a mano**. |
 | "QR non riconosciuto" | L'etichetta è di un'altra app o la macchina non è nel foglio Equipment (o ha Attivo = NO). |
-| Pallino rosso fisso con rete funzionante | `config.js` sbagliato (URL o KEY), oppure lo script non è pubblicato con accesso **Chiunque**. Apri nel browser `API_URL?action=ping&key=LA_CHIAVE`: deve rispondere `{"ok":true}`. |
-| "Chiave non valida" | La KEY in `config.js` è diversa da quella nelle **Proprietà script** (Apps Script → Impostazioni progetto). |
+| Pallino rosso fisso con rete funzionante | `API_URL` in `config.js` sbagliato, oppure lo script non è pubblicato con accesso **Chiunque**. Apri nel browser `API_URL?action=ping&key=CODICE_REPARTO`: deve rispondere `{"ok":true}`. |
+| "Codice reparto errato" / "Il codice reparto è cambiato" | Il codice inserito non corrisponde a **KEY** nelle Proprietà script. Dopo averlo cambiato, ogni tecnico lo reinserisce una volta. |
 | Un fermo è stato chiuso con dati sbagliati | Correggilo a mano nel foglio Fermi (non toccare Stato e ID fermo). |
 | Fermo rimasto aperto (giallo) da giorni | Qualcuno ha dimenticato di chiuderlo: chiudilo dall'app (scansione QR o **Chiudi** nella home) e correggi poi a mano l'Ora Fine nel foglio se serve. |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
@@ -243,7 +242,9 @@ Contano solo i fermi **chiusi**. I KPI considerano tutto lo storico: per un peri
 
 ## 9. Sicurezza e limiti
 
-- La **chiave** in `config.js` blocca scritture casuali, ma è leggibile da chi apre il codice della pagina: non diffondere il link fuori dal reparto. Per cambiarla: Apps Script → Impostazioni progetto → **Proprietà script** → `KEY`, poi aggiorna `config.js`.
+- Il **repository è pubblico**: chiunque vede il codice e l'indirizzo dello script, ma **senza il codice reparto non può leggere né scrivere** nel foglio. Il codice non è su GitHub: sta nelle Proprietà script e sui telefoni dei tecnici.
+- **Cambia il codice reparto** quando un tecnico lascia l'azienda o se pensi che sia uscito dal reparto: Apps Script → Impostazioni progetto → **Proprietà script** → `KEY` → Modifica → Salva. Effetto immediato, senza nuove versioni; i tecnici lo reinseriscono al prossimo uso.
+- Nel repository non ci sono nomi di persone: l'elenco dei tecnici sta solo nel foglio Liste.
 - L'**accesso** con nome e cognome serve a sapere chi ha registrato cosa, non è una password: un tecnico potrebbe scrivere il nome di un collega.
 - Le **foto** restano private nella cartella Drive del tuo account; nel foglio c'è solo il link.
 - Il foglio è sul tuo account Google: se cambi account o lasci l'incarico, trasferisci la proprietà del foglio e della cartella foto.
