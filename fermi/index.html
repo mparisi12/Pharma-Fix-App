@@ -371,7 +371,8 @@ async function apiGet(pin = getPin()) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
   try {
     const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(pin), { signal: ctl.signal });
-    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore server'); return j;
+    let j; try { j = await r.json(); } catch { const e = new Error('lo script non risponde correttamente (nuova versione pubblicata?)'); e.server = true; throw e; }
+    if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
   } finally { clearTimeout(t); }
 }
 async function apiPost(op) {
@@ -417,7 +418,7 @@ function applyInit(j) {
 async function refresh() {
   if (!MOCK && !getPin()) return;
   try { applyInit(await apiGet()); }
-  catch (e) { if (isPinErr(e)) { pinInvalid(); return; } S.net = 'off'; }
+  catch (e) { if (isPinErr(e)) { pinInvalid(); return; } S.net = e.server ? 'err' : 'off'; S.errMsg = e.message; }
   render();
 }
 
@@ -542,6 +543,7 @@ function renderSync() {
   const n = OUTBOX.length; let cls = 'dot', txt;
   if (MOCK) { cls += ' demo'; txt = 'MODALITÀ DEMO · dati solo su questo telefono'; }
   else if (S.net === 'tel') { cls += ' off'; txt = (S.telErr || 'Telefono non autorizzato') + (n ? ' · ' + n + ' in attesa' : ''); }
+  else if (S.net === 'err') { cls += ' off'; txt = 'Errore del foglio: ' + (S.errMsg || '') + (n ? ' · ' + n + ' in coda' : ''); }
   else if (S.net === 'off') { cls += ' off'; txt = 'Non connesso' + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
   else if (n) { cls += ' warn'; txt = 'Invio in corso · ' + n + ' in coda'; }
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
