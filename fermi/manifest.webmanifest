@@ -1,7 +1,7 @@
 {
-  "name": "Pharma-Fix Fermi",
-  "short_name": "PF Fermi",
-  "description": "Registro fermi macchina con QR, foto e foglio Excel automatico",
+  "name": "Pharma-Fix",
+  "short_name": "Pharma-Fix",
+  "description": "Fermi macchina, soluzioni, documenti e anomalie dal QR della macchina",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,7 +9,23 @@
   "background_color": "#e9edf0",
   "theme_color": "#245a7a",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
