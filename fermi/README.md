@@ -1,4 +1,4 @@
-# Pharma-Fix · Fermi macchina
+# Pharma-Fix
 
 App di reparto costruita attorno al **QR della macchina**:
 
@@ -257,13 +257,21 @@ Una riga per documento:
 Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mostra solo il link, quindi lo apre solo chi ha già i permessi.
 
 ### 5.7 Portare i dati della vecchia Pharma-Fix
-Una volta sola, per non perdere troubleshooting, documenti e anomalie già registrati:
-1. Apri il foglio della vecchia Pharma-Fix, seleziona tutto (intestazioni comprese) e copia.
-2. In *Pharma-Fix Fermi* crea una scheda chiamata **Import_PharmaFix** e incolla in A1.
-3. Estensioni → Apps Script → funzione **importaPharmaFix** → **Esegui**. La prima volta crea il foglio **Mappa_import**: per ogni coppia *reparto + macchina* propone il codice QR. Controlla la colonna del codice e correggi quelli sbagliati (vuoto = vale per tutta la linea).
-4. Esegui di nuovo **importaPharmaFix**: i GUASTI vanno in Soluzioni, MANUALI/SCHEMI/SCHEDE in Documenti, le ANOMALIE in Anomalie.
+**Già preparato:** il file **Import_PharmaFix_pronto.xlsx** contiene il vecchio database convertito: 50 soluzioni, 11 documenti, 1 anomalia, ognuno collegato al codice QR della macchina nuova. Si carica una volta sola:
+1. Nel Google Sheet *Pharma-Fix Fermi*: **File → Importa → Carica** → scegli il file → **Inserisci nuovi fogli**.
+2. Dalla scheda importata *Soluzioni* copia dalla riga 2 in giù (colonne A–K) e incolla in **Soluzioni**, cella A2.
+3. Allo stesso modo *Documenti* (A–H) → **Documenti** e *Anomalie* (A–N) → **Anomalie**.
+4. Elimina le schede importate (compresa *Mappa*, che serviva solo a controllare gli abbinamenti).
 
-Si può rieseguire: le righe già importate non vengono duplicate.
+> Non eseguire anche **importaPharmaFix** sugli stessi dati: le righe raddoppierebbero. (importaPharmaFix resta per un eventuale altro file della vecchia app: incollalo in una scheda **Import_PharmaFix**, esegui una volta, controlla i codici in **Mappa_import**, esegui di nuovo.)
+
+**Allegati della vecchia app:** i link del vecchio database puntano ai file nella tua cartella Drive. **Non cancellare quei file e non togliere la condivisione con link**, altrimenti nell'app non si aprono più. Spostarli in un'altra cartella invece va bene: il link non cambia.
+
+### 5.8 Dove finiscono i file nuovi
+| Cosa | Chi lo carica | Dove finisce |
+|---|---|---|
+| Foto dei fermi, foto anomalie, allegati delle soluzioni | Il tecnico dall'app | Da solo nella cartella Drive **Pharma-Fix Foto Fermi** + link nel foglio |
+| Manuali, schemi, schede formato | Tu | Carichi il file in Drive, lo condividi con link e aggiungi una riga nel foglio **Documenti** (vedi 5.6) |
 
 ---
 
@@ -304,6 +312,8 @@ Si può rieseguire: le righe già importate non vengono duplicate.
 | Un fermo è stato chiuso con dati sbagliati | Correggilo a mano nel foglio Fermi (non toccare Stato e ID fermo). |
 | Fermo rimasto aperto (giallo) da giorni | Qualcuno ha dimenticato di chiuderlo: chiudilo dall'app (scansione QR o **Chiudi** nella home) e correggi poi a mano l'Ora Fine nel foglio se serve. |
 | `#ERROR!` nelle colonne Durata, Intervento-Guasto, Foto o nel foglio KPI | Formule scritte con il separatore sbagliato (fogli in italiano usano `;`). In Apps Script esegui **riparaFormule**: riscrive le formule e ricrea il foglio KPI. |
+| Un documento non si apre ("Richiedi l'accesso") | Il file in Drive non è condiviso: tasto destro → Condividi → *Chiunque abbia il link* (o *chiunque nell'organizzazione*). |
+| Un documento non compare sulla macchina | Nel foglio Documenti la colonna **Dove** non contiene il codice della macchina né la sua linea, oppure è scritta diversa (es. `ST3 04` invece di `ST3-04`). |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
 
 ---
