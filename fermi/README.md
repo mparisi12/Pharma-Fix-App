@@ -299,6 +299,10 @@ Foglio **Telefoni**: una riga per ogni coppia tecnico + telefono, con modello, p
 
 Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana).
 
+### 5.10 Sveglia dello script
+Google "addormenta" lo script quando nessuno lo usa per un po': al risveglio la prima risposta può metterci 20–40 secondi (l'app scrive *"Il foglio risponde lentamente"* e intanto si lavora lo stesso: i dati restano in coda).
+Per evitarlo: menu **Pharma-Fix → Attiva sveglia dello script** (una volta sola; Google chiede di autorizzare *"collegarsi a un servizio esterno"* e *"eseguire in tua assenza"*: consenti). Da lì lo script si interroga da solo ogni 10 minuti da lunedì 5:00 a sabato 6:00. Per toglierla: **Disattiva sveglia dello script**.
+
 ---
 
 ## 6. I dati in Excel
@@ -340,6 +344,7 @@ Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** co
 | `#ERROR!` nelle colonne Durata, Intervento-Guasto, Foto o nel foglio KPI | Formule scritte con il separatore sbagliato (fogli in italiano usano `;`). In Apps Script esegui **riparaFormule**: riscrive le formule e ricrea il foglio KPI. |
 | Un documento non si apre ("Richiedi l'accesso") | Il file in Drive non è condiviso: tasto destro → Condividi → *Chiunque abbia il link* (o *chiunque nell'organizzazione*). |
 | Un documento non compare sulla macchina | Nel foglio Documenti la colonna **Dove** non contiene il codice della macchina né la sua linea, oppure è scritta diversa (es. `ST3 04` invece di `ST3-04`). |
+| "Il foglio risponde lentamente" | Lo script si stava svegliando: i dati arrivano da soli. Se succede spesso: **Pharma-Fix → Attiva sveglia dello script** (5.10). |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
 
 ---
