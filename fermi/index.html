@@ -98,6 +98,12 @@ textarea.field{min-height:60px;resize:vertical}
 .scanner .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));color:#fff;background:#000}
 .scanner .bar button{background:#fff;color:#000;border:0;border-radius:10px;padding:12px 16px;font-weight:600}
 .scanner .msg{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top,0px));text-align:center;color:#fff;font-weight:600;text-shadow:0 1px 3px #000}
+.login{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:auto;padding:calc(32px + env(safe-area-inset-top,0px)) 16px 32px}
+.login .in{max-width:420px;margin:0 auto}
+.login h1{font:700 40px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0}
+.login p{color:var(--muted)}
+.login label{display:block;margin-top:16px}
+.topbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:13px;font-weight:500;color:var(--ink);text-decoration:none;white-space:nowrap}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 </style>
@@ -106,13 +112,24 @@ textarea.field{min-height:60px;resize:vertical}
 <div class="app">
   <header class="top">
     <div class="brand">Pharma-Fix<small id="clock">Fermi macchina</small></div>
-    <button class="manbtn" id="manbtn">Chi sei?</button>
+    <a class="topbtn" href="../?menu=1">Menu</a>
+    <button class="manbtn" id="manbtn">—</button>
   </header>
   <div class="sync" id="sync"><span class="dot demo"></span><span>…</span></div>
   <div id="banner"></div>
   <main id="view"></main>
 </div>
 <div id="sheet"></div>
+<div id="login" class="login" hidden><div class="in">
+  <h1>Pharma-Fix</h1><div class="label" style="margin-top:6px">Fermi macchina · accesso tecnico</div>
+  <p>Inserisci nome e cognome. Devono essere nell'elenco dei manutentori abilitati.</p>
+  <form id="lform" novalidate>
+    <label class="label" for="lnome">Nome</label><input class="field" id="lnome" autocomplete="given-name" autocapitalize="words" required>
+    <label class="label" for="lcogn">Cognome</label><input class="field" id="lcogn" autocomplete="family-name" autocapitalize="words" required>
+    <div class="err" id="lerr" hidden></div>
+    <button class="submit" type="submit">Entra</button>
+  </form>
+</div></div>
 <div id="scanwrap"></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
 
@@ -125,7 +142,9 @@ textarea.field{min-height:60px;resize:vertical}
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
 const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: [], loaded: false, view: { name: 'home' },
-  man: load('man', ''), net: 'ok', lastSync: 0 };
+  man: '', net: 'ok', lastSync: 0 };
+let PENDING_EQ = null;
+const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
 let OUTBOX = load('outbox', []);
 
 const $ = s => document.querySelector(s);
@@ -196,7 +215,7 @@ async function sync() {
       const op = OUTBOX[0];
       try { await apiPost(op); }
       catch (e) {
-        if (e.server && /non trovato|solo fermi aperti/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovato|solo fermi aperti|non abilitato/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       OUTBOX.shift(); save('outbox', OUTBOX);
@@ -243,13 +262,14 @@ let scanStream = null, scanRun = false;
 async function openScanner() {
   $('#scanwrap').innerHTML = `<div class="scanner"><video id="vid" playsinline muted></video><div class="frame"></div>
     <div class="msg" id="smsg">Inquadra il QR sulla macchina</div>
-    <div class="bar"><button id="smanual">Scegli a mano</button><button id="sclose">Chiudi</button></div></div>`;
+    <div class="bar"><button id="smanual">Scegli a mano</button><button id="sphoto">Fotografa QR</button><button id="sclose">Chiudi</button></div></div>`;
   $('#sclose').onclick = closeScanner;
   $('#smanual').onclick = () => { closeScanner(); pickSheet(); };
+  $('#sphoto').onclick = () => { closeScanner(); scanFromPhoto(); };
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
   } catch (e) {
-    closeScanner(); toast('Fotocamera non disponibile: consenti l\'accesso o scegli la macchina a mano'); pickSheet(); return;
+    $('#smsg').textContent = 'Fotocamera live non disponibile: usa "Fotografa QR"'; return;
   }
   const v = $('#vid'); v.srcObject = scanStream; await v.play().catch(() => {});
   let det = null; try { if ('BarcodeDetector' in window) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch {}
@@ -270,12 +290,27 @@ async function openScanner() {
     } catch {}
     if (text) {
       const eq = parseQr(text);
-      if (eq) { if (navigator.vibrate) navigator.vibrate(60); closeScanner(); go({ name: 'equip', code: eq.code }); return; }
+      if (eq) { if (navigator.vibrate) navigator.vibrate(60); closeScanner(); afterScan(eq); return; }
       $('#smsg').textContent = 'QR non riconosciuto: ' + text.slice(0, 40);
     }
     setTimeout(tick, 150);
   };
   tick();
+}
+function afterScan(eq) {
+  go({ name: 'equip', code: eq.code });
+  const f = allFermi().find(x => x.code === eq.code && x.stato === 'APERTO');
+  needMan(() => f ? closeSheet(f, null) : openSheet(eq));
+}
+// Riserva: se la fotocamera live non parte (es. iPhone), si fotografa il QR e lo si legge dalla foto
+function scanFromPhoto() {
+  capture(img => {
+    const w = Math.min(1200, img.naturalWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth);
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
+    const r = window.jsQR ? jsQR(x.getImageData(0, 0, w, h).data, w, h) : null;
+    const eq = r && parseQr(r.data);
+    if (eq) afterScan(eq); else toast('Non riesco a leggere il QR: avvicinati e riprova');
+  });
 }
 function closeScanner() { scanRun = false; if (scanStream) scanStream.getTracks().forEach(t => t.stop()); scanStream = null; $('#scanwrap').innerHTML = ''; }
 function parseQr(text) {
@@ -296,7 +331,7 @@ function renderSync() {
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
 }
-function renderHeader() { $('#manbtn').textContent = S.man || 'Chi sei?'; }
+function renderHeader() { $('#manbtn').textContent = S.man || '—'; }
 
 /* ================= Home ================= */
 function renderHome() {
@@ -331,7 +366,7 @@ function bindOpenCards() {
   document.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => go({ name: 'equip', code: b.dataset.eq }));
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => {
     const f = allFermi().find(x => x.id === b.dataset.close); if (!f) return;
-    needMan(() => capture(img => closeSheet(f, img)));
+    needMan(() => closeSheet(f, null));
   });
 }
 
@@ -356,13 +391,11 @@ function renderEquip(code) {
       <div class="stat"><div class="label">Guasto top</div><div class="v sm" title="${esc(top ? top[0] : '')}">${top ? esc(top[0].split(',')[0]) + ' ×' + top[1] : '—'}</div></div>
     </div>
     ${open.length ? `<h2>Fermo in corso</h2><div class="list">${open.map(openCard).join('')}</div>` : ''}
-    <div style="margin-top:18px"><button class="bigbtn red" id="openf">${ICAM}Apri fermo</button>
-    <div class="center"><button class="linkbtn" id="openf2">Apri senza foto</button></div></div>
+    ${open.length ? '' : `<div style="margin-top:18px"><button class="bigbtn red" id="openf">Apri fermo</button></div>`}
     <h2>Storico interventi</h2>
     <div class="list">${hist.length ? hist.map(histRow).join('') : '<div class="empty">Nessun intervento registrato negli ultimi 90 giorni.</div>'}</div>`;
   $('#back').onclick = () => go({ name: 'home' });
-  $('#openf').onclick = () => needMan(() => capture(img => openSheet(eq, img)));
-  $('#openf2').onclick = () => needMan(() => openSheet(eq, null));
+  const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   bindOpenCards();
 }
 
@@ -376,14 +409,42 @@ function closeSh() { $('#sheet').innerHTML = ''; }
 function chips(list, sel, cls = '') { return list.map(v => `<button class="chip ${cls}" data-v="${esc(v)}" aria-pressed="${sel === v}">${esc(v)}</button>`).join(''); }
 function singleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); onPick(b.dataset.v); }; }
 
-function needMan(next) { if (S.man) next(); else manSheet(next); }
-function manSheet(next) {
-  sheet(`<div class="sheet-h"><h3>Chi sei?</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
-    <p class="hint">Scegli il tuo nome una volta: resta salvato su questo telefono.</p>
-    <div class="chips" id="mans">${chips(S.liste['Manutentori'] || [], S.man)}</div>`);
-  singleChoice($('#mans'), v => { S.man = v; save('man', v); renderHeader(); closeSh(); if (next) next(); });
+/* ---- Accesso: nome + cognome verificati sull'elenco Manutentori ---- */
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+function findTecnico(nome, cognome) {
+  const want = (norm(nome) + ' ' + norm(cognome)).split(' ').filter(Boolean).sort().join(' ');
+  return (S.liste['Manutentori'] || []).find(m => norm(m).split(' ').sort().join(' ') === want) || null;
 }
-$('#manbtn').onclick = () => manSheet();
+function getSession() {
+  let s = null; try { s = JSON.parse(sessionStorage.getItem('pf_sess') || 'null'); } catch {}
+  if (!s) s = load('sess', null);
+  return s && s.exp > Date.now() && (S.liste['Manutentori'] || []).includes(s.man) ? s.man : '';
+}
+function showLogin() {
+  S.man = ''; renderHeader(); $('#login').hidden = false;
+  $('#lerr').hidden = true; $('#lnome').value = ''; $('#lcogn').value = '';
+  setTimeout(() => $('#lnome').focus(), 50);
+}
+$('#lform').onsubmit = e => {
+  e.preventDefault();
+  const n = $('#lnome').value, c = $('#lcogn').value, err = $('#lerr');
+  if (!norm(n) || !norm(c)) { err.textContent = 'Scrivi sia il nome sia il cognome.'; err.hidden = false; return; }
+  const t = findTecnico(n, c);
+  if (!t) { err.textContent = 'Non trovo "' + n.trim() + ' ' + c.trim() + '" tra i manutentori abilitati. Controlla come è scritto o chiedi al responsabile di aggiungerti.'; err.hidden = false; return; }
+  const sess = { man: t, exp: Date.now() + SESSION_H * 3600e3 };
+  try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {}
+  save('sess', sess);
+  S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t);
+  if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; afterScan(e2); }
+};
+function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null); closeSh(); showLogin(); }
+function needMan(next) { if (S.man) next(); else showLogin(); }
+$('#manbtn').onclick = () => {
+  sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <p class="hint">Ogni fermo che apri o chiudi viene registrato a tuo nome. Se il telefono passa a un collega, esci.</p>
+    <button class="submit red" id="logout">Esci</button>`);
+  $('#logout').onclick = logout;
+};
 
 function pickSheet() {
   const linee = [...new Set(S.equipment.map(e => e.linea))];
@@ -400,23 +461,20 @@ function pickSheet() {
 }
 
 const OFFSETS = [0, 5, 10, 15, 30];
-function openSheet(eq, img) {
+function openSheet(eq) {
   const O = { offset: 0 };
   const lotto = lastLotto(eq.linea);
-  const prev = img ? 'data:image/jpeg;base64,' + toJpeg(img, [], 600, .7) : null;
   sheet(`<div class="sheet-h"><div><h3>Apri fermo</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
-    <div class="group">${prev ? `<img class="prev" src="${prev}" alt="Foto macchina">` : `<button class="camtile" id="addph">${ICAM}Aggiungi foto macchina</button>`}</div>
     <div class="group"><span class="label">Lotto</span><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
       ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
     <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
     <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
     <button class="submit red" id="go">Apri fermo</button>`);
   singleChoice($('#offs'), v => O.offset = +v);
-  const ap = $('#addph'); if (ap) ap.onclick = () => capture(im => openSheet(eq, im));
   $('#go').onclick = () => {
     const ts = Date.now() - O.offset * 60000;
     enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: $('#lotto').value.trim(), ts, turno: turnoOf(ts),
-      manutentore: S.man, foto: img ? toJpeg(img) : '' });
+      manutentore: S.man, foto: '' });
     closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
   };
 }
@@ -480,7 +538,11 @@ setInterval(() => {
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.fermi = c.fermi || []; }
   const eq = new URL(location.href).searchParams.get('eq');
   if (eq) S.view = { name: 'equip', code: eq };
+  S.man = getSession();
   render();
+  // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
+  const deep = eq && eqBy(eq);
+  if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
   sync();
   setInterval(() => { if (!OUTBOX.length && document.visibilityState === 'visible') refresh(); }, 60000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
