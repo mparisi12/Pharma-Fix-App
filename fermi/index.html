@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#245a7a">
+<title>Pharma-Fix Fermi</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#e9edf0; --surface:#ffffff; --surface2:#f4f6f8; --ink:#152028; --muted:#5a6873; --line:#d3dbe1;
+  --steel:#245a7a; --steel-ink:#ffffff; --amber:#c98600; --amber-soft:#fff3d6; --ok:#2b8456; --crit:#c23b2a;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#101519; --surface:#192127; --surface2:#1f2930; --ink:#e4ebef; --muted:#93a3ad; --line:#2b373f;
+  --steel:#5f9ec4; --steel-ink:#0d1418; --amber:#f0b429; --amber-soft:#3a2f12; --ok:#4cb67f; --crit:#e5654f; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);-webkit-tap-highlight-color:transparent;padding-top:env(safe-area-inset-top,0px)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+.app{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:0 calc(40px + env(safe-area-inset-bottom,0px))}
+header.top{display:flex;align-items:center;gap:10px;padding-block:14px 6px}
+.brand{font:700 24px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;flex:1}
+.brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.manbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:13px;font-weight:500;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:6px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.dot.warn{background:var(--amber)}.dot.off{background:var(--crit)}.dot.demo{background:var(--muted)}
+.banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px}
+h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:24px 0 10px;color:var(--muted)}
+.label{font:500 11px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--steel);color:var(--steel-ink);
+  font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:24px 16px}
+.bigbtn.red{background:var(--crit);color:#fff}
+.bigbtn:active{transform:translateY(1px)}
+.bigbtn svg{width:30px;height:30px;flex:none}
+.linkbtn{background:none;border:0;color:var(--steel);font-weight:600;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
+.center{text-align:center}
+.list{display:grid;gap:10px}
+.ocard{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--amber);border-radius:0 var(--r) var(--r) 0;padding:10px 12px}
+.ocard .what{min-width:0;text-align:left;background:none;border:0;padding:0}
+.ocard .ln{font:700 19px/1.1 var(--display);letter-spacing:.03em}
+.ocard .mc{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer{font:500 18px var(--mono);color:var(--amber);font-variant-numeric:tabular-nums}
+.closebtn{border:0;border-radius:10px;background:var(--ok);color:#fff;font:700 17px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:14px 16px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:16px;color:var(--muted);text-align:center;font-size:14px}
+.hrow{display:grid;grid-template-columns:1fr auto;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:9px 12px}
+.hrow > div{min-width:0}
+.hrow .t1{font-weight:600}
+.hrow .t2{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dur{font:500 15px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.pend{font:500 10px var(--mono);color:var(--amber);display:block;text-align:right}
+.eqhead{display:flex;align-items:center;gap:10px;margin-top:6px}
+.back{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-width:44px;height:44px;font-size:20px}
+.eqcode{font:500 13px var(--mono);color:var(--muted)}
+.eqtitle h1{margin:10px 0 2px;font:700 34px/1.05 var(--display);letter-spacing:.02em;text-transform:uppercase}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:14px}
+.stat{background:var(--surface);padding:10px}
+.stat .v{font:700 24px/1.1 var(--display);margin-top:3px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat .v.sm{font-size:16px;line-height:1.5}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:94%;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet-h h3{margin:0;font:700 24px/1.1 var(--display);text-transform:uppercase;letter-spacing:.03em}
+.x{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:44px;height:44px;font-size:20px;line-height:1;flex:none}
+.group{margin-top:16px}
+.group > .label{display:block;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:14px;text-align:left}
+.chip[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
+.chips.big .chip{font:700 18px var(--display);letter-spacing:.04em;min-width:76px;text-align:center}
+.field{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;font-size:16px}
+textarea.field{min-height:60px;resize:vertical}
+.err{color:var(--crit);font-size:13px;margin-top:6px}
+.prev{width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
+.annot{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;touch-action:manipulation}
+.annot canvas{display:block;width:100%;height:auto}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.camtile{display:flex;align-items:center;gap:10px;border:1px dashed var(--steel);color:var(--steel);background:var(--surface);border-radius:10px;padding:14px;font-weight:600;width:100%}
+.camtile svg{width:24px;height:24px}
+.submit{width:100%;margin-top:20px;border:0;border-radius:12px;padding:18px;font:700 22px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--ok)}
+.submit.red{background:var(--crit)}
+.danger{color:var(--crit)}
+.scanner{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}
+.scanner video{flex:1;width:100%;object-fit:cover;min-height:0}
+.scanner .frame{position:absolute;left:50%;top:42%;width:min(70vw,300px);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
+.scanner .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));color:#fff;background:#000}
+.scanner .bar button{background:#fff;color:#000;border:0;border-radius:10px;padding:12px 16px;font-weight:600}
+.scanner .msg{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top,0px));text-align:center;color:#fff;font-weight:600;text-shadow:0 1px 3px #000}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">Pharma-Fix<small id="clock">Fermi macchina</small></div>
+    <button class="manbtn" id="manbtn">Chi sei?</button>
+  </header>
+  <div class="sync" id="sync"><span class="dot demo"></span><span>…</span></div>
+  <div id="banner"></div>
+  <main id="view"></main>
+</div>
+<div id="sheet"></div>
+<div id="scanwrap"></div>
+<input id="cam" type="file" accept="image/*" capture="environment" hidden>
+
+<script src="config.js"></script>
+<script src="defaults.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+<script>
+'use strict';
+/* ================= Config & stato ================= */
+const CFG = window.PF_CONFIG || {};
+const MOCK = !CFG.API_URL;
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: [], loaded: false, view: { name: 'home' },
+  man: load('man', ''), net: 'ok', lastSync: 0 };
+let OUTBOX = load('outbox', []);
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+function load(k, d) { try { const v = localStorage.getItem('pf_' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }
+function save(k, v) { try { localStorage.setItem('pf_' + k, JSON.stringify(v)); return true; } catch { return false; } }
+function fmtDur(min) { min = Math.round(min); if (min < 60) return min + '′'; const h = Math.floor(min / 60), m = min % 60; return h + 'h' + (m ? ' ' + pad(m) + '′' : ''); }
+function fmtTimer(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' : '') + pad(m) + ':' + pad(x); }
+function fmtDT(t) { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function turnoOf(t) { const h = new Date(t).getHours(); return h >= 6 && h < 14 ? 'T1' : h >= 14 && h < 22 ? 'T2' : 'T3'; }
+function uid() { return 'F' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
+const eqBy = code => S.equipment.find(e => e.code.toUpperCase() === String(code || '').toUpperCase());
+const ICAM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="4"/></svg>';
+const IQR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>';
+
+/* ================= Dati: server + coda locale ================= */
+function allFermi() {
+  const m = new Map(S.fermi.map(f => [f.id, { ...f }]));
+  for (const op of OUTBOX) {
+    if (op.action === 'open' && !m.has(op.id)) {
+      m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, pending: true });
+    } else if (op.action === 'close' && m.has(op.id)) {
+      Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
+    } else if (op.action === 'cancel') m.delete(op.id);
+  }
+  return [...m.values()].sort((a, b) => b.start - a.start);
+}
+function lastLotto(linea) { const f = allFermi().find(x => x.linea === linea && x.lotto && x.lotto !== 'undefined'); return f ? String(f.lotto) : ''; }
+function enqueue(op) {
+  OUTBOX.push(op);
+  if (!save('outbox', OUTBOX)) { // memoria piena: si tengono i dati, si perdono le foto più vecchie
+    for (const o of OUTBOX) { if (o.foto) { o.foto = ''; if (save('outbox', OUTBOX)) break; } }
+    toast('Memoria del telefono piena: alcune foto non verranno inviate');
+  }
+  render(); sync();
+}
+
+/* ================= Backend ================= */
+async function apiGet() {
+  if (MOCK) { const db = load('mockdb', { fermi: [] }); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: db.fermi }; }
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(CFG.KEY), { signal: ctl.signal });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore server'); return j;
+  } finally { clearTimeout(t); }
+}
+async function apiPost(op) {
+  if (MOCK) {
+    const db = load('mockdb', { fermi: [] });
+    if (op.action === 'open' && !db.fermi.some(f => f.id === op.id)) db.fermi.push({ id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, apertoDa: op.manutentore });
+    if (op.action === 'close') { const f = db.fermi.find(x => x.id === op.id); if (f) Object.assign(f, { stato: 'CHIUSO', end: op.ts, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore }); }
+    if (op.action === 'cancel') db.fermi = db.fermi.filter(f => f.id !== op.id);
+    save('mockdb', db); return { ok: true };
+  }
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
+  try {
+    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: CFG.KEY }), signal: ctl.signal });
+    const j = await r.json(); if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
+  } finally { clearTimeout(t); }
+}
+let syncing = false, retryT = null;
+async function sync() {
+  if (syncing) return; syncing = true; clearTimeout(retryT);
+  try {
+    while (OUTBOX.length) {
+      const op = OUTBOX[0];
+      try { await apiPost(op); }
+      catch (e) {
+        if (e.server && /non trovato|solo fermi aperti/.test(e.message)) { toast('Scartato: ' + e.message); }
+        else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
+      }
+      OUTBOX.shift(); save('outbox', OUTBOX);
+    }
+    await refresh();
+  } finally { syncing = false; }
+}
+async function refresh() {
+  try {
+    const j = await apiGet();
+    if (j.equipment && j.equipment.length) S.equipment = j.equipment;
+    if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
+    S.fermi = j.fermi || []; S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
+    save('cache', { equipment: S.equipment, liste: S.liste, fermi: S.fermi });
+  } catch (e) {
+    S.net = 'off'; if (/Chiave/.test(e.message)) toast(e.message);
+  }
+  render();
+}
+
+/* ================= Foto ================= */
+function capture(cb) {
+  const i = $('#cam'); i.value = '';
+  i.onchange = async () => { const f = i.files && i.files[0]; if (!f) return; try { cb(await loadImg(f)); } catch { toast('Foto non leggibile, riprova'); } };
+  i.click();
+}
+function loadImg(f) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(f); }); }
+function drawCircles(x, circles, w, h) {
+  const m = Math.min(w, h);
+  for (const c of circles) { const r = c.r * m; x.lineWidth = Math.max(4, m * .014);
+    x.strokeStyle = '#fff'; x.beginPath(); x.arc(c.x * w, c.y * h, r + x.lineWidth * .6, 0, 7); x.stroke();
+    x.strokeStyle = '#ff2a2a'; x.beginPath(); x.arc(c.x * w, c.y * h, r, 0, 7); x.stroke(); }
+}
+function toJpeg(img, circles = [], max = 1024, q = .7) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.drawImage(img, 0, 0, w, h); drawCircles(x, circles, w, h);
+  return c.toDataURL('image/jpeg', q).split(',')[1];
+}
+
+/* ================= Scanner QR ================= */
+let scanStream = null, scanRun = false;
+async function openScanner() {
+  $('#scanwrap').innerHTML = `<div class="scanner"><video id="vid" playsinline muted></video><div class="frame"></div>
+    <div class="msg" id="smsg">Inquadra il QR sulla macchina</div>
+    <div class="bar"><button id="smanual">Scegli a mano</button><button id="sclose">Chiudi</button></div></div>`;
+  $('#sclose').onclick = closeScanner;
+  $('#smanual').onclick = () => { closeScanner(); pickSheet(); };
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  } catch (e) {
+    closeScanner(); toast('Fotocamera non disponibile: consenti l\'accesso o scegli la macchina a mano'); pickSheet(); return;
+  }
+  const v = $('#vid'); v.srcObject = scanStream; await v.play().catch(() => {});
+  let det = null; try { if ('BarcodeDetector' in window) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch {}
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+  scanRun = true;
+  const tick = async () => {
+    if (!scanRun) return;
+    let text = null;
+    try {
+      if (v.readyState >= 2) {
+        if (det) { const r = await det.detect(v); if (r[0]) text = r[0].rawValue; }
+        else if (window.jsQR) {
+          const w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth);
+          cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
+          const r = jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' }); if (r) text = r.data;
+        }
+      }
+    } catch {}
+    if (text) {
+      const eq = parseQr(text);
+      if (eq) { if (navigator.vibrate) navigator.vibrate(60); closeScanner(); go({ name: 'equip', code: eq.code }); return; }
+      $('#smsg').textContent = 'QR non riconosciuto: ' + text.slice(0, 40);
+    }
+    setTimeout(tick, 150);
+  };
+  tick();
+}
+function closeScanner() { scanRun = false; if (scanStream) scanStream.getTracks().forEach(t => t.stop()); scanStream = null; $('#scanwrap').innerHTML = ''; }
+function parseQr(text) {
+  let code = text.trim();
+  try { const u = new URL(code); code = u.searchParams.get('eq') || code; } catch {}
+  return eqBy(code);
+}
+
+/* ================= Navigazione ================= */
+function go(v) { S.view = v; window.scrollTo(0, 0); render();
+  const url = new URL(location.href); if (v.name === 'equip') url.searchParams.set('eq', v.code); else url.searchParams.delete('eq'); history.replaceState(null, '', url); }
+function render() { renderSync(); renderHeader(); if (S.view.name === 'equip') renderEquip(S.view.code); else renderHome(); }
+function renderSync() {
+  const n = OUTBOX.length; let cls = 'dot', txt;
+  if (MOCK) { cls += ' demo'; txt = 'MODALITÀ DEMO · dati solo su questo telefono'; }
+  else if (S.net === 'off') { cls += ' off'; txt = 'Non connesso' + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
+  else if (n) { cls += ' warn'; txt = 'Invio in corso · ' + n + ' in coda'; }
+  else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
+  $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
+}
+function renderHeader() { $('#manbtn').textContent = S.man || 'Chi sei?'; }
+
+/* ================= Home ================= */
+function renderHome() {
+  const all = allFermi();
+  const open = all.filter(f => f.stato === 'APERTO');
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const today = all.filter(f => f.stato === 'CHIUSO' && f.end >= t0.getTime());
+  $('#view').innerHTML = `
+    <div style="margin-top:6px"><button class="bigbtn" id="scan">${IQR}Scansiona QR</button>
+    <div class="center"><button class="linkbtn" id="manual">Scegli macchina a mano</button></div></div>
+    <h2>Fermi aperti · ${open.length}</h2>
+    <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso. Quando una macchina si ferma, scansiona il QR attaccato alla macchina.</div>'}</div>
+    <h2>Chiusi oggi · ${today.length}</h2>
+    <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
+  $('#scan').onclick = openScanner;
+  $('#manual').onclick = pickSheet;
+  bindOpenCards();
+}
+function openCard(f) {
+  return `<div class="ocard"><button class="what" data-eq="${esc(f.code)}"><div class="ln">${esc(f.linea)} · ${esc(f.macchina)}</div>
+    <div class="mc">dal ${fmtDT(f.start)} · ${esc(f.man || '')}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}</div>
+    <div class="timer" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</div></button>
+    <button class="closebtn" data-close="${esc(f.id)}">Chiudi</button></div>`;
+}
+function histRow(f) {
+  const dur = f.end ? fmtDur((f.end - f.start) / 60000) : '';
+  return `<div class="hrow"><div><div class="t1">${esc(f.linea)} · ${esc(f.macchina)}</div>
+    <div class="t2">${fmtDT(f.start)} · ${esc(f.guasto || '')} · ${esc(f.man || '')}</div></div>
+    <div><div class="dur">${dur}</div>${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></div>`;
+}
+function bindOpenCards() {
+  document.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => go({ name: 'equip', code: b.dataset.eq }));
+  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => {
+    const f = allFermi().find(x => x.id === b.dataset.close); if (!f) return;
+    needMan(() => capture(img => closeSheet(f, img)));
+  });
+}
+
+/* ================= Scheda equipment ================= */
+function renderEquip(code) {
+  const eq = eqBy(code);
+  if (!eq) { $('#view').innerHTML = `<div class="banner">Macchina "${esc(code)}" non trovata nel foglio Equipment.</div><button class="linkbtn" id="home">Torna alla home</button>`; $('#home').onclick = () => go({ name: 'home' }); return; }
+  const all = allFermi().filter(f => f.code === eq.code);
+  const open = all.filter(f => f.stato === 'APERTO');
+  const from = Date.now() - 30 * 864e5;
+  const c30 = all.filter(f => f.stato === 'CHIUSO' && f.start >= from && f.end);
+  const mttr = c30.length ? c30.reduce((a, f) => a + (f.end - f.start), 0) / c30.length / 60000 : 0;
+  const cnt = {}; c30.forEach(f => { if (f.guasto) cnt[f.guasto] = (cnt[f.guasto] || 0) + 1; });
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  const hist = all.filter(f => f.stato === 'CHIUSO').slice(0, 10);
+  $('#view').innerHTML = `
+    <div class="eqhead"><button class="back" id="back" aria-label="Indietro">←</button><span class="eqcode">${esc(eq.code)}</span></div>
+    <div class="eqtitle"><h1>${esc(eq.macchina)}</h1><div class="label">${esc(eq.linea)} · ${esc(eq.area)}</div></div>
+    <div class="stats">
+      <div class="stat"><div class="label">Fermi 30 gg</div><div class="v">${c30.length}</div></div>
+      <div class="stat"><div class="label">MTTR 30 gg</div><div class="v">${c30.length ? fmtDur(mttr) : '—'}</div></div>
+      <div class="stat"><div class="label">Guasto top</div><div class="v sm" title="${esc(top ? top[0] : '')}">${top ? esc(top[0].split(',')[0]) + ' ×' + top[1] : '—'}</div></div>
+    </div>
+    ${open.length ? `<h2>Fermo in corso</h2><div class="list">${open.map(openCard).join('')}</div>` : ''}
+    <div style="margin-top:18px"><button class="bigbtn red" id="openf">${ICAM}Apri fermo</button>
+    <div class="center"><button class="linkbtn" id="openf2">Apri senza foto</button></div></div>
+    <h2>Storico interventi</h2>
+    <div class="list">${hist.length ? hist.map(histRow).join('') : '<div class="empty">Nessun intervento registrato negli ultimi 90 giorni.</div>'}</div>`;
+  $('#back').onclick = () => go({ name: 'home' });
+  $('#openf').onclick = () => needMan(() => capture(img => openSheet(eq, img)));
+  $('#openf2').onclick = () => needMan(() => openSheet(eq, null));
+  bindOpenCards();
+}
+
+/* ================= Sheets ================= */
+function sheet(html) {
+  $('#sheet').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $('#scrim').onclick = e => { if (e.target.id === 'scrim') closeSh(); };
+  document.querySelectorAll('#sheet [data-x]').forEach(b => b.onclick = closeSh);
+}
+function closeSh() { $('#sheet').innerHTML = ''; }
+function chips(list, sel, cls = '') { return list.map(v => `<button class="chip ${cls}" data-v="${esc(v)}" aria-pressed="${sel === v}">${esc(v)}</button>`).join(''); }
+function singleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); onPick(b.dataset.v); }; }
+
+function needMan(next) { if (S.man) next(); else manSheet(next); }
+function manSheet(next) {
+  sheet(`<div class="sheet-h"><h3>Chi sei?</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <p class="hint">Scegli il tuo nome una volta: resta salvato su questo telefono.</p>
+    <div class="chips" id="mans">${chips(S.liste['Manutentori'] || [], S.man)}</div>`);
+  singleChoice($('#mans'), v => { S.man = v; save('man', v); renderHeader(); closeSh(); if (next) next(); });
+}
+$('#manbtn').onclick = () => manSheet();
+
+function pickSheet() {
+  const linee = [...new Set(S.equipment.map(e => e.linea))];
+  let L = null;
+  const draw = () => {
+    sheet(`<div class="sheet-h"><h3>Scegli macchina</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
+      <div class="group"><span class="label">Linea</span><div class="chips big" id="pl">${chips(linee, L)}</div></div>
+      ${L ? `<div class="group"><span class="label">Macchina</span><div class="list" id="pm">${S.equipment.filter(e => e.linea === L).map(e =>
+        `<button class="chip" data-v="${esc(e.code)}"><b>${esc(e.macchina)}</b> <span class="label">· ${esc(e.area)}</span></button>`).join('')}</div></div>` : ''}`);
+    $('#pl').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { L = b.dataset.v; draw(); } };
+    const pm = $('#pm'); if (pm) pm.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { closeSh(); go({ name: 'equip', code: b.dataset.v }); } };
+  };
+  draw();
+}
+
+const OFFSETS = [0, 5, 10, 15, 30];
+function openSheet(eq, img) {
+  const O = { offset: 0 };
+  const lotto = lastLotto(eq.linea);
+  const prev = img ? 'data:image/jpeg;base64,' + toJpeg(img, [], 600, .7) : null;
+  sheet(`<div class="sheet-h"><div><h3>Apri fermo</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    <div class="group">${prev ? `<img class="prev" src="${prev}" alt="Foto macchina">` : `<button class="camtile" id="addph">${ICAM}Aggiungi foto macchina</button>`}</div>
+    <div class="group"><span class="label">Lotto</span><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
+      ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
+    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
+    <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
+    <button class="submit red" id="go">Apri fermo</button>`);
+  singleChoice($('#offs'), v => O.offset = +v);
+  const ap = $('#addph'); if (ap) ap.onclick = () => capture(im => openSheet(eq, im));
+  $('#go').onclick = () => {
+    const ts = Date.now() - O.offset * 60000;
+    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: $('#lotto').value.trim(), ts, turno: turnoOf(ts),
+      manutentore: S.man, foto: img ? toJpeg(img) : '' });
+    closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
+  };
+}
+
+function closeSheet(f, img) {
+  const eq = eqBy(f.code) || { area: 'Secondario' };
+  const guasti = S.liste[eq.area === 'Sterile' ? 'Guasto Sterile' : 'Guasto Secondario'] || [];
+  const C = { img, circles: [], cat: null, int: null, guasto: null };
+  sheet(`<div class="sheet-h"><div><h3>Chiudi fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span></div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    <div class="group" id="phgrp"></div>
+    <div class="group"><span class="label">Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
+    <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
+    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guasti)}</div></div>
+    <div class="group"><span class="label" id="altlbl">Altro (descrizione breve)</span><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
+    <div class="group"><span class="label">Codice pezzo sostituito</span><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
+    <div class="err" id="err" hidden></div>
+    <button class="submit" id="go">Chiudi fermo</button>
+    <div class="center" style="margin-top:8px"><button class="linkbtn danger" id="canc">Fermo aperto per errore? Annullalo</button></div>`);
+  const ph = $('#phgrp');
+  const drawPhoto = () => {
+    if (!C.img) { ph.innerHTML = `<button class="camtile" id="addph">${ICAM}Foto zona di intervento</button>`; $('#addph').onclick = () => capture(im => { C.img = im; C.circles = []; drawPhoto(); }); return; }
+    ph.innerHTML = `<span class="label">Foto zona di intervento</span><div class="annot" style="margin-top:8px"><canvas id="cv"></canvas></div>
+      <div class="hint">Tocca la foto per cerchiare la zona. Tocca un cerchio per toglierlo. <button class="linkbtn" id="reph" style="padding:0 0 0 6px">Rifai foto</button></div>`;
+    const cv = $('#cv'), s = Math.min(1, 900 / Math.max(C.img.naturalWidth, C.img.naturalHeight));
+    cv.width = Math.round(C.img.naturalWidth * s); cv.height = Math.round(C.img.naturalHeight * s);
+    const paint = () => { const x = cv.getContext('2d'); x.drawImage(C.img, 0, 0, cv.width, cv.height); drawCircles(x, C.circles, cv.width, cv.height); }; paint();
+    cv.onpointerdown = e => { const r = cv.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height; const m = Math.min(cv.width, cv.height);
+      const hit = C.circles.findIndex(c => Math.hypot((c.x - px) * cv.width, (c.y - py) * cv.height) < c.r * m);
+      if (hit >= 0) C.circles.splice(hit, 1); else C.circles.push({ x: px, y: py, r: .11 }); paint(); };
+    $('#reph').onclick = () => capture(im => { C.img = im; C.circles = []; drawPhoto(); });
+  };
+  drawPhoto();
+  singleChoice($('#cat'), v => C.cat = v);
+  singleChoice($('#int'), v => C.int = v);
+  singleChoice($('#gua'), v => C.guasto = v);
+  $('#go').onclick = () => {
+    const altro = $('#altro').value.trim();
+    const miss = [!C.cat && 'categoria', !C.int && 'tipo intervento', !C.guasto && 'tipo guasto'].filter(Boolean);
+    let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
+    if (!msg && (C.guasto === 'ALTRO' || C.int === 'ALTRO') && !altro) msg = 'Hai scelto ALTRO: scrivi una descrizione breve.';
+    if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
+    enqueue({ action: 'close', id: f.id, ts: Date.now(), manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
+      altro, pezzo: $('#pezzo').value.trim(), foto: C.img ? toJpeg(C.img, C.circles) : '' });
+    closeSh(); toast('Fermo chiuso · ' + fmtDur((Date.now() - f.start) / 60000));
+  };
+  const cb = $('#canc');
+  cb.onclick = () => {
+    if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = 'Tocca ancora per annullare il fermo'; return; }
+    enqueue({ action: 'cancel', id: f.id }); closeSh(); toast('Fermo annullato');
+  };
+}
+
+/* ================= Avvio ================= */
+setInterval(() => {
+  const n = Date.now();
+  document.querySelectorAll('[data-since]').forEach(e => e.textContent = fmtTimer(n - +e.dataset.since));
+  const d = new Date(); $('#clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' · turno ' + turnoOf(n);
+}, 1000);
+(function boot() {
+  const c = load('cache', null);
+  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.fermi = c.fermi || []; }
+  const eq = new URL(location.href).searchParams.get('eq');
+  if (eq) S.view = { name: 'equip', code: eq };
+  render();
+  sync();
+  setInterval(() => { if (!OUTBOX.length && document.visibilityState === 'visible') refresh(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+  window.addEventListener('online', sync);
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>

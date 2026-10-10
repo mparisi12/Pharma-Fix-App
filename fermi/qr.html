@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etichette QR · Pharma-Fix Fermi</title>
+<style>
+body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;padding:16px;color:#152028;background:#fff}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.bar select,.bar button{font:inherit;padding:8px 12px;border:1px solid #c5cfd6;border-radius:8px;background:#fff}
+.bar button.pr{background:#245a7a;color:#fff;border-color:#245a7a}
+.note{color:#5a6873;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,60mm);gap:4mm}
+.lab{width:60mm;height:70mm;border:1px dashed #9aa7b0;border-radius:3mm;padding:3mm;display:flex;flex-direction:column;align-items:center;justify-content:space-between;break-inside:avoid;page-break-inside:avoid}
+.lab .qr{width:44mm;height:44mm}
+.lab .qr img,.lab .qr svg{width:100%;height:100%}
+.lab .m{font-weight:700;font-size:15px;text-align:center;line-height:1.1}
+.lab .l{font-size:12px;color:#333}
+.lab .c{font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.05em}
+.lab .h{font-size:9px;color:#555}
+@media print{.bar,.note{display:none}body{padding:0}.lab{border-color:#bbb}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <select id="linea"><option value="">Tutte le linee</option></select>
+  <button class="pr" onclick="window.print()">Stampa</button>
+  <span class="note" id="src"></span>
+</div>
+<p class="note">Ogni QR apre l'app direttamente sulla scheda della macchina. Funziona sia con lo scanner dell'app sia con la fotocamera normale del telefono. Stampa su carta adesiva o plastificata, al 100% senza adattare alla pagina.</p>
+<div class="grid" id="grid"></div>
+
+<script src="config.js"></script>
+<script src="defaults.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+const base = new URL('./', location.href).href; // cartella dell'app su GitHub Pages
+let EQ = PF_DEFAULTS.equipment;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function draw() {
+  const L = document.getElementById('linea').value;
+  document.getElementById('grid').innerHTML = EQ.filter(e => !L || e.linea === L).map(e => {
+    const q = qrcode(0, 'M'); q.addData(base + '?eq=' + encodeURIComponent(e.code)); q.make();
+    return `<div class="lab"><div class="m">${esc(e.macchina)}</div><div class="qr">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>
+      <div class="l">${esc(e.linea)} · ${esc(e.area)}</div><div class="c">${esc(e.code)}</div><div class="h">Fermo macchina? Scansiona</div></div>`;
+  }).join('');
+}
+function fillLines() {
+  const sel = document.getElementById('linea');
+  sel.innerHTML = '<option value="">Tutte le linee</option>' + [...new Set(EQ.map(e => e.linea))].map(l => `<option>${esc(l)}</option>`).join('');
+  sel.onchange = draw;
+}
+(async () => {
+  const cfg = window.PF_CONFIG || {};
+  const src = document.getElementById('src');
+  src.textContent = 'Macchine: elenco di partenza';
+  fillLines(); draw();
+  if (cfg.API_URL) {
+    try {
+      const j = await (await fetch(cfg.API_URL + '?action=init&key=' + encodeURIComponent(cfg.KEY))).json();
+      if (j.ok && j.equipment.length) { EQ = j.equipment; src.textContent = 'Macchine: dal foglio Equipment (' + EQ.length + ')'; fillLines(); draw(); }
+    } catch { src.textContent = 'Foglio non raggiungibile: uso l\'elenco di partenza'; }
+  }
+})();
+</script>
+</body>
+</html>
