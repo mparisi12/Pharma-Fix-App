@@ -222,7 +222,7 @@ Tutto il foglio si ricalcola sulla scelta:
 - **Pareto guasti** con **% cumulata** e **RFR** (n° di quel guasto ÷ totale fermi) + **grafico di Pareto** (barre = n° fermi, linea rossa = % cumulata: i guasti a sinistra dell'80% sono quelli su cui intervenire).
 - **Fermi per macchina** con tempo totale e MTTR.
 
-Contano solo i fermi **chiusi**. I fermi filtrati stanno nel foglio nascosto `KPI_dati` (non modificarlo).
+Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano quando cambi una cella gialla, quando si chiude un fermo, oppure dal menu **Pharma-Fix → Aggiorna KPI** (in alto nel foglio, accanto a Guida). Se il foglio KPI si rovina: **Pharma-Fix → Ricrea foglio KPI**.
 
 ---
 
@@ -246,7 +246,7 @@ Contano solo i fermi **chiusi**. I fermi filtrati stanno nel foglio nascosto `KP
   1. Estensioni → Apps Script → incolla il nuovo `Code.gs` → salva.
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
-  - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea KPI e KPI_dati; va reinserito solo il valore delle ore di funzionamento.
+  - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea il foglio KPI; va reinserito solo il valore delle ore di funzionamento.
   - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
 ---
