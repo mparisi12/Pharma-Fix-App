@@ -25,6 +25,8 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;paddin
 <div class="bar">
   <select id="linea"><option value="">Tutte le linee</option></select>
   <button class="pr" onclick="window.print()">Stampa</button>
+  <input id="pin" type="password" placeholder="Codice reparto" style="font:inherit;padding:8px 12px;border:1px solid #c5cfd6;border-radius:8px;width:150px">
+  <button onclick="loadEq()">Carica macchine</button>
   <span class="note" id="src"></span>
 </div>
 <p class="note">Ogni QR apre l'app direttamente sulla scheda della macchina. Funziona sia con lo scanner dell'app sia con la fotocamera normale del telefono. Stampa su carta adesiva o plastificata, al 100% senza adattare alla pagina.</p>
@@ -50,18 +52,20 @@ function fillLines() {
   sel.innerHTML = '<option value="">Tutte le linee</option>' + [...new Set(EQ.map(e => e.linea))].map(l => `<option>${esc(l)}</option>`).join('');
   sel.onchange = draw;
 }
-(async () => {
-  const cfg = window.PF_CONFIG || {};
-  const src = document.getElementById('src');
-  src.textContent = 'Macchine: elenco di partenza';
-  fillLines(); draw();
-  if (cfg.API_URL) {
-    try {
-      const j = await (await fetch(cfg.API_URL + '?action=init&key=' + encodeURIComponent(cfg.KEY))).json();
-      if (j.ok && j.equipment.length) { EQ = j.equipment; src.textContent = 'Macchine: dal foglio Equipment (' + EQ.length + ')'; fillLines(); draw(); }
-    } catch { src.textContent = 'Foglio non raggiungibile: uso l\'elenco di partenza'; }
-  }
-})();
+const getPin = () => { try { return JSON.parse(localStorage.getItem('pf_pin') || '""'); } catch { return ''; } };
+async function loadEq() {
+  const cfg = window.PF_CONFIG || {}, src = document.getElementById('src');
+  const pin = document.getElementById('pin').value.trim() || getPin();
+  if (!cfg.API_URL || !pin) { src.textContent = 'Macchine: elenco di partenza. Inserisci il codice reparto per leggere il foglio Equipment.'; return; }
+  src.textContent = 'Carico…';
+  try {
+    const j = await (await fetch(cfg.API_URL + '?action=init&key=' + encodeURIComponent(pin))).json();
+    if (!j.ok) { src.textContent = /Codice/.test(j.error) ? 'Codice reparto errato.' : j.error; return; }
+    try { localStorage.setItem('pf_pin', JSON.stringify(pin)); } catch {}
+    EQ = j.equipment; src.textContent = 'Macchine: dal foglio Equipment (' + EQ.length + ')'; fillLines(); draw();
+  } catch { src.textContent = 'Foglio non raggiungibile: uso l\'elenco di partenza'; }
+}
+fillLines(); draw(); loadEq();
 </script>
 </body>
 </html>

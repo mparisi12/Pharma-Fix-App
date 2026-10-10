@@ -38,10 +38,7 @@ const DEF_LISTE = {
     'SPIKE CORRENTE', 'POS. TAMPER', 'POS. BOLLINO', 'INCASTRO', 'ARIA COMPRESSA', 'MAG. ISTRUZIONI',
     'MAG. ASTUCCI', 'NASTRATORI', 'VOMERE', 'CAM. OMRON', 'CAM. ANTARES', 'FORMATO',
     'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA', 'SOSTITUZIONE', 'RIAVVIO', 'ALTRO'],
-  'Manutentori': ['CONTE Elia', 'BRUNO Carlo', 'MARINI Dario', 'DE LUCA Pietro',
-    'DE SANTIS Enzo', 'FONTANA Sergio', 'RIVA Franco', 'LONGO Mauro', 'MARTINI Aldo',
-    'GALLO Bruno', 'LEONE Tullio', 'SANNA Davide', 'VITALE Ezio', 'RESPONSABILE Demo',
-    'BARBIERI Ugo', 'COSTA Fabio', 'MANCINI Remo', 'SERRA Gino']
+  'Manutentori': [] // compilare nel foglio Liste: COGNOME Nome
 };
 
 // Linee: [codice, nome, ha filling (sterile), ha packaging (secondario)]
@@ -104,13 +101,13 @@ function setup() {
     const f = DriveApp.createFolder('Pharma-Fix Foto Fermi');
     props.setProperty('FOLDER_ID', f.getId());
   }
-  // Chiave condivisa con l'app
+  // Codice reparto: chiave che i tecnici inseriscono al primo accesso (cambiala in Proprietà script → KEY)
   if (!props.getProperty('KEY')) props.setProperty('KEY', Utilities.getUuid().replace(/-/g, '').slice(0, 12));
 
   const s1 = ss.getSheetByName('Foglio1') || ss.getSheetByName('Sheet1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
-  Logger.log('FATTO. Chiave da copiare in config.js → KEY: ' + props.getProperty('KEY'));
+  Logger.log('FATTO. Codice reparto attuale (KEY): ' + props.getProperty('KEY') + ' — per cambiarlo: Impostazioni progetto → Proprietà script → KEY');
 }
 
 function buildKpi_(ss) {
@@ -180,7 +177,7 @@ function doPost(e) {
 
 function checkKey_(k) {
   const key = PropertiesService.getScriptProperties().getProperty('KEY');
-  if (!key || k !== key) throw new Error('Chiave non valida: controlla KEY in config.js');
+  if (!key || String(k || '') !== key) throw new Error('Codice reparto non valido');
 }
 // Solo i nomi presenti nella colonna Manutentori del foglio Liste possono registrare fermi
 function checkTecnico_(nome) {
