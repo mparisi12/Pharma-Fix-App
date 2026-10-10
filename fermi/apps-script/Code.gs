@@ -209,102 +209,60 @@ function sistemaDurate() {
 }
 
 // ---------- KPI con filtri (linea, macchina, periodo) ----------
-// Per ricostruire il foglio KPI (es. dopo un aggiornamento): esegui aggiornaKpi() dall'editor.
+// I valori li calcola lo script (niente formule complicate): si aggiornano da soli quando cambi un filtro
+// giallo, quando si chiude un fermo, oppure dal menu Pharma-Fix → Aggiorna KPI.
+const PERIODI = ['Ultimi 7 giorni', 'Ultimi 30 giorni', 'Ultimi 90 giorni', 'Mese corrente', 'Mese scorso', 'Anno corrente', 'Tutto', 'Personalizzato'];
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Pharma-Fix')
+    .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
+    .addItem('Ricrea foglio KPI', 'aggiornaKpi')
+    .addToUi();
+}
+
+function onEdit(e) {
+  try {
+    if (e.range.getSheet().getName() !== SH_KPI) return;
+    if (['B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
+  } catch (x) { Logger.log(x); }
+}
+
+// Ricrea da zero il foglio KPI (impaginazione, menu, grafico) e lo calcola
 function aggiornaKpi() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  [SH_KPI, SH_KPI_DATI].forEach(n => { const s = ss.getSheetByName(n); if (s) ss.deleteSheet(s); });
+  ['KPI_dati', SH_KPI].forEach(n => { const s = ss.getSheetByName(n); if (s) ss.deleteSheet(s); });
   buildKpi_(ss);
 }
 
-const SH_KPI_DATI = 'KPI_dati';
-const PERIODI = ['Ultimi 7 giorni', 'Ultimi 30 giorni', 'Ultimi 90 giorni', 'Mese corrente', 'Mese scorso', 'Anno corrente', 'Tutto', 'Personalizzato'];
-
 function buildKpi_(ss) {
-  // I due fogli si citano a vicenda: si creano entrambi prima di scrivere le formule
   const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI, 1);
-  // Foglio nascosto con i fermi filtrati: tutte le formule KPI leggono da qui
-  const dt = ss.getSheetByName(SH_KPI_DATI) || ss.insertSheet(SH_KPI_DATI);
-  dt.clear();
-  dt.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
-  dt.getRange('A2').setFormula(F_('=IFERROR(FILTER(Fermi!A2:U, Fermi!R2:R="CHIUSO", ' +
-    'IF(KPI!$B$3="TUTTE", Fermi!R2:R<>"", Fermi!M2:M=KPI!$B$3), ' +
-    'IF(KPI!$B$4="TUTTE", Fermi!R2:R<>"", Fermi!T2:T=REGEXEXTRACT(KPI!$B$4,"^\\S+")), ' +
-    'Fermi!B2:B>=KPI!$B$6, Fermi!B2:B<=KPI!$B$7),)'));
-  // elenchi per i menu a tendina
-  dt.getRange('W1').setValue('TUTTE');
-  dt.getRange('W2').setFormula(F_('=SORT(UNIQUE(FILTER(Equipment!B2:B,Equipment!B2:B<>"")))'));
-  dt.getRange('X1').setValue('TUTTE');
-  dt.getRange('X2').setFormula(F_('=IFERROR(FILTER(Equipment!A2:A&" · "&Equipment!D2:D, Equipment!A2:A<>"", ' +
-    'IF(KPI!$B$3="TUTTE", Equipment!A2:A<>"", Equipment!B2:B=KPI!$B$3)),)'));
-  PERIODI.forEach((p, i) => dt.getRange(i + 1, 25).setValue(p)); // colonna Y
-  dt.hideSheet();
-
-  sh.clear();
+  sh.clear(); sh.clearConditionalFormatRules();
   sh.getCharts().forEach(c => sh.removeChart(c));
-  const H = '#dfe7ec', Y = '#fff3d6';
+  const H = '#dfe7ec', Y = '#fff3d6', G = '#5a6873';
   sh.getRange('A1').setValue('KPI manutenzione — fermi chiusi').setFontWeight('bold').setFontSize(14);
-
-  // Filtri
+  sh.getRange('C1').setValue('Cambia le celle gialle: i valori si ricalcolano da soli (oppure menu Pharma-Fix → Aggiorna KPI)').setFontColor(G);
   sh.getRange('A3:A7').setValues([['Linea'], ['Macchina'], ['Periodo'], ['Dal'], ['Al']]).setFontWeight('bold');
-  sh.getRange('B3').setValue('TUTTE');
-  sh.getRange('B4').setValue('TUTTE');
-  sh.getRange('B5').setValue('Ultimi 30 giorni');
-  sh.getRange('B3:B5').setBackground(Y);
-  const dv = r => SpreadsheetApp.newDataValidation().requireValueInRange(r, true).setAllowInvalid(false).build();
-  sh.getRange('B3').setDataValidation(dv(dt.getRange('W1:W60')));
-  sh.getRange('B4').setDataValidation(dv(dt.getRange('X1:X300')));
-  sh.getRange('B5').setDataValidation(dv(dt.getRange('Y1:Y8')));
-  sh.getRange('B6').setFormula(F_('=SWITCH(B5,"Ultimi 7 giorni",TODAY()-6,"Ultimi 30 giorni",TODAY()-29,"Ultimi 90 giorni",TODAY()-89,' +
-    '"Mese corrente",EOMONTH(TODAY(),-1)+1,"Mese scorso",EOMONTH(TODAY(),-2)+1,"Anno corrente",DATE(YEAR(TODAY()),1,1),' +
-    '"Personalizzato",IF(D6="",TODAY()-29,D6),DATE(2000,1,1))'));
-  sh.getRange('B7').setFormula(F_('=SWITCH(B5,"Mese scorso",EOMONTH(TODAY(),-1),"Personalizzato",IF(D7="",TODAY(),D7),TODAY())'));
+  sh.getRange('B3:B5').setValues([['TUTTE'], ['TUTTE'], ['Ultimi 30 giorni']]).setBackground(Y);
+  sh.getRange('B5').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(PERIODI, true).setAllowInvalid(false).build());
   sh.getRange('B6:B7').setNumberFormat('dd/MM/yyyy');
-  sh.getRange('C6:C7').setValues([['Personalizzato: dal →'], ['Personalizzato: al →']]).setFontColor('#5a6873').setHorizontalAlignment('right');
+  sh.getRange('C6:C7').setValues([['Personalizzato: dal →'], ['Personalizzato: al →']]).setFontColor(G).setHorizontalAlignment('right');
   sh.getRange('D6:D7').setBackground(Y).setNumberFormat('dd/MM/yyyy');
-  sh.getRange('C4').setFormula(F_('=IF(OR(B4="TUTTE",COUNTIF(KPI_dati!X:X,B4)>0),"","⚠ macchina non della linea scelta: rimetti TUTTE")')).setFontColor('#c23b2a');
 
-  // Indicatori
   sh.getRange('A9:H9').setValues([['N° fermi', 'Tempo di fermo', 'MTTR', 'N° lotti', 'Occurrancy (fermi/lotti)',
     'Ore funzionamento (inserire)', 'MTBF (h)', 'Guasto più frequente']])
     .setFontWeight('bold').setBackground(H).setWrap(true).setVerticalAlignment('middle');
-  sh.getRange('A10').setFormula(F_('=COUNTIF(KPI_dati!S2:S,"?*")'));
-  sh.getRange('B10').setFormula(F_('=SUM(KPI_dati!K2:K)'));
-  sh.getRange('C10').setFormula(F_('=IF(A10=0,"",B10/A10)'));
-  sh.getRange('D10').setFormula(F_('=IFERROR(COUNTUNIQUE(FILTER(KPI_dati!A2:A,KPI_dati!A2:A<>"")),0)'));
-  sh.getRange('E10').setFormula(F_('=IF(D10=0,"",A10/D10)'));
-  sh.getRange('F10').setBackground(Y);
-  sh.getRange('G10').setFormula(F_('=IF(OR(A10=0,F10=""),"",F10/A10)'));
-  sh.getRange('H10').setFormula(F_('=IFERROR(INDEX(A14:A,1),"")'));
   sh.getRange('A10:H10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
-  sh.getRange('B10:C10').setNumberFormat('[h]:mm');
-  sh.getRange('E10').setNumberFormat('0.00');
-  sh.getRange('G10').setNumberFormat('0.0');
-  sh.getRange('F11').setValue('ore della linea/macchina nel periodo scelto').setFontColor('#5a6873').setFontSize(9);
+  sh.getRange('F10').setBackground(Y);
+  sh.getRange('F11').setValue('ore della linea/macchina nel periodo scelto').setFontColor(G).setFontSize(9);
 
-  // Pareto
   sh.getRange('A12').setValue('Pareto guasti — RFR = n° di quel guasto / totale fermi').setFontWeight('bold');
-  sh.getRange('A13').setFormula(F_('=IFERROR(QUERY(KPI_dati!A1:U,"select I, count(S), sum(K) where S is not null group by I order by count(S) desc ' +
-    'label I \'Tipo guasto\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"Nessun fermo chiuso con questi filtri")'));
-  sh.getRange('D13:E13').setValues([['% cumulata', 'RFR']]);
-  sh.getRange('D14').setFormula(F_('=ARRAYFORMULA(IF(B14:B200="","",SCAN(0,B14:B200,LAMBDA(a,b,a+N(b)))/SUM(B14:B200)))'));
-  sh.getRange('E14').setFormula(F_('=ARRAYFORMULA(IF(B14:B200="","",B14:B200/SUM(B14:B200)))'));
-  sh.getRange('A13:E13').setFontWeight('bold').setBackground(H);
-  sh.getRange('C14:C200').setNumberFormat('[h]:mm');
-  sh.getRange('D14:E200').setNumberFormat('0%');
-
-  // Per macchina
+  sh.getRange('A13:E13').setValues([['Tipo guasto', 'N° fermi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
   sh.getRange('G12').setValue('Fermi per macchina').setFontWeight('bold');
-  sh.getRange('G13').setFormula(F_('=IFERROR(QUERY(KPI_dati!A1:U,"select M, F, count(S), sum(K) where S is not null group by M, F order by sum(K) desc ' +
-    'label M \'Linea\', F \'Macchina\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"")'));
-  sh.getRange('K13').setValue('MTTR');
-  sh.getRange('K14').setFormula(F_('=ARRAYFORMULA(IF(I14:I200="","",J14:J200/I14:I200))'));
-  sh.getRange('G13:K13').setFontWeight('bold').setBackground(H);
-  sh.getRange('J14:K200').setNumberFormat('[h]:mm');
+  sh.getRange('G13:K13').setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR']]).setFontWeight('bold').setBackground(H);
 
-  sh.setColumnWidth(1, 300); sh.setColumnWidth(2, 230); sh.setColumnWidth(3, 170); sh.setColumnWidth(8, 260);
+  sh.setColumnWidth(1, 300); sh.setColumnWidth(2, 230); sh.setColumnWidth(3, 170); sh.setColumnWidth(8, 300);
   sh.setFrozenRows(10);
 
-  // Grafico di Pareto: barre = n° fermi, linea = % cumulata
   try {
     const chart = sh.newChart().asComboChart()
       .addRange(sh.getRange('A13:B33')).addRange(sh.getRange('D13:D33'))
@@ -317,6 +275,98 @@ function buildKpi_(ss) {
       .build();
     sh.insertChart(chart);
   } catch (e) { Logger.log('Grafico non creato: ' + e); }
+
+  aggiornaValoriKpi();
+}
+
+// Date del periodo scelto (inizio giorno "from", fine giorno "to")
+function periodo_(nome, d6, d7, oggi) {
+  const g = (y, m, d) => new Date(y, m, d);
+  const y = oggi.getFullYear(), m = oggi.getMonth(), d = oggi.getDate();
+  let from, to = g(y, m, d);
+  switch (nome) {
+    case 'Ultimi 7 giorni': from = g(y, m, d - 6); break;
+    case 'Ultimi 90 giorni': from = g(y, m, d - 89); break;
+    case 'Mese corrente': from = g(y, m, 1); break;
+    case 'Mese scorso': from = g(y, m - 1, 1); to = g(y, m, 0); break;
+    case 'Anno corrente': from = g(y, 0, 1); break;
+    case 'Tutto': from = g(2000, 0, 1); break;
+    case 'Personalizzato':
+      from = d6 instanceof Date ? g(d6.getFullYear(), d6.getMonth(), d6.getDate()) : g(y, m, d - 29);
+      if (d7 instanceof Date) to = g(d7.getFullYear(), d7.getMonth(), d7.getDate());
+      break;
+    default: from = g(y, m, d - 29); // Ultimi 30 giorni
+  }
+  return { from: from, to: to, toEnd: new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1) };
+}
+
+// Calcolo puro (testabile): righe del foglio Fermi + filtri → numeri e tabelle
+function calcolaKpi_(vals, f) {
+  const rows = [];
+  vals.forEach(r => {
+    if (r[C.STATO - 1] !== 'CHIUSO') return;
+    const ini = r[C.INIZIO - 1], fin = r[C.FINE - 1];
+    if (!(ini instanceof Date) || !(fin instanceof Date)) return;
+    const giorno = r[C.DATA - 1] instanceof Date ? r[C.DATA - 1] : ini;
+    if (giorno < f.from || giorno >= f.toEnd) return;
+    if (f.linea !== 'TUTTE' && String(r[C.LINEA - 1]) !== f.linea) return;
+    if (f.code && String(r[C.EQ - 1]) !== f.code) return;
+    let dur = (fin - ini) / 864e5; if (dur < 0) dur = ((dur % 1) + 1) % 1; // ore scritte senza data
+    rows.push({ lotto: String(r[C.LOTTO - 1]).trim(), linea: String(r[C.LINEA - 1]), macc: String(r[C.MACC - 1]),
+      guasto: String(r[C.GUASTO - 1]).trim() || '(vuoto)', dur: dur });
+  });
+  const n = rows.length, tot = rows.reduce((a, x) => a + x.dur, 0);
+  const lotti = new Set(rows.map(x => x.lotto).filter(Boolean)).size;
+  const grp = (key) => { const m = {}; rows.forEach(x => { const k = key(x); m[k] = m[k] || { n: 0, t: 0 }; m[k].n++; m[k].t += x.dur; }); return m; };
+  const g = grp(x => x.guasto);
+  let cum = 0;
+  const pareto = Object.keys(g).map(k => [k, g[k].n, g[k].t]).sort((a, b) => b[1] - a[1] || b[2] - a[2])
+    .map(r => { cum += r[1]; return [r[0], r[1], r[2], cum / n, r[1] / n]; });
+  const mm = grp(x => x.linea + '\u0001' + x.macc);
+  const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'); return [p[0], p[1], mm[k].n, mm[k].t, mm[k].t / mm[k].n]; })
+    .sort((a, b) => b[3] - a[3]);
+  return { n: n, tot: tot, mttr: n ? tot / n : '', lotti: lotti, occ: lotti ? n / lotti : '',
+    mtbf: (n && f.ore !== '' && !isNaN(Number(f.ore))) ? Number(f.ore) / n : '', top: pareto.length ? pareto[0][0] : '',
+    pareto: pareto, macchine: macchine };
+}
+
+function aggiornaValoriKpi() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SH_KPI);
+  if (!sh) return;
+  // menu Linea e Macchina dal foglio Equipment
+  const eq = equipment_(ss);
+  const linee = ['TUTTE'].concat(Array.from(new Set(eq.map(e => e.linea))).sort());
+  let linea = String(sh.getRange('B3').getValue() || 'TUTTE');
+  if (linee.indexOf(linea) < 0) { linea = 'TUTTE'; sh.getRange('B3').setValue(linea); }
+  sh.getRange('B3').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(linee, true).setAllowInvalid(false).build());
+  const macc = ['TUTTE'].concat(eq.filter(e => linea === 'TUTTE' || e.linea === linea).map(e => e.code + ' · ' + e.macchina));
+  let mSel = String(sh.getRange('B4').getValue() || 'TUTTE');
+  if (macc.indexOf(mSel) < 0) { mSel = 'TUTTE'; sh.getRange('B4').setValue(mSel); }
+  sh.getRange('B4').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(macc.slice(0, 500), true).setAllowInvalid(false).build());
+
+  const p = periodo_(String(sh.getRange('B5').getValue()), sh.getRange('D6').getValue(), sh.getRange('D7').getValue(), new Date());
+  sh.getRange('B6:B7').setValues([[p.from], [p.to]]);
+
+  const fsh = ss.getSheetByName(SH_FERMI), last = fsh.getLastRow();
+  const vals = last > 1 ? fsh.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
+  const k = calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, code: mSel === 'TUTTE' ? '' : mSel.split(' · ')[0],
+    ore: sh.getRange('F10').getValue() });
+
+  sh.getRange('A10:E10').setValues([[k.n, k.tot, k.mttr, k.lotti, k.occ]]);
+  sh.getRange('G10:H10').setValues([[k.mtbf, k.top]]);
+  sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
+
+  sh.getRange('A14:E300').clearContent(); sh.getRange('G14:K300').clearContent();
+  if (k.pareto.length) {
+    sh.getRange(14, 1, k.pareto.length, 5).setValues(k.pareto);
+    sh.getRange(14, 3, k.pareto.length, 1).setNumberFormat('[h]:mm');
+    sh.getRange(14, 4, k.pareto.length, 2).setNumberFormat('0%');
+  } else sh.getRange('A14').setValue('Nessun fermo chiuso con questi filtri');
+  if (k.macchine.length) {
+    sh.getRange(14, 7, k.macchine.length, 5).setValues(k.macchine);
+    sh.getRange(14, 10, k.macchine.length, 2).setNumberFormat('[h]:mm');
+  }
 }
 
 /* =================== API =================== */
@@ -484,6 +534,7 @@ function closeFermo_(p) {
   sh.getRange(r, C.STATO).setValue('CHIUSO');
   sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
+  try { SpreadsheetApp.flush(); aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
   return { row: r };
 }
 
