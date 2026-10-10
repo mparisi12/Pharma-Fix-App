@@ -491,8 +491,8 @@ async function openScanner(onEq, msg) {
     let text = null;
     try {
       if (v.readyState >= 2) {
-        if (det) { const r = await det.detect(v); if (r[0]) text = r[0].rawValue; }
-        else if (window.jsQR) {
+        if (det) { try { const r = await det.detect(v); if (r[0]) text = r[0].rawValue; } catch { det = null; } } // lettore del telefono non funzionante: si passa a jsQR
+        if (!text && !det && window.jsQR) {
           const w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth);
           cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
           const r = jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' }); if (r) text = r.data;
