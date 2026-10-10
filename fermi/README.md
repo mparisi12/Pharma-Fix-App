@@ -51,13 +51,15 @@ L'app è fatta di due parti che vivono in posti diversi:
 
 | Foglio | A cosa serve | Chi lo modifica |
 |---|---|---|
-| **Fermi** | Una riga per fermo. Colonne A–L **identiche al template** (Lotto, Data, Ora Inizio, Ora Fine, Manutentore, Macchina, Categoria, Tipo intervento, Tipo guasto, Altro, Durata MTTR, Intervento-Guasto), poi Linea, Turno, Codice pezzo, Foto apertura, Foto chiusura, Stato, ID fermo, Equipment, Aperto da. Le righe **gialle** sono fermi ancora aperti. | L'app. Tu puoi correggere a mano un errore, ma **non toccare le colonne Stato e ID fermo**. |
-| **Equipment** | Elenco macchine: codice del QR, linea, area, nome macchina, attivo. | Tu. |
+| **Fermi** | Una riga per fermo. Colonne A–L **identiche al template** (Lotto, Data, Ora Inizio, Ora Fine, Manutentore, Macchina, Categoria, Tipo intervento, Tipo guasto, Altro, Durata MTTR, Intervento-Guasto), poi Linea, Turno, Codice pezzo, Foto apertura, Foto chiusura, Stato, ID fermo, Equipment, Aperto da, **Orari** (TEMPO REALE / DICHIARATI), **Registrato alle** (ora vera dell'inserimento), **Telefono**. Le righe **gialle** sono fermi ancora aperti. | L'app. Tu puoi correggere a mano un errore, ma **non toccare le colonne Stato e ID fermo**. |
+| **Equipment** | Elenco macchine: codice del QR, linea, area (**Filling** / **Packaging**), nome macchina, attivo. | Tu. |
 | **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori abilitati**. | Tu. |
 | **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
 | **Soluzioni** | Troubleshooting: dove vale (codice macchina, linea o `TUTTE`), tipo guasto, problema, soluzione, codici ricambio, allegato. | L'app (pulsante *Aggiungi soluzione*) e tu. |
 | **Documenti** | Manuali, schemi, schede formato: dove vale, tipo, titolo, descrizione, **link**. | Tu (vedi 5.6). |
 | **Anomalie** | Segnalazioni: macchina, urgenza (cella colorata), descrizione, cosa serve, foto, stato APERTA / IN CORSO / CHIUSA, chi l'ha gestita, nota. | L'app; tu puoi cambiare stato e note. |
+| **Telefoni** | Il telefono di ogni tecnico. Il primo si registra da solo; un telefono nuovo, o il telefono di un collega, resta **DA APPROVARE** (vedi 5.9). | Tu (colonna Stato). |
+| **Controlli** | Casi da guardare (telefoni da approvare, stesso telefono per più tecnici, fermi sovrapposti, orari dichiarati inseriti tardi): menu **Pharma-Fix → Controlla registrazioni**. | Lo script. |
 | **KPI** | Indicatori con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, Pareto guasti con grafico e RFR, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
@@ -143,12 +145,21 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 ### Accesso
 All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
 La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la rete); poi non lo chiede più, finché il responsabile non lo cambia.
+**Ogni nome è legato al telefono personale del tecnico**: il primo telefono con cui entri diventa il tuo. Con il nome di un collega, o da un telefono nuovo, l'app risponde *"Telefono non autorizzato"* finché il responsabile non approva.
 L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo nome in alto → **Esci**.
 
 ### Aprire un fermo (~10 secondi)
 1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.)
 2. Si apre **Apri fermo**: controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
+
+### Macchine FILLING (sterile): registrare il fermo all'uscita
+In sterile il telefono non entra, quindi il fermo si registra **dopo**, uscendo dal reparto:
+1. Scansiona o **fotografa il QR** della macchina (nella scheda macchina il pulsante si chiama **Registra fermo**).
+2. Scrivi **Inizio** e **Fine** del fermo, **gli stessi orari del batch record**.
+3. Compila come una chiusura: foto (facoltativa), categoria, tipo intervento, guasto, descrizione, lotto, pezzo → **Registra fermo**.
+
+Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle 14:00, T3 dalle 22:00). Nel foglio la riga ha **Orari = DICHIARATI** e l'ora vera di inserimento in **Registrato alle**.
 
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina (oppure, nella home, **Chiudi** sul fermo).
@@ -175,6 +186,7 @@ Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
 |---|---|
 | 🟢 Sincronizzato | Tutto è arrivato nel foglio. |
 | 🟠 Invio in corso | Ci sono registrazioni in coda, partono da sole. |
+| 🔴 Telefono non autorizzato | Il nome non è legato a questo telefono: le registrazioni restano in coda e partono appena il responsabile approva il telefono nel foglio Telefoni. |
 | 🔴 Non connesso | Niente rete: **continua pure a lavorare**, i fermi restano sul telefono e partono appena torna la connessione. **Non disinstallare l'app** finché ci sono dati in coda. |
 | ⚪ Modalità demo | L'app non è ancora collegata al foglio. |
 
@@ -196,12 +208,12 @@ Una riga per ogni macchina che deve avere il suo QR:
 
 | Codice (QR) | Linea | Area | Macchina | Attivo |
 |---|---|---|---|---|
-| ST3-AST | ST3 | Secondario | Astucciatrice | SI |
-| ST3-FIL | ST3 | Sterile | Filling - Tappatrice | SI |
+| ST3-04 | ST3 | Packaging | ASTUCCIATRICE ROMACO PC4400 | SI |
+| ST3-02 | ST3 | Filling | RIEMPITRICE + TAPPATRICE FLEXFILL F940 | SI |
 
 - **Codice (QR)**: unico, senza spazi, è quello stampato nell'etichetta. Consigliato `LINEA-SIGLA`. **Non cambiarlo** dopo aver attaccato l'etichetta.
 - **Linea**: come vuoi vederla nei KPI (ST1 MAR, ST3, SPL1…).
-- **Area**: `Sterile` o `Secondario` (informativa: i guasti si scelgono nel foglio Guasti).
+- **Area**: `Filling` (in sterile: il fermo si registra all'uscita con gli orari del batch record) o `Packaging` (fermo aperto e chiuso in tempo reale).
 - **Macchina**: il nome che finisce nella colonna Macchina del foglio Fermi (per le pivot usa sempre gli stessi nomi).
 - **Attivo**: `NO` per toglierla dall'app senza perdere lo storico.
 
@@ -279,6 +291,14 @@ Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mos
 | Foto dei fermi, foto anomalie, allegati delle soluzioni | Il tecnico dall'app | Da solo nella cartella Drive **Pharma-Fix Foto Fermi** + link nel foglio |
 | Manuali, schemi, schede formato | Tu | Carichi il file in Drive, lo condividi con link e aggiungi una riga nel foglio **Documenti** (vedi 5.6) |
 
+### 5.9 Telefoni dei tecnici e controlli
+Foglio **Telefoni**: una riga per ogni coppia tecnico + telefono, con modello, primo accesso, ultimo uso e **Stato**.
+- **Primo telefono** di un tecnico: si registra da solo con Stato **OK**.
+- **Telefono nuovo** (cambio telefono) o **telefono di un collega**: riga gialla con Stato **DA APPROVARE**; il tecnico non può registrare finché non scrivi **OK**. Se è un tentativo di usare il nome di un altro, scrivi **BLOCCATO**.
+- **Telefono perso o cambiato**: metti **BLOCCATO** sulla riga vecchia.
+
+Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana).
+
 ---
 
 ## 6. I dati in Excel
@@ -302,7 +322,7 @@ Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mos
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
   - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea il foglio KPI; va reinserito solo il valore delle ore di funzionamento.
-  - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti, Soluzioni, Documenti, Anomalie) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
+  - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti, Soluzioni, Documenti, Anomalie, Telefoni), aggiunge le colonne nuove di Fermi e trasforma le aree Sterile/Secondario in Filling/Packaging e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
 ---
 
@@ -329,7 +349,7 @@ Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mos
 - Il **repository è pubblico**: chiunque vede il codice e l'indirizzo dello script, ma **senza il codice reparto non può leggere né scrivere** nel foglio. Il codice non è su GitHub: sta nelle Proprietà script e sui telefoni dei tecnici.
 - **Cambia il codice reparto** quando un tecnico lascia l'azienda o se pensi che sia uscito dal reparto: Apps Script → Impostazioni progetto → **Proprietà script** → `KEY` → Modifica → Salva. Effetto immediato, senza nuove versioni; i tecnici lo reinseriscono al prossimo uso.
 - Nel repository non ci sono nomi di persone: l'elenco dei tecnici sta solo nel foglio Liste.
-- L'**accesso** con nome e cognome serve a sapere chi ha registrato cosa, non è una password: un tecnico potrebbe scrivere il nome di un collega.
+- L'**accesso** con nome e cognome è legato al **telefono personale** del tecnico (foglio Telefoni) e protetto dal blocco schermo del telefono. Non è una firma elettronica: chi conosce bene il sistema potrebbe aggirarlo, ma ogni registrazione lascia traccia (telefono, ora vera di inserimento) e i casi sospetti finiscono nel foglio Controlli.
 - Le **foto** restano private nella cartella Drive del tuo account; nel foglio c'è solo il link.
 - Il foglio è sul tuo account Google: se cambi account o lasci l'incarico, trasferisci la proprietà del foglio e della cartella foto.
 - È uno **strumento di analisi della manutenzione**, non un sistema validato GMP: non sostituisce le registrazioni ufficiali.
