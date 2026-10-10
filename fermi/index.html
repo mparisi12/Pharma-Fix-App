@@ -103,6 +103,8 @@ h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:va
 /* Urgenza */
 .urg{display:inline-flex;align-items:center;font:700 12px var(--display);letter-spacing:.05em;border-radius:6px;padding:3px 8px;white-space:nowrap}
 .u1{background:var(--crit);color:#fff}.u2{background:var(--yel);color:var(--yel-ink)}.u3{background:var(--ok);color:#fff}
+.qrbtn{display:flex;align-items:center;gap:6px;border:0;border-radius:10px;background:var(--steel);color:var(--steel-ink);font:700 15px var(--display);letter-spacing:.06em;padding:10px 12px;min-height:44px;flex:none}
+.qrbtn svg{width:20px;height:20px}
 .urgpick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .urgpick button{border:3px solid transparent;border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
 .urgpick button b{font:700 26px/1 var(--display)}
@@ -435,14 +437,16 @@ function photoBox(el, P, label) {
 }
 
 /* ================= Scanner QR ================= */
-let scanStream = null, scanRun = false;
-async function openScanner() {
+let scanStream = null, scanRun = false, SCAN_CB = null;
+// onEq: cosa fare con la macchina letta (default: apri/chiudi il fermo)
+async function openScanner(onEq, msg) {
+  SCAN_CB = typeof onEq === 'function' ? onEq : afterScan;
   $('#scanwrap').innerHTML = `<div class="scanner"><video id="vid" playsinline muted></video><div class="frame"></div>
-    <div class="msg" id="smsg">Inquadra il QR sulla macchina</div>
+    <div class="msg" id="smsg">${esc(typeof msg === 'string' ? msg : 'Inquadra il QR sulla macchina')}</div>
     <div class="bar"><button id="smanual">Scegli a mano</button><button id="sphoto">Fotografa QR</button><button id="sclose">Chiudi</button></div></div>`;
   $('#sclose').onclick = closeScanner;
-  $('#smanual').onclick = () => { closeScanner(); pickSheet(eq => afterScan(eq)); };
-  $('#sphoto').onclick = () => { closeScanner(); scanFromPhoto(); };
+  $('#smanual').onclick = () => { const cb = SCAN_CB; closeScanner(); pickSheet(eq => cb(eq)); };
+  $('#sphoto').onclick = () => { const cb = SCAN_CB; closeScanner(); scanFromPhoto(cb); };
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
   } catch (e) { $('#smsg').textContent = 'Fotocamera live non disponibile: usa "Fotografa QR"'; return; }
@@ -465,7 +469,7 @@ async function openScanner() {
     } catch {}
     if (text) {
       const eq = parseQr(text);
-      if (eq) { if (navigator.vibrate) navigator.vibrate(60); closeScanner(); afterScan(eq); return; }
+      if (eq) { if (navigator.vibrate) navigator.vibrate(60); const cb = SCAN_CB; closeScanner(); cb(eq); return; }
       $('#smsg').textContent = 'QR non riconosciuto: ' + text.slice(0, 40);
     }
     setTimeout(tick, 150);
@@ -478,13 +482,13 @@ function afterScan(eq) {
   const f = allFermi().find(x => x.code === eq.code && x.stato === 'APERTO');
   needMan(() => f ? closeSheet(f) : openSheet(eq));
 }
-function scanFromPhoto() {
+function scanFromPhoto(cb = afterScan) {
   capture(img => {
     const w = Math.min(1200, img.naturalWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth);
     const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
     const r = window.jsQR ? jsQR(x.getImageData(0, 0, w, h).data, w, h) : null;
     const eq = r && parseQr(r.data);
-    if (eq) afterScan(eq); else toast('Non riesco a leggere il QR: avvicinati e riprova');
+    if (eq) cb(eq); else toast('Non riesco a leggere il QR: avvicinati e riprova');
   });
 }
 function closeScanner() { scanRun = false; if (scanStream) scanStream.getTracks().forEach(t => t.stop()); scanStream = null; $('#scanwrap').innerHTML = ''; }
@@ -627,7 +631,7 @@ function renderSol() {
   const usi = {}; soluzioniDaFermi(eq).forEach(s => { usi[s.guasto] = (usi[s.guasto] || 0) + 1; });
   $('#view').innerHTML = `
     ${topline('Soluzioni', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
-    ${eq ? '' : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona un QR o scegli una macchina per filtrare</div></div><button class="linkbtn" id="pickm">Scegli</button></div>`}
+    ${eq ? '' : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona il QR della macchina o sceglila</div></div><button class="qrbtn" id="scanm" aria-label="Scansiona QR">${I.qr}QR</button><button class="linkbtn" id="pickm">Scegli</button></div>`}
     <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca: pinze, ventose, prospetto…" value="${esc(q)}" aria-label="Cerca"></div>
     ${guasti.length ? `<div class="chips filters" id="gf"><button class="chip" data-v="" aria-pressed="${!g}">Tutti</button>${guasti.map(x => `<button class="chip" data-v="${esc(x)}" aria-pressed="${g === x}">${esc(x.split(',')[0])}</button>`).join('')}</div>` : ''}
     <div class="list" style="margin-top:12px">${shown.length ? shown.slice(0, 80).map(s => solCard(s, eq, usi)).join('') :
@@ -636,6 +640,7 @@ function renderSol() {
   const qi = $('#q'); let t; qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.view.q = qi.value; renderSol(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
   const gf = $('#gf'); if (gf) gf.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { S.view.g = b.dataset.v; renderSol(); } };
   const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'sol', code: e.code }));
+  const sm = $('#scanm'); if (sm) sm.onclick = () => openScanner(e => go({ name: 'sol', code: e.code }), 'Inquadra il QR: apro le soluzioni della macchina');
   $('#addsol').onclick = () => needMan(() => eq ? solSheet(eq) : pickSheet(e => solSheet(e)));
   bindCommon();
 }
@@ -691,12 +696,13 @@ function renderDoc() {
     ${topline('Documenti', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
     <div class="seg" id="tabs"><button data-t="man" aria-pressed="${tab === 'man'}">MANUALI E SCHEMI</button><button data-t="sch" aria-pressed="${tab === 'sch'}">SCHEDE FORMATO</button></div>
     ${eq ? `<div class="chips filters" id="sc"><button class="chip" data-v="mac" aria-pressed="${scope === 'mac'}">Questa macchina</button><button class="chip" data-v="lin" aria-pressed="${scope === 'lin'}">Tutta la linea ${esc(linea)}</button></div>`
-      : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona un QR o scegli una macchina per filtrare</div></div><button class="linkbtn" id="pickm">Scegli</button></div>`}
+      : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona il QR della macchina o sceglila</div></div><button class="qrbtn" id="scanm" aria-label="Scansiona QR">${I.qr}QR</button><button class="linkbtn" id="pickm">Scegli</button></div>`}
     <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca un documento" value="${esc(S.view.q || '')}" aria-label="Cerca"></div>
     <div class="list" style="margin-top:12px">${list.length ? list.map(docRow).join('') : `<div class="empty">Nessun documento${eq ? ' collegato a questa macchina' : ''}. I documenti si aggiungono nel foglio Documenti del Google Sheet.</div>`}</div>`;
   $('#tabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { S.view.tab = b.dataset.t; renderDoc(); } };
   const sc = $('#sc'); if (sc) sc.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { S.view.scope = b.dataset.v; renderDoc(); } };
   const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'doc', code: e.code, tab }));
+  const sm = $('#scanm'); if (sm) sm.onclick = () => openScanner(e => go({ name: 'doc', code: e.code, tab }), 'Inquadra il QR: apro i documenti della macchina');
   const qi = $('#q'); let t; qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.view.q = qi.value; renderDoc(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
   bindCommon();
 }
@@ -752,7 +758,7 @@ function renderAnoForm() {
   });
   bindCommon();
 }
-function openScannerOrPick(cb) { pickSheet(cb); }
+function openScannerOrPick(cb) { openScanner(cb, 'Inquadra il QR della macchina con l\'anomalia'); }
 function anoSheet(id) {
   const a = allAnomalie().find(x => x.id === id); if (!a) return;
   sheet(`<div class="sheet-h"><div>${urgTag(a.urgenza)}<h3 style="margin-top:8px">${esc(a.linea)} · ${esc(nice(a.macchina))}</h3><div class="code">${esc(a.code)} · ${a.ts ? fmtDT(a.ts) : ''} · ${esc(a.da || '')}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
