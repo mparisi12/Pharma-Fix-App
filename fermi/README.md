@@ -45,7 +45,8 @@ L'app è fatta di due parti che vivono in posti diversi:
 |---|---|---|
 | **Fermi** | Una riga per fermo. Colonne A–L **identiche al template** (Lotto, Data, Ora Inizio, Ora Fine, Manutentore, Macchina, Categoria, Tipo intervento, Tipo guasto, Altro, Durata MTTR, Intervento-Guasto), poi Linea, Turno, Codice pezzo, Foto apertura, Foto chiusura, Stato, ID fermo, Equipment, Aperto da. Le righe **gialle** sono fermi ancora aperti. | L'app. Tu puoi correggere a mano un errore, ma **non toccare le colonne Stato e ID fermo**. |
 | **Equipment** | Elenco macchine: codice del QR, linea, area, nome macchina, attivo. | Tu. |
-| **Liste** | I pulsanti dell'app: Categoria, Tipo intervento, Guasto Sterile, Guasto Secondario, **Manutentori abilitati**. | Tu. |
+| **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori abilitati**. | Tu. |
+| **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
 | **KPI** | Indicatori calcolati da soli con formule: per linea n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF; Pareto guasti con RFR; classifica macchine. | Solo la colonna gialla "Ore funzionamento" (per l'MTBF). Il resto è automatico. |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
@@ -179,7 +180,7 @@ Una riga per ogni macchina che deve avere il suo QR:
 
 - **Codice (QR)**: unico, senza spazi, è quello stampato nell'etichetta. Consigliato `LINEA-SIGLA`. **Non cambiarlo** dopo aver attaccato l'etichetta.
 - **Linea**: come vuoi vederla nei KPI (ST1 MAR, ST3, SPL1…).
-- **Area**: `Sterile` o `Secondario` → decide quale lista di guasti compare alla chiusura.
+- **Area**: `Sterile` o `Secondario` (informativa: i guasti si scelgono nel foglio Guasti).
 - **Macchina**: il nome che finisce nella colonna Macchina del foglio Fermi (per le pivot usa sempre gli stessi nomi).
 - **Attivo**: `NO` per toglierla dall'app senza perdere lo storico.
 
@@ -188,9 +189,24 @@ Puoi incollare l'elenco direttamente da Excel. Dopo aver aggiunto macchine, da `
 > L'elenco iniziale creato da `setup()` mette Riordinatore + Filling su ogni linea con filling e le 6 macchine del secondario su ogni linea con packaging: **va controllato**, in particolare per le linee con macchine diverse (es. ST4, ST5).
 
 ### 5.3 Liste dei pulsanti
-Foglio **Liste**: colonne **Categoria**, **Tipo intervento**, **Guasto Sterile**, **Guasto Secondario**. Quello che scrivi diventa un pulsante nell'app, nello stesso ordine (metti in alto le voci più usate). Per tenere puliti i KPI evita due voci che significano la stessa cosa.
+Foglio **Liste**: colonne **Categoria** e **Tipo intervento**, uguali per tutte le macchine. Quello che scrivi diventa un pulsante nell'app, nello stesso ordine (metti in alto le voci più usate). Le vecchie colonne Guasto Sterile / Guasto Secondario non servono più quando il foglio Guasti è compilato: puoi cancellarle.
 
-### 5.4 KPI
+### 5.4 Tipi di guasto per macchina (foglio Guasti)
+
+| A: Codice (QR) / Linea / TUTTE | B: Macchina (promemoria) | C, D, E… : tipi di guasto |
+|---|---|---|
+| TUTTE | vale per tutte le macchine | FORMATO · SENSORE · USURA · SPIKE CORRENTE · ARIA COMPRESSA · ALTRO |
+| ST3-04 | ST3 · ASTUCCIATRICE ROMACO PC4400 | MAG. ISTRUZIONI · CHIUSURE AST · MAG. ASTUCCI · … |
+| ST6 | (riga facoltativa: vale per tutte le macchine di ST6) | … |
+
+Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della sua linea → quelli di `TUTTE`, con **ALTRO sempre in fondo**.
+- Metti in alto i guasti più frequenti: compaiono per primi.
+- Scrivi sempre allo stesso modo (stesse maiuscole, stessa sigla): è quello che finisce nel Pareto.
+- Non mettere tra i guasti RIAVVIO, PULIZIA, SOSTITUZIONE, REGOLAZIONE: sono **tipi di intervento**, non guasti.
+- Macchina nuova: aggiungi la riga anche qui. Macchina senza riga o con la riga vuota: compaiono solo i guasti di `TUTTE`.
+- Per costruire le liste delle altre linee guarda le descrizioni dei fermi chiusi con **ALTRO**: le voci che si ripetono diventano un guasto.
+
+### 5.5 KPI
 Foglio **KPI**, tutto automatico:
 - **Per linea**: n° fermi, tempo di fermo, **MTTR** (tempo fermo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti).
 - **MTBF**: inserisci nella colonna gialla le **ore di funzionamento** della linea nel periodo; l'MTBF (ore ÷ n° fermi) si calcola da solo.
@@ -221,7 +237,7 @@ Contano solo i fermi **chiusi**. I KPI considerano tutto lo storico: per un peri
   1. Estensioni → Apps Script → incolla il nuovo `Code.gs` → salva.
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
-  - **Non rieseguire `setup()`**: non tocca Fermi, Equipment e Liste, ma ricostruisce il foglio KPI e cancella le ore di funzionamento che hai inserito.
+  - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
 ---
 

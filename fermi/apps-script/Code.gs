@@ -13,7 +13,20 @@
  * poi Distribuisci → Nuova distribuzione → App web.
  */
 
-const SH_FERMI = 'Fermi', SH_EQ = 'Equipment', SH_LISTE = 'Liste', SH_KPI = 'KPI';
+const SH_FERMI = 'Fermi', SH_EQ = 'Equipment', SH_LISTE = 'Liste', SH_KPI = 'KPI', SH_GUASTI = 'Guasti';
+
+// Tipi di guasto di partenza. Chiave = codice macchina (QR), nome linea, oppure TUTTE.
+// Quelli di ST3 vengono dallo storico del template "fermi meccanici"; le altre macchine si compilano nel foglio Guasti.
+const DEF_GUASTI = {
+  'TUTTE': ['FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'],
+  'ST3-02': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H10, Sostituzione e regolazione fotocellula della macchina',
+    'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi', 'H32 CTG, rimessa in dima pinze ctg',
+    'H19, Rimessa in fase della Stella', 'G25 Regolazione della coclea flaconi', 'SEA VISION'],
+  'ST3-03': ['PARAM VIDEOJET'],
+  'ST3-04': ['MAG. ISTRUZIONI', 'CHIUSURE AST', 'MAG. ASTUCCI', 'STAMPA DATI VARIABILI', 'CAM. OMRON', 'GUIDE', 'INCASTRO',
+    'POS. BOLLINO', 'POS. TAMPER', 'REGOLAZIONE DA PANNELLO'],
+  'ST3-06': ['NASTRATORI', 'GUIDE', 'INCASTRO']
+};
 const TZ = 'Europe/Rome';
 
 // Colonne del foglio Fermi (A–L = template originale)
@@ -94,7 +107,9 @@ function setup() {
     sh.setFrozenRows(1);
   }
 
-  buildKpi_(ss);
+  if (!ss.getSheetByName(SH_KPI)) buildKpi_(ss); // il foglio KPI non viene più ricostruito se esiste già
+  if (!ss.getSheetByName(SH_GUASTI)) buildGuasti_(ss);
+  sistemaDurate();
 
   // Cartella foto
   if (!props.getProperty('FOLDER_ID')) {
@@ -108,6 +123,42 @@ function setup() {
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
   Logger.log('FATTO. Codice reparto attuale (KEY): ' + props.getProperty('KEY') + ' — per cambiarlo: Impostazioni progetto → Proprietà script → KEY');
+}
+
+// Foglio Guasti: una riga per macchina (codice QR), i tipi di guasto uno per cella verso destra.
+// Righe speciali: TUTTE (vale per ogni macchina) e il nome di una linea (vale per tutte le macchine della linea).
+function buildGuasti_(ss) {
+  const sh = ss.insertSheet(SH_GUASTI, ss.getSheets().length);
+  const rows = [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)', 'Tipi di guasto → uno per cella, verso destra']];
+  rows.push(['TUTTE', 'vale per tutte le macchine'].concat(DEF_GUASTI['TUTTE']));
+  equipment_(ss).forEach(e => rows.push([e.code, e.linea + ' · ' + e.macchina].concat(DEF_GUASTI[e.code] || [])));
+  const w = Math.max(...rows.map(r => r.length));
+  sh.getRange(1, 1, rows.length, w).setValues(rows.map(r => r.concat(new Array(w - r.length).fill(''))));
+  sh.getRange(1, 1, 1, w).setFontWeight('bold').setBackground('#dfe7ec');
+  sh.getRange(2, 1, 1, w).setBackground('#fff3d6');
+  sh.setFrozenRows(1); sh.setFrozenColumns(2);
+  sh.setColumnWidth(1, 150); sh.setColumnWidth(2, 260);
+}
+
+function guasti_(ss) {
+  const sh = ss.getSheetByName(SH_GUASTI);
+  if (!sh || sh.getLastRow() < 2) return {};
+  const out = {};
+  sh.getDataRange().getValues().slice(1).forEach(r => {
+    const k = String(r[0]).trim().toUpperCase();
+    if (k) out[k] = r.slice(2).map(v => String(v).trim()).filter(Boolean);
+  });
+  return out;
+}
+
+// Riscrive la formula della durata su tutte le righe (funziona sia con data+ora sia con sola ora).
+function sistemaDurate() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);
+  const last = sh.getLastRow();
+  if (last < 2) return;
+  const f = [];
+  for (let r = 2; r <= last; r++) f.push(['=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))']);
+  sh.getRange(2, C.DUR, last - 1, 1).setFormulas(f).setNumberFormat('[h]:mm');
 }
 
 function buildKpi_(ss) {
@@ -215,7 +266,7 @@ function init_() {
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1] });
     });
   }
-  return { ok: true, equipment: equipment, liste: liste, fermi: fermi, serverTime: Date.now() };
+  return { ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, serverTime: Date.now() };
 }
 
 function equipment_(ss) {
@@ -275,7 +326,7 @@ function openFermo_(p) {
   const r = sh.getLastRow();
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
-  sh.getRange(r, C.DUR).setFormula('=IF(D' + r + '="","",D' + r + '-C' + r + ')').setNumberFormat('[h]:mm');
+  sh.getRange(r, C.DUR).setFormula('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))').setNumberFormat('[h]:mm');
   sh.getRange(r, C.IG).setFormula('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')');
   if (url) sh.getRange(r, C.FOTO_A).setFormula(linkFormula_(url));
   sh.getRange(r, 1, 1, HEAD.length).setBackground('#fff3d6');
