@@ -171,7 +171,7 @@ function allFermi() {
     if (op.action === 'open' && !m.has(op.id)) {
       m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, pending: true });
     } else if (op.action === 'close' && m.has(op.id)) {
-      Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
+      Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, lotto: op.lotto || m.get(op.id).lotto, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
     } else if (op.action === 'cancel') m.delete(op.id);
   }
   return [...m.values()].sort((a, b) => b.start - a.start);
@@ -225,7 +225,7 @@ async function sync() {
       try { await apiPost(op); }
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
-        if (e.server && /non trovato|solo fermi aperti|non abilitato/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovato|solo fermi aperti|non abilitato|Lotto obbligatorio/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       OUTBOX.shift(); save('outbox', OUTBOX);
@@ -484,6 +484,9 @@ function pickSheet() {
 }
 
 const OFFSETS = [0, 5, 10, 15, 30];
+// Lotto obbligatorio in apertura e chiusura: solo cifre, da 4 a 10 (stessa regola nello script del foglio)
+const LOTTO_OK = v => /^\d{4,10}$/.test(String(v || '').trim());
+const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto il fermo non si può registrare.';
 function openSheet(eq) {
   const O = { offset: 0 };
   const lotto = lastLotto(eq.linea);
@@ -492,11 +495,14 @@ function openSheet(eq) {
       ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
     <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
     <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
+    <div class="err" id="oerr" hidden></div>
     <button class="submit red" id="go">Apri fermo</button>`);
   singleChoice($('#offs'), v => O.offset = +v);
   $('#go').onclick = () => {
+    const lv = $('#lotto').value.trim();
+    if (!LOTTO_OK(lv)) { const e = $('#oerr'); e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
     const ts = Date.now() - O.offset * 60000;
-    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: $('#lotto').value.trim(), ts, turno: turnoOf(ts),
+    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts),
       manutentore: S.man, foto: '' });
     closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
   };
@@ -522,6 +528,7 @@ function closeSheet(f, img) {
     <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
     <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guasti)}</div></div>
     <div class="group"><span class="label" id="altlbl">Altro (descrizione breve)</span><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
+    <div class="group"><span class="label">Lotto</span><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
     <div class="group"><span class="label">Codice pezzo sostituito</span><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
     <div class="err" id="err" hidden></div>
     <button class="submit" id="go">Chiudi fermo</button>
@@ -548,9 +555,10 @@ function closeSheet(f, img) {
     const miss = [!C.cat && 'categoria', !C.int && 'tipo intervento', !C.guasto && 'tipo guasto'].filter(Boolean);
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
     if (!msg && (C.guasto === 'ALTRO' || C.int === 'ALTRO') && !altro) msg = 'Hai scelto ALTRO: scrivi una descrizione breve.';
+    if (!msg && !LOTTO_OK($('#clotto').value)) msg = LOTTO_MSG;
     if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
     enqueue({ action: 'close', id: f.id, ts: Date.now(), manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
-      altro, pezzo: $('#pezzo').value.trim(), foto: C.img ? toJpeg(C.img, C.circles) : '' });
+      altro, pezzo: $('#pezzo').value.trim(), lotto: $('#clotto').value.trim(), foto: C.img ? toJpeg(C.img, C.circles) : '' });
     closeSh(); toast('Fermo chiuso · ' + fmtDur((Date.now() - f.start) / 60000));
   };
   const cb = $('#canc');
