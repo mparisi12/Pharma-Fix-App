@@ -93,6 +93,8 @@ function F_(f) {
 // Ripara le formule già scritte con il separatore sbagliato (#ERROR!) e ricrea il foglio KPI.
 function riparaFormule() {
   PropertiesService.getScriptProperties().deleteProperty('SEP');
+  const convertite = sistemaDate_();
+  Logger.log('Righe con date scritte come testo convertite: ' + convertite);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SH_FERMI);
   const last = sh.getLastRow();
@@ -300,14 +302,46 @@ function periodo_(nome, d6, d7, oggi) {
   return { from: from, to: to, toEnd: new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1) };
 }
 
+// Accetta una data vera oppure un testo "gg/mm/aaaa hh:mm" (es. righe incollate); con solo "hh:mm" usa il giorno della riga
+function dataOra_(v, giorno) {
+  if (v instanceof Date) return v;
+  const s = String(v == null ? '' : v).trim();
+  let m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:[ T]+(\d{1,2})[:.](\d{2}))?/);
+  if (m) { const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]); return new Date(y, m[2] - 1, m[1], Number(m[4] || 0), Number(m[5] || 0)); }
+  m = s.match(/^(\d{1,2})[:.](\d{2})$/);
+  if (m && giorno instanceof Date) return new Date(giorno.getFullYear(), giorno.getMonth(), giorno.getDate(), Number(m[1]), Number(m[2]));
+  return null;
+}
+
+// Converte in date vere Data, Ora Inizio e Ora Fine scritte come testo nel foglio Fermi
+function sistemaDate_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);
+  const last = sh.getLastRow();
+  if (last < 2) return 0;
+  const rg = sh.getRange(2, C.DATA, last - 1, 3), v = rg.getValues();
+  let n = 0;
+  const out = v.map(r => {
+    const g = dataOra_(r[0], null), gg = g ? new Date(g.getFullYear(), g.getMonth(), g.getDate()) : r[0];
+    const a = r[1] === '' ? '' : (dataOra_(r[1], gg) || r[1]);
+    const b = r[2] === '' ? '' : (dataOra_(r[2], gg) || r[2]);
+    if (!(r[0] instanceof Date) || (r[1] !== '' && !(r[1] instanceof Date)) || (r[2] !== '' && !(r[2] instanceof Date))) n++;
+    return [gg || r[0], a, b];
+  });
+  rg.setValues(out);
+  sh.getRange(2, C.DATA, last - 1, 1).setNumberFormat('dd/MM/yyyy');
+  sh.getRange(2, C.INIZIO, last - 1, 2).setNumberFormat('HH:mm');
+  return n;
+}
+
 // Calcolo puro (testabile): righe del foglio Fermi + filtri → numeri e tabelle
 function calcolaKpi_(vals, f) {
   const rows = [];
   vals.forEach(r => {
     if (r[C.STATO - 1] !== 'CHIUSO') return;
-    const ini = r[C.INIZIO - 1], fin = r[C.FINE - 1];
-    if (!(ini instanceof Date) || !(fin instanceof Date)) return;
-    const giorno = r[C.DATA - 1] instanceof Date ? r[C.DATA - 1] : ini;
+    const g0 = dataOra_(r[C.DATA - 1], null);
+    const ini = dataOra_(r[C.INIZIO - 1], g0), fin = dataOra_(r[C.FINE - 1], g0);
+    if (!ini || !fin) return;
+    const giorno = g0 || ini;
     if (giorno < f.from || giorno >= f.toEnd) return;
     if (f.linea !== 'TUTTE' && String(r[C.LINEA - 1]) !== f.linea) return;
     if (f.code && String(r[C.EQ - 1]) !== f.code) return;
