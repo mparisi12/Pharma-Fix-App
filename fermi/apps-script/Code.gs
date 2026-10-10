@@ -224,6 +224,9 @@ function onOpen() {
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
+    .addSeparator()
+    .addItem('Attiva sveglia dello script', 'attivaSveglia')
+    .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
     .addToUi();
 }
 
@@ -681,6 +684,29 @@ function aggiornaV3_(ss) {
     if (!String(h.getValues()[0][0])) h.setValues([['Orari', 'Registrato alle', 'Telefono']]).setFontWeight('bold').setBackground('#fff3d6');
   }
   telSheet_(ss);
+}
+
+/* ---------- Sveglia ----------
+   Google "addormenta" l'app web quando nessuno la usa: la prima risposta può superare i 20 secondi.
+   attivaSveglia() crea un timer che ogni 10 minuti, durante i turni (lun 6:00 – sab 6:00), interroga l'app
+   come farebbe un telefono, così resta pronta. Si esegue una volta sola (menu Pharma-Fix o editor). */
+function attivaSveglia() {
+  disattivaSveglia();
+  ScriptApp.newTrigger('tieniSveglio').timeBased().everyMinutes(10).create();
+  tieniSveglio(true);
+  try { SpreadsheetApp.getUi().alert('Sveglia attiva: ogni 10 minuti durante i turni.'); } catch (e) { Logger.log('Sveglia attiva'); }
+}
+function disattivaSveglia() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'tieniSveglio').forEach(t => ScriptApp.deleteTrigger(t));
+}
+function tieniSveglio(forza) {
+  const now = new Date(), g = Number(Utilities.formatDate(now, TZ, 'u')), h = Number(Utilities.formatDate(now, TZ, 'H'));
+  const turni = (g >= 1 && g <= 5) && !(g === 1 && h < 5) || (g === 6 && h < 6); // da lunedì 5:00 (pronta per il T1) a sabato 6:00
+  if (!turni && forza !== true) return;
+  const url = ScriptApp.getService().getUrl(), key = PropertiesService.getScriptProperties().getProperty('KEY');
+  if (!url || !key) return;
+  try { UrlFetchApp.fetch(url + '?action=init&key=' + encodeURIComponent(key), { muteHttpExceptions: true, followRedirects: true }); }
+  catch (e) { Logger.log('Sveglia: ' + e); }
 }
 
 /* =================== API =================== */
