@@ -41,6 +41,8 @@ header.top{display:flex;align-items:center;gap:10px;padding-block:14px 4px}
 .sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:8px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
 .dot.warn{background:var(--amber)}.dot.off{background:var(--crit)}.dot.demo{background:var(--muted)}
+.updbar{display:block;width:100%;border:0;border-radius:var(--r);background:var(--steel);color:var(--steel-ink);font:600 14px var(--body);padding:12px;margin-block:6px;text-align:center}
+.updbar[hidden]{display:none}
 .banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px;color:var(--amber-ink)}
 h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:22px 0 10px;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
 h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:var(--steel);background:none;border:0;padding:0}
@@ -201,6 +203,7 @@ textarea.field{min-height:64px;resize:vertical}
     <button class="manbtn" id="manbtn">—</button>
   </header>
   <div class="sync" id="sync"><span class="dot demo"></span><span>…</span></div>
+  <button class="updbar" id="upd" hidden onclick="location.reload()">Nuova versione dell'app · tocca per aggiornare</button>
   <div id="banner"></div>
   <main id="view"></main>
 </div>
@@ -925,6 +928,19 @@ setInterval(() => {
   $$('[data-since]').forEach(e => e.textContent = fmtTimer(n - +e.dataset.since));
   const d = new Date(); $('#clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' · turno ' + turnoOf(n);
 }, 1000);
+/* ---- Aggiornamenti: quando su GitHub esce una versione nuova l'app si ricarica da sola ---- */
+let APP_VER = null;
+async function checkUpdate() {
+  if (!navigator.onLine) return;
+  let v = null;
+  try { const r = await fetch('index.html', { method: 'HEAD', cache: 'no-store' }); v = r.ok && (r.headers.get('etag') || r.headers.get('last-modified')); } catch {}
+  if (!v) return;
+  if (!APP_VER) { APP_VER = v; return; }
+  if (v === APP_VER) return;
+  // non ricaricare mentre qualcuno sta compilando qualcosa
+  const busy = $('#sheet').innerHTML || $('#scanwrap').innerHTML || S.view.name === 'anoform';
+  if (busy) $('#upd').hidden = false; else location.reload();
+}
 (function boot() {
   const c = load('cache', null);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
@@ -938,8 +954,9 @@ setInterval(() => {
   const deep = eq && !h && eqBy(eq);
   if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
   sync();
-  setInterval(() => { if (!OUTBOX.length && document.visibilityState === 'visible') refresh(); }, 60000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+  setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
+  checkUpdate();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { sync(); checkUpdate(); } });
   window.addEventListener('online', sync);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
