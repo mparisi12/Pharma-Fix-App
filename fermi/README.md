@@ -262,6 +262,7 @@ Contano solo i fermi **chiusi**. I fermi filtrati stanno nel foglio nascosto `KP
 | "Codice reparto errato" / "Il codice reparto è cambiato" | Il codice inserito non corrisponde a **KEY** nelle Proprietà script. Dopo averlo cambiato, ogni tecnico lo reinserisce una volta. |
 | Un fermo è stato chiuso con dati sbagliati | Correggilo a mano nel foglio Fermi (non toccare Stato e ID fermo). |
 | Fermo rimasto aperto (giallo) da giorni | Qualcuno ha dimenticato di chiuderlo: chiudilo dall'app (scansione QR o **Chiudi** nella home) e correggi poi a mano l'Ora Fine nel foglio se serve. |
+| `#ERROR!` nelle colonne Durata, Intervento-Guasto, Foto o nel foglio KPI | Formule scritte con il separatore sbagliato (fogli in italiano usano `;`). In Apps Script esegui **riparaFormule**: riscrive le formule e ricrea il foglio KPI. |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
 
 ---
