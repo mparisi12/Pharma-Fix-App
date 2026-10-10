@@ -72,10 +72,7 @@
         'SPIKE CORRENTE', 'POS. TAMPER', 'POS. BOLLINO', 'INCASTRO', 'ARIA COMPRESSA', 'MAG. ISTRUZIONI',
         'MAG. ASTUCCI', 'NASTRATORI', 'VOMERE', 'CAM. OMRON', 'CAM. ANTARES', 'FORMATO',
         'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA', 'SOSTITUZIONE', 'RIAVVIO', 'ALTRO'],
-      'Manutentori': ['CONTE Elia', 'BRUNO Carlo', 'MARINI Dario', 'DE LUCA Pietro',
-        'DE SANTIS Enzo', 'FONTANA Sergio', 'RIVA Franco', 'LONGO Mauro', 'MARTINI Aldo',
-        'GALLO Bruno', 'LEONE Tullio', 'SANNA Davide', 'VITALE Ezio', 'RESPONSABILE Demo',
-        'BARBIERI Ugo', 'COSTA Fabio', 'MANCINI Remo', 'SERRA Gino']
+      'Manutentori': [] // i nomi stanno solo nel foglio Liste (privato)
     }
   };
 })();
