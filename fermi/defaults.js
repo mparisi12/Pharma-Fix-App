@@ -72,10 +72,7 @@
         'SPIKE CORRENTE', 'POS. TAMPER', 'POS. BOLLINO', 'INCASTRO', 'ARIA COMPRESSA', 'MAG. ISTRUZIONI',
         'MAG. ASTUCCI', 'NASTRATORI', 'VOMERE', 'CAM. OMRON', 'CAM. ANTARES', 'FORMATO',
         'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA', 'SOSTITUZIONE', 'RIAVVIO', 'ALTRO'],
-      'Manutentori': ['ARACHIDE Simone', 'CACIOPPO Riccardo', 'CRISPO Mattia', 'DI RUSCIO Christian',
-        'DI STEFANO Alessio', 'GRECO Nicolò', 'GRITTI Alessandro', 'GUIDONE Andrea', 'LAMANUZZI Vincenzo',
-        'MANGIAROTTI Marco', 'MORABITO Giulio', 'ORZI Matteo', 'PALUMBO Antonino', 'PARISI Mirko',
-        'PESTRICHELLA Mattia', 'RONCONI Fabio', 'SALVINI Alvaro', 'TATA Giuseppe']
+      'Manutentori': [] // i nomi stanno solo nel foglio Liste (privato)
     }
   };
 })();
