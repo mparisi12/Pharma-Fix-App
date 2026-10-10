@@ -1,18 +1,64 @@
 // Anagrafica di partenza: usata in modalità demo e finché il Google Sheet non risponde.
 // Con il backend attivo, l'app legge Equipment e Liste direttamente dal foglio.
 (function () {
-  const LINEE = [['ST1MAR', 'ST1 MAR', 1, 1], ['ST1TGM', 'ST1 TGM', 1, 1], ['ST2', 'ST2', 1, 1], ['ORL', 'ORL', 1, 0],
-    ['ST3', 'ST3', 1, 1], ['ST4', 'ST4', 1, 1], ['ST5', 'ST5', 1, 0], ['SPL1', 'SPL1', 0, 1], ['SPL2', 'SPL2', 0, 1], ['ST6', 'ST6', 1, 1]];
-  const MACC = {
-    Sterile: [['RIO', 'Riordinatore'], ['FIL', 'Filling - Tappatrice']],
-    Secondario: [['PGR', 'Polmone Grande'], ['ETI', 'Etichettatrice'], ['PPI', 'Polmone Piccolo'],
-      ['AST', 'Astucciatrice'], ['BIL', 'Bilancia'], ['CAR', 'Cartonatrice']]
-  };
-  const equipment = [];
-  LINEE.forEach(([cod, nome, f, p]) => {
-    if (f) MACC.Sterile.forEach(([m, n]) => equipment.push({ code: cod + '-' + m, linea: nome, area: 'Sterile', macchina: n }));
-    if (p) MACC.Secondario.forEach(([m, n]) => equipment.push({ code: cod + '-' + m, linea: nome, area: 'Secondario', macchina: n }));
-  });
+  // Elenco macchine reale (stesso contenuto del foglio Equipment)
+  const equipment = [
+    { code: "ST1TGM-01", linea: "ST1 TGM", area: "Sterile", macchina: "INTUBETTATRICE TGM B600/2" },
+    { code: "ST1TGM-02", linea: "ST1 TGM", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4250" },
+    { code: "ST1TGM-03", linea: "ST1 TGM", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "ST1TGM-04", linea: "ST1 TGM", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "ST1MAR-01", linea: "ST1 MAR", area: "Sterile", macchina: "RIORDINATORE KYKLOO" },
+    { code: "ST1MAR-02", linea: "ST1 MAR", area: "Sterile", macchina: "RIEMPITRICE MAR M39" },
+    { code: "ST1MAR-03", linea: "ST1 MAR", area: "Secondario", macchina: "ETICHETTATRICE MARCHESINI SLF220" },
+    { code: "ST1MAR-04", linea: "ST1 MAR", area: "Secondario", macchina: "ASTUCCIATRICE MARCHESINI MA255" },
+    { code: "ST1MAR-05", linea: "ST1 MAR", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "ST1MAR-06", linea: "ST1 MAR", area: "Secondario", macchina: "ANTARES PRINT&CHECK" },
+    { code: "ST1MAR-07", linea: "ST1 MAR", area: "Secondario", macchina: "CARTONATRICE GARBELLI" },
+    { code: "ORL-01", linea: "ORL", area: "Sterile", macchina: "RIORDINATORE OZAF" },
+    { code: "ORL-02", linea: "ORL", area: "Sterile", macchina: "RIEMPITRICE ROMACO LVI6" },
+    { code: "ORL-03", linea: "ORL", area: "Secondario", macchina: "INVASSOIATORE SPH" },
+    { code: "ST2-01", linea: "ST2", area: "Sterile", macchina: "RIEMPITRICE GF VFPCM 15000" },
+    { code: "ST2-02", linea: "ST2", area: "Secondario", macchina: "ETICHETTATRICE ETIPACK" },
+    { code: "ST2-03", linea: "ST2", area: "Secondario", macchina: "ASTUCCIATRICE CAM HV-1" },
+    { code: "ST2-04", linea: "ST2", area: "Secondario", macchina: "ANTARES ALL IN ONE S" },
+    { code: "ST2-05", linea: "ST2", area: "Secondario", macchina: "CARTONATRICE CAM SMP" },
+    { code: "ST3-01", linea: "ST3", area: "Sterile", macchina: "RIORDINATORE SARG" },
+    { code: "ST3-02", linea: "ST3", area: "Sterile", macchina: "RIEMPITRICE + TAPPATRICE FLEXFILL F940" },
+    { code: "ST3-03", linea: "ST3", area: "Secondario", macchina: "ETICHETTATRICE IMA SENSITIVE AV" },
+    { code: "ST3-04", linea: "ST3", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4400" },
+    { code: "ST3-05", linea: "ST3", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "ST3-06", linea: "ST3", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "ST4-01", linea: "ST4", area: "Sterile", macchina: "INTUBETTATRICE IWK FP34/2" },
+    { code: "ST4-02", linea: "ST4", area: "Secondario", macchina: "BILANCIA TUBI METTLER" },
+    { code: "ST4-03", linea: "ST4", area: "Secondario", macchina: "SISTEMA ACCUMULO TUBI BONINO" },
+    { code: "ST4-04", linea: "ST4", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4201" },
+    { code: "ST4-05", linea: "ST4", area: "Secondario", macchina: "PTT100" },
+    { code: "ST4-06", linea: "ST4", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "ST5-01", linea: "ST5", area: "Sterile", macchina: "RIEMPITRICE ROMACO LF202" },
+    { code: "ST5-02", linea: "ST5", area: "Sterile", macchina: "ASSEMBLING SINTECO 3548" },
+    { code: "ST6-01", linea: "ST6", area: "Sterile", macchina: "RIORDINATORE FLACONI OZAF" },
+    { code: "ST6-02", linea: "ST6", area: "Sterile", macchina: "RIORDINATORE CONTAGOCCE OZAF" },
+    { code: "ST6-03", linea: "ST6", area: "Sterile", macchina: "RIORDINATORE TAPPI OZAF" },
+    { code: "ST6-04", linea: "ST6", area: "Sterile", macchina: "RIEMPITRICE + TAPPATRICE XTREMA" },
+    { code: "ST6-05", linea: "ST6", area: "Secondario", macchina: "ETICHETTATRICE IMA SENSITIVE AV" },
+    { code: "ST6-06", linea: "ST6", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4450" },
+    { code: "ST6-07", linea: "ST6", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "ST6-08", linea: "ST6", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "SPL1-01", linea: "SPL1", area: "Secondario", macchina: "ASSEMBLING SINTECO 3549" },
+    { code: "SPL1-02", linea: "SPL1", area: "Secondario", macchina: "ETICHETTATRICE FLACONI MAKRO" },
+    { code: "SPL1-03", linea: "SPL1", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4201 + PTT" },
+    { code: "SPL1-04", linea: "SPL1", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "SPL1-05", linea: "SPL1", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "SPL2-01", linea: "SPL2", area: "Secondario", macchina: "ALIMENTATORE KYKLOO" },
+    { code: "SPL2-02", linea: "SPL2", area: "Secondario", macchina: "ETICHETTATRICE FLACONI SPH" },
+    { code: "SPL2-03", linea: "SPL2", area: "Secondario", macchina: "FLOWPAK PFM LEVANTE" },
+    { code: "SPL2-04", linea: "SPL2", area: "Secondario", macchina: "ASTUCCIATRICE ROMACO PC4250" },
+    { code: "SPL2-05", linea: "SPL2", area: "Secondario", macchina: "BILANCIA METTLER" },
+    { code: "SPL2-06", linea: "SPL2", area: "Secondario", macchina: "CARTONATRICE PAK320" },
+    { code: "SPL2-07", linea: "SPL2", area: "Secondario", macchina: "FARDELLATRICE CHRIST" },
+    { code: "SPL2-08", linea: "SPL2", area: "Secondario", macchina: "ETICHETTATRICE FARDELLI ARCA" },
+    { code: "SPL2-09", linea: "SPL2", area: "Secondario", macchina: "CARTONATRICE FARDELLI CAM SM80" }
+  ];
   window.PF_DEFAULTS = {
     equipment,
     liste: {
