@@ -149,8 +149,8 @@ La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la r
 L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo nome in alto → **Esci**.
 
 ### Aprire un fermo (~10 secondi)
-1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.)
-2. Si apre **Apri fermo**: controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
+1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.) Si apre la **pagina della macchina**, con lo storico degli interventi sotto.
+2. Tocca **Apri fermo** (il pulsante rosso in alto): controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
 
 ### Macchine FILLING (sterile): registrare il fermo all'uscita
@@ -162,7 +162,7 @@ In sterile il telefono non entra, quindi il fermo si registra **dopo**, uscendo 
 Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle 14:00, T3 dalle 22:00). Nel foglio la riga ha **Orari = DICHIARATI** e l'ora vera di inserimento in **Registrato alle**.
 
 ### Chiudere un fermo (~20–30 secondi)
-1. **Scansiona di nuovo il QR** della stessa macchina (oppure, nella home, **Chiudi** sul fermo).
+1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
 2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
 3. Scegli **Categoria**, **Tipo intervento**, **Tipo guasto** (uno solo, come nel template).
 4. **Altro (descrizione breve)**: obbligatoria se hai scelto ALTRO. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio.
@@ -173,8 +173,8 @@ Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
 ### Scheda macchina, soluzioni, documenti, anomalie
-- **Scheda macchina**: dalla home **Scegli macchina a mano**, oppure tocca un fermo/anomalia, oppure dalla barra in basso dopo aver scelto una macchina. Mostra fermo in corso (o **Apri fermo**), numeri degli ultimi 30 giorni, i quattro riquadri e gli ultimi interventi.
-- **Soluzioni**: cerca per parola (pinze, ventose…) o per tipo guasto. **VERIFICATA** = scritta nel foglio Soluzioni; **DA UN FERMO** = descrizione di un fermo chiuso su quella macchina. **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo.
+- **Pagina della macchina** (si apre dopo il QR o scegliendo la macchina): in alto il pulsante **Apri fermo** (Packaging), **Registra fermo** (Filling) o **Chiudi fermo** verde con il cronometro se un fermo è in corso; poi Soluzioni, Manuali, Schede, Anomalia e i numeri degli ultimi 30 giorni. **Scorrendo**: gli interventi degli ultimi 90 giorni dal più recente, divisi per giorno, con orari, durata (arancione oltre l'ora), guasto, descrizione, tecnico e lotto; 20 alla volta (**Mostra altri interventi**). Tocca un intervento per il dettaglio completo e la foto.
+- **Soluzioni**: cerca per parola (pinze, ventose…) o per tipo guasto. Compaiono solo le soluzioni **verificate** del foglio Soluzioni (lo storico dei fermi è nella pagina della macchina). **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo.
 - **Documenti**: due schede, *Manuali e schemi* e *Schede formato*; filtro *Questa macchina* / *Tutta la linea*. Si aprono con un tocco.
 - **Segnala anomalia**: macchina (dal QR o *Cambia*), **urgenza 1 / 2 / 3**, cosa hai visto, foto con cerchio, cosa serve → **Invia segnalazione**.
 - **Anomalie** (barra in basso): *Da gestire* e *Chiuse* (ultimi 30 giorni). Tocca una anomalia → **Prendo in carico** oppure **Chiudi anomalia** con una nota.
