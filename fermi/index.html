@@ -64,6 +64,23 @@ h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:va
 .tiles3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600;min-height:44px;text-align:center}
 .tile svg{width:22px;height:22px}
+.tiles4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
+.tile4{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;min-height:64px}
+.tile4 svg{width:22px;height:22px}.tile4 b{font:700 13px var(--display);letter-spacing:.04em}
+.tile4 .n{position:absolute;top:5px;right:5px;font:500 11px var(--mono);background:var(--steel-soft);color:var(--steel);border-radius:9px;padding:0 6px;font-style:normal}
+.bigbtn.ok{background:var(--ok);justify-content:space-between;padding-inline:20px}.bigbtn.ok .timer{font:500 22px var(--mono);color:#fff}
+.h2r{float:right;font:400 12px var(--body);letter-spacing:0;text-transform:none;color:var(--muted);margin-top:6px}
+.daysep{font:500 11px var(--mono);letter-spacing:.08em;color:var(--muted);margin:6px 0 -2px}
+.icard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;color:inherit}
+.icard .r1{display:flex;align-items:center;gap:8px}
+.ore{font:500 13px var(--mono);color:var(--muted)}.ore.big{font-size:20px;color:var(--ink)}
+.dur{margin-left:auto;font:500 14px var(--mono);background:var(--steel-soft);color:var(--steel);border-radius:6px;padding:2px 8px;white-space:nowrap}
+.dur.long{background:var(--amber-soft);color:var(--amber-ink)}.dur.big{font:700 22px var(--display);padding:4px 10px}
+.icard .t1{font-weight:600}.icard .ds{font-size:13px;color:var(--ink);opacity:.85;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.icard .ft{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.icard .ft .ph{margin-left:auto;width:16px;height:16px;color:var(--steel)}
+.icard .tag.d{font:500 10px var(--mono);background:var(--amber-soft);color:var(--amber-ink);border-radius:5px;padding:1px 6px}
+.morebtn{width:100%;margin-top:10px;border:1px solid var(--steel);background:var(--surface);color:var(--steel);border-radius:10px;padding:12px;font:600 15px var(--body)}
+.stats.grid2{grid-template-columns:repeat(2,minmax(0,1fr));margin-block:12px}
 .tiles2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .tile2{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;position:relative}
 .tile2 svg{width:26px;height:26px}
@@ -493,9 +510,7 @@ async function openScanner(onEq, msg) {
 }
 // Dopo il QR: scheda macchina + subito apertura del fermo (o chiusura, se già aperto)
 function afterScan(eq) {
-  go({ name: 'equip', code: eq.code });
-  const f = allFermi().find(x => x.code === eq.code && x.stato === 'APERTO');
-  needMan(() => f ? closeSheet(f) : isFill(eq) ? fillSheet(eq) : openSheet(eq));
+  S.view = {}; go({ name: 'equip', code: eq.code });
 }
 function scanFromPhoto(cb = afterScan) {
   capture(img => {
@@ -601,39 +616,72 @@ function renderEquip() {
   const mttr = c30.length ? c30.reduce((a, f) => a + (f.end - f.start), 0) / c30.length / 60000 : 0;
   const cnt = {}; c30.forEach(f => { if (f.guasto) cnt[f.guasto] = (cnt[f.guasto] || 0) + 1; });
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-  const hist = all.filter(f => f.stato === 'CHIUSO');
-  const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length + soluzioniDaFermi(eq).length;
+  const hist = all.filter(f => f.stato === 'CHIUSO' && f.end).sort((a, b) => b.start - a.start);
+  const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length;
   const docs = S.documenti.filter(d => vale(d.dove, eq));
   const nSch = docs.filter(d => /SCHED/.test(d.tipo)).length, nMan = docs.length - nSch;
   const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
-  const C = eq.code;
+  const C = eq.code, shown = S.view.more || 20;
+  const qr = I.qr.replace('<svg', '<svg width="28" height="28"');
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
-    ${open ? `<div class="fermobanner"><div style="flex:1"><div style="font-weight:600;font-size:13px">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}</div>
-      <div class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</div></div><button class="closebtn" data-close="${esc(open.id)}">Chiudi fermo</button></div>`
-      : `<button class="bigbtn" id="openf">${I.qr.replace('<svg', '<svg width="26" height="26"')}${isFill(eq) ? 'Registra fermo' : 'Apri fermo'}</button>
-        ${isFill(eq) ? '<div class="hint center" style="margin-top:-4px">FILLING: registra il fermo all\'uscita dallo sterile, con gli orari del batch record</div>' : ''}`}
+    ${open ? `<button class="bigbtn ok" data-close="${esc(open.id)}"><span>Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span></button>
+      <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>`
+      : `<button class="bigbtn" id="openf">${qr}${isFill(eq) ? 'Registra fermo' : 'Apri fermo'}</button>
+        ${isFill(eq) ? '<div class="hint center">FILLING: registra il fermo all\'uscita dallo sterile, con gli orari del batch record</div>' : ''}`}
+    <div class="tiles4">
+      <button class="tile4" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
+      <button class="tile4" data-tab="man">${I.doc}<b>MANUALI</b>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
+      <button class="tile4" data-tab="sch">${I.sch}<b>SCHEDE</b>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
+      <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
+    </div>
     <div class="stats">
       <div class="stat"><div class="label">Fermi 30 gg</div><div class="v">${c30.length}</div></div>
       <div class="stat"><div class="label">MTTR 30 gg</div><div class="v">${c30.length ? fmtDur(mttr) : '—'}</div></div>
       <div class="stat"><div class="label">Guasto top</div><div class="v sm" title="${esc(top ? top[0] : '')}">${top ? esc(top[0].split(',')[0]) + ' ×' + top[1] : '—'}</div></div>
     </div>
-    <div class="tiles2">
-      <button class="tile2" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b><span>Troubleshooting di questa macchina</span>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
-      <button class="tile2" data-tab="man">${I.doc}<b>MANUALI E SCHEMI</b><span>PDF della macchina</span>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
-      <button class="tile2" data-tab="sch">${I.sch}<b>SCHEDE FORMATO</b><span>Regolazioni per formato</span>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
-      <button class="tile2" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>SEGNALA ANOMALIA</b><span>Problema da sistemare dopo</span></button>
-    </div>
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
-    <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}</h2>
-    <div class="list" id="hist">${hist.length ? hist.slice(0, 5).map(histRow).join('') : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}</div>
-    ${hist.length > 5 ? '<div class="center"><button class="linkbtn" id="morehist">Mostra tutto lo storico</button></div>' : ''}
+    <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
+    ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
+    ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi</button>' : ''}
     <div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => isFill(eq) ? fillSheet(eq) : openSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
-  const mh = $('#morehist'); if (mh) mh.onclick = () => { $('#hist').innerHTML = hist.map(histRow).join(''); mh.remove(); };
+  const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 20; renderEquip(); window.scrollTo(0, y); };
+  $$('[data-int]').forEach(b => b.onclick = () => { const f = hist.find(x => x.id === b.dataset.int); if (f) intSheet(f, eq); });
   bindCommon();
+}
+const GIORNI = ['DOMENICA', 'LUNEDÌ', 'MARTEDÌ', 'MERCOLEDÌ', 'GIOVEDÌ', 'VENERDÌ', 'SABATO'];
+const hhmm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
+function dayLabel(t) {
+  const d = new Date(t), oggi = new Date(); const k = x => x.toDateString();
+  const ieri = new Date(Date.now() - 864e5);
+  return k(d) === k(oggi) ? 'OGGI' : k(d) === k(ieri) ? 'IERI' : GIORNI[d.getDay()] + ' ' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+}
+function histList(list) {
+  let out = '', last = '';
+  for (const f of list) {
+    const day = dayLabel(f.start);
+    if (day !== last) { out += `<div class="daysep">${day}</div>`; last = day; }
+    const min = (f.end - f.start) / 60000;
+    out += `<button class="icard" data-int="${esc(f.id)}">
+      <div class="r1"><span class="ore">${hhmm(f.start)} → ${hhmm(f.end)}</span>${f.orari === 'DICHIARATI' ? '<span class="tag d">DICHIARATI</span>' : ''}<span class="dur${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
+      <div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
+      ${f.altro ? `<div class="ds">${esc(f.altro)}</div>` : ''}
+      <div class="ft"><span>${[f.man, f.lotto && f.lotto !== 'undefined' ? 'lotto ' + f.lotto : '', f.cat ? nice(f.cat) : ''].filter(Boolean).map(esc).join(' · ')}</span>${f.fotoC ? I.cam.replace('<svg', '<svg class="ph"') : ''}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div>
+    </button>`;
+  }
+  return `<div class="list">${out}</div>`;
+}
+function intSheet(f, eq) {
+  const min = (f.end - f.start) / 60000;
+  const cell = (k, v) => `<div class="stat"><div class="label">${k}</div><div style="font-weight:600">${esc(v || '—')}</div></div>`;
+  sheet(`<div class="sheet-h"><div><div class="code">${esc(eq.code)} · ${esc(eq.macchina)}</div><h3 style="margin-top:4px">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(f.int) : ''}</h3></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="ctxbar"><div><div class="hint" style="margin:0">${dayLabel(f.start).toLowerCase().replace(/^./, c => c.toUpperCase())} · turno ${turnoOf(f.start)}</div><div class="ore big">${hhmm(f.start)} → ${hhmm(f.end)}</div></div><span class="dur big${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
+    ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
+    <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? 'Dichiarati (batch record)' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}</div>
+    ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}`);
 }
 
 /* ================= Soluzioni ================= */
@@ -641,12 +689,11 @@ function renderSol() {
   const eq = S.view.code ? eqBy(S.view.code) : null;
   const q = S.view.q || '', g = S.view.g || '';
   let items = allSoluzioni().filter(s => vale(s.dove, eq)).map(s => ({ ...s }));
-  items = items.concat(soluzioniDaFermi(eq));
   const guasti = [...new Set(items.map(s => s.guasto).filter(Boolean))].slice(0, 12);
   const qq = q.toLowerCase();
   const shown = items.filter(s => (!g || s.guasto === g) && (!qq || [s.problema, s.soluzione, s.guasto, s.ricambi, s.macchina, s.linea].join(' ').toLowerCase().includes(qq)))
-    .sort((a, b) => (a.fromFermo - b.fromFermo) || (b.ts || 0) - (a.ts || 0));
-  const usi = {}; soluzioniDaFermi(eq).forEach(s => { usi[s.guasto] = (usi[s.guasto] || 0) + 1; });
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const usi = {};
   $('#view').innerHTML = `
     ${topline('Soluzioni', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
     ${eq ? '' : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona il QR della macchina o sceglila</div></div><button class="qrbtn" id="scanm" aria-label="Scansiona QR">${I.qr}QR</button><button class="linkbtn" id="pickm">Scegli</button></div>`}
@@ -667,7 +714,7 @@ function solCard(s, eq, usi) {
     : (U(s.dove) !== U(eq.code) ? (U(s.dove) === 'TUTTE' || !s.dove ? 'vale per tutte le macchine' : 'vale per tutta la linea ' + s.dove) : '');
   const meta = s.fromFermo ? `${fmtD(s.ts)}${s.dur ? ' · ' + fmtDur(s.dur) : ''}` : (s.pending ? 'in coda' : (usi[s.guasto] ? `${usi[s.guasto]} fermi con questo guasto` : (s.ts ? fmtD(s.ts) : '')));
   return `<div class="scard"><div class="tags">${s.guasto ? `<span class="tag g">${esc(s.guasto.split(',')[0])}</span>` : ''}
-    ${s.fromFermo ? '<span class="tag f">DA UN FERMO</span>' : '<span class="tag v">VERIFICATA</span>'}<span class="meta">${esc(meta)}</span></div>
+    <span class="tag v">VERIFICATA</span><span class="meta">${esc(meta)}</span></div>
     ${where ? `<div class="hint" style="margin:0">${esc(where)}</div>` : ''}
     <div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>
     ${s.ricambi ? `<div class="ric">${String(s.ricambi).split(/[;,\n]+/).filter(x => x.trim()).map(x => `<span>${esc(x.trim())}</span>`).join('')}</div>` : ''}
