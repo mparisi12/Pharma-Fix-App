@@ -47,7 +47,7 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Equipment** | Elenco macchine: codice del QR, linea, area, nome macchina, attivo. | Tu. |
 | **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori abilitati**. | Tu. |
 | **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
-| **KPI** | Indicatori calcolati da soli con formule: per linea n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF; Pareto guasti con RFR; classifica macchine. | Solo la colonna gialla "Ore funzionamento" (per l'MTBF). Il resto è automatico. |
+| **KPI** | Indicatori con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, Pareto guasti con grafico e RFR, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
 
@@ -136,7 +136,7 @@ L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo
 
 ### Aprire un fermo (~10 secondi)
 1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.)
-2. Si apre **Apri fermo**: controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min.
+2. Si apre **Apri fermo**: controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
 
 ### Chiudere un fermo (~20–30 secondi)
@@ -144,8 +144,9 @@ L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo
 2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
 3. Scegli **Categoria**, **Tipo intervento**, **Tipo guasto** (uno solo, come nel template).
 4. **Altro (descrizione breve)**: obbligatoria se hai scelto ALTRO. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio.
-5. **Codice pezzo sostituito** se hai cambiato un ricambio.
-6. **Chiudi fermo**.
+5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
+6. **Codice pezzo sostituito** se hai cambiato un ricambio.
+7. **Chiudi fermo**.
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
@@ -207,13 +208,21 @@ Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della
 - Per costruire le liste delle altre linee guarda le descrizioni dei fermi chiusi con **ALTRO**: le voci che si ripetono diventano un guasto.
 
 ### 5.5 KPI
-Foglio **KPI**, tutto automatico:
-- **Per linea**: n° fermi, tempo di fermo, **MTTR** (tempo fermo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti).
-- **MTBF**: inserisci nella colonna gialla le **ore di funzionamento** della linea nel periodo; l'MTBF (ore ÷ n° fermi) si calcola da solo.
-- **Pareto guasti** con **RFR** (n° di quel guasto ÷ totale fermi).
-- **Macchine** ordinate per tempo di fermo.
+Foglio **KPI**. In alto le celle gialle sono i **filtri**:
 
-Contano solo i fermi **chiusi**. I KPI considerano tutto lo storico: per un periodo (es. mese) filtra il foglio Fermi per Data o lavora in Excel con le pivot.
+| Filtro | Cosa scegli |
+|---|---|
+| **Linea** | TUTTE oppure una linea |
+| **Macchina** | TUTTE oppure una macchina della linea scelta (se cambi linea, rimetti TUTTE) |
+| **Periodo** | Ultimi 7 / 30 / 90 giorni, Mese corrente, Mese scorso, Anno corrente, Tutto, Personalizzato (date nelle celle gialle a destra) |
+
+Tutto il foglio si ricalcola sulla scelta:
+- **Indicatori**: n° fermi, tempo di fermo, **MTTR** (tempo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti), guasto più frequente.
+- **MTBF**: scrivi nella cella gialla le **ore di funzionamento** della linea/macchina nel periodo scelto; l'MTBF (ore ÷ n° fermi) si calcola da solo.
+- **Pareto guasti** con **% cumulata** e **RFR** (n° di quel guasto ÷ totale fermi) + **grafico di Pareto** (barre = n° fermi, linea rossa = % cumulata: i guasti a sinistra dell'80% sono quelli su cui intervenire).
+- **Fermi per macchina** con tempo totale e MTTR.
+
+Contano solo i fermi **chiusi**. I fermi filtrati stanno nel foglio nascosto `KPI_dati` (non modificarlo).
 
 ---
 
@@ -237,6 +246,7 @@ Contano solo i fermi **chiusi**. I KPI considerano tutto lo storico: per un peri
   1. Estensioni → Apps Script → incolla il nuovo `Code.gs` → salva.
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
+  - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea KPI e KPI_dati; va reinserito solo il valore delle ore di funzionamento.
   - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
 ---
