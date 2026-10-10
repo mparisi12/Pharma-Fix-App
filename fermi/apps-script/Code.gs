@@ -161,35 +161,115 @@ function sistemaDurate() {
   sh.getRange(2, C.DUR, last - 1, 1).setFormulas(f).setNumberFormat('[h]:mm');
 }
 
+// ---------- KPI con filtri (linea, macchina, periodo) ----------
+// Per ricostruire il foglio KPI (es. dopo un aggiornamento): esegui aggiornaKpi() dall'editor.
+function aggiornaKpi() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  [SH_KPI, SH_KPI_DATI].forEach(n => { const s = ss.getSheetByName(n); if (s) ss.deleteSheet(s); });
+  buildKpi_(ss);
+}
+
+const SH_KPI_DATI = 'KPI_dati';
+const PERIODI = ['Ultimi 7 giorni', 'Ultimi 30 giorni', 'Ultimi 90 giorni', 'Mese corrente', 'Mese scorso', 'Anno corrente', 'Tutto', 'Personalizzato'];
+
 function buildKpi_(ss) {
-  const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI);
+  // I due fogli si citano a vicenda: si creano entrambi prima di scrivere le formule
+  const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI, 1);
+  // Foglio nascosto con i fermi filtrati: tutte le formule KPI leggono da qui
+  const dt = ss.getSheetByName(SH_KPI_DATI) || ss.insertSheet(SH_KPI_DATI);
+  dt.clear();
+  dt.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
+  dt.getRange('A2').setFormula('=IFERROR(FILTER(Fermi!A2:U, Fermi!R2:R="CHIUSO", ' +
+    'IF(KPI!$B$3="TUTTE", Fermi!R2:R<>"", Fermi!M2:M=KPI!$B$3), ' +
+    'IF(KPI!$B$4="TUTTE", Fermi!R2:R<>"", Fermi!T2:T=REGEXEXTRACT(KPI!$B$4,"^\\S+")), ' +
+    'Fermi!B2:B>=KPI!$B$6, Fermi!B2:B<=KPI!$B$7),)');
+  // elenchi per i menu a tendina
+  dt.getRange('W1').setValue('TUTTE');
+  dt.getRange('W2').setFormula('=SORT(UNIQUE(FILTER(Equipment!B2:B,Equipment!B2:B<>"")))');
+  dt.getRange('X1').setValue('TUTTE');
+  dt.getRange('X2').setFormula('=IFERROR(FILTER(Equipment!A2:A&" · "&Equipment!D2:D, Equipment!A2:A<>"", ' +
+    'IF(KPI!$B$3="TUTTE", Equipment!A2:A<>"", Equipment!B2:B=KPI!$B$3)),)');
+  PERIODI.forEach((p, i) => dt.getRange(i + 1, 25).setValue(p)); // colonna Y
+  dt.hideSheet();
+
   sh.clear();
-  sh.getRange('A1').setValue('KPI manutenzione — calcolati dal foglio Fermi (solo fermi chiusi)').setFontWeight('bold').setFontSize(13);
-  sh.getRange('A3:H3').setValues([['Linea', 'N° fermi', 'Tempo di fermo', 'MTTR', 'N° lotti', 'Occurrancy (fermi/lotti)',
-    'Ore funzionamento (inserire a mano)', 'MTBF (h)']]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
-  sh.getRange('A4').setFormula('=SORT(UNIQUE(FILTER(Equipment!B2:B,Equipment!B2:B<>"")))');
-  sh.getRange('B4').setFormula('=MAP(A4:A,LAMBDA(l,IF(l="","",COUNTIFS(Fermi!M:M,l,Fermi!R:R,"CHIUSO"))))');
-  sh.getRange('C4').setFormula('=MAP(A4:A,LAMBDA(l,IF(l="","",SUMIFS(Fermi!K:K,Fermi!M:M,l,Fermi!R:R,"CHIUSO"))))');
-  sh.getRange('D4').setFormula('=MAP(B4:B,C4:C,LAMBDA(n,t,IF(OR(n="",n=0),"",t/n)))');
-  sh.getRange('E4').setFormula('=MAP(A4:A,LAMBDA(l,IF(l="","",COUNTUNIQUEIFS(Fermi!A:A,Fermi!M:M,l,Fermi!A:A,"<>"))))');
-  sh.getRange('F4').setFormula('=MAP(B4:B,E4:E,LAMBDA(n,lo,IF(OR(n="",lo="",lo=0),"",n/lo)))');
-  sh.getRange('H4').setFormula('=MAP(B4:B,G4:G,LAMBDA(n,g,IF(OR(n="",n=0,g=""),"",g/n)))');
-  sh.getRange('C4:D40').setNumberFormat('[h]:mm');
-  sh.getRange('F4:F40').setNumberFormat('0.00');
-  sh.getRange('H4:H40').setNumberFormat('0.0');
-  sh.getRange('G4:G40').setBackground('#fff3d6');
+  sh.getCharts().forEach(c => sh.removeChart(c));
+  const H = '#dfe7ec', Y = '#fff3d6';
+  sh.getRange('A1').setValue('KPI manutenzione — fermi chiusi').setFontWeight('bold').setFontSize(14);
 
-  sh.getRange('J3').setValue('Pareto guasti (tutte le linee) — RFR = n° guasto / totale fermi').setFontWeight('bold');
-  sh.getRange('J4').setFormula('=QUERY(Fermi!A1:U,"select I, count(S), sum(K) where R = \'CHIUSO\' group by I order by count(S) desc label I \'Tipo guasto\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1)');
-  sh.getRange('M4').setValue('RFR').setFontWeight('bold');
-  sh.getRange('M5').setFormula('=MAP(K5:K,LAMBDA(n,IF(n="","",n/SUM(K5:K))))');
-  sh.getRange('L5:L200').setNumberFormat('[h]:mm');
-  sh.getRange('M5:M200').setNumberFormat('0.0%');
+  // Filtri
+  sh.getRange('A3:A7').setValues([['Linea'], ['Macchina'], ['Periodo'], ['Dal'], ['Al']]).setFontWeight('bold');
+  sh.getRange('B3').setValue('TUTTE');
+  sh.getRange('B4').setValue('TUTTE');
+  sh.getRange('B5').setValue('Ultimi 30 giorni');
+  sh.getRange('B3:B5').setBackground(Y);
+  const dv = r => SpreadsheetApp.newDataValidation().requireValueInRange(r, true).setAllowInvalid(false).build();
+  sh.getRange('B3').setDataValidation(dv(dt.getRange('W1:W60')));
+  sh.getRange('B4').setDataValidation(dv(dt.getRange('X1:X300')));
+  sh.getRange('B5').setDataValidation(dv(dt.getRange('Y1:Y8')));
+  sh.getRange('B6').setFormula('=SWITCH(B5,"Ultimi 7 giorni",TODAY()-6,"Ultimi 30 giorni",TODAY()-29,"Ultimi 90 giorni",TODAY()-89,' +
+    '"Mese corrente",EOMONTH(TODAY(),-1)+1,"Mese scorso",EOMONTH(TODAY(),-2)+1,"Anno corrente",DATE(YEAR(TODAY()),1,1),' +
+    '"Personalizzato",IF(D6="",TODAY()-29,D6),DATE(2000,1,1))');
+  sh.getRange('B7').setFormula('=SWITCH(B5,"Mese scorso",EOMONTH(TODAY(),-1),"Personalizzato",IF(D7="",TODAY(),D7),TODAY())');
+  sh.getRange('B6:B7').setNumberFormat('dd/MM/yyyy');
+  sh.getRange('C6:C7').setValues([['Personalizzato: dal →'], ['Personalizzato: al →']]).setFontColor('#5a6873').setHorizontalAlignment('right');
+  sh.getRange('D6:D7').setBackground(Y).setNumberFormat('dd/MM/yyyy');
+  sh.getRange('C4').setFormula('=IF(OR(B4="TUTTE",COUNTIF(KPI_dati!X:X,B4)>0),"","⚠ macchina non della linea scelta: rimetti TUTTE")').setFontColor('#c23b2a');
 
-  sh.getRange('O3').setValue('Fermi per macchina e linea').setFontWeight('bold');
-  sh.getRange('O4').setFormula('=QUERY(Fermi!A1:U,"select M, F, count(S), sum(K) where R = \'CHIUSO\' group by M, F order by sum(K) desc label M \'Linea\', F \'Macchina\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1)');
-  sh.getRange('R5:R200').setNumberFormat('[h]:mm');
-  sh.setColumnWidth(10, 260);
+  // Indicatori
+  sh.getRange('A9:H9').setValues([['N° fermi', 'Tempo di fermo', 'MTTR', 'N° lotti', 'Occurrancy (fermi/lotti)',
+    'Ore funzionamento (inserire)', 'MTBF (h)', 'Guasto più frequente']])
+    .setFontWeight('bold').setBackground(H).setWrap(true).setVerticalAlignment('middle');
+  sh.getRange('A10').setFormula('=COUNTIF(KPI_dati!S2:S,"?*")');
+  sh.getRange('B10').setFormula('=SUM(KPI_dati!K2:K)');
+  sh.getRange('C10').setFormula('=IF(A10=0,"",B10/A10)');
+  sh.getRange('D10').setFormula('=IFERROR(COUNTUNIQUE(FILTER(KPI_dati!A2:A,KPI_dati!A2:A<>"")),0)');
+  sh.getRange('E10').setFormula('=IF(D10=0,"",A10/D10)');
+  sh.getRange('F10').setBackground(Y);
+  sh.getRange('G10').setFormula('=IF(OR(A10=0,F10=""),"",F10/A10)');
+  sh.getRange('H10').setFormula('=IFERROR(INDEX(A14:A,1),"")');
+  sh.getRange('A10:H10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('B10:C10').setNumberFormat('[h]:mm');
+  sh.getRange('E10').setNumberFormat('0.00');
+  sh.getRange('G10').setNumberFormat('0.0');
+  sh.getRange('F11').setValue('ore della linea/macchina nel periodo scelto').setFontColor('#5a6873').setFontSize(9);
+
+  // Pareto
+  sh.getRange('A12').setValue('Pareto guasti — RFR = n° di quel guasto / totale fermi').setFontWeight('bold');
+  sh.getRange('A13').setFormula('=IFERROR(QUERY(KPI_dati!A1:U,"select I, count(S), sum(K) where S is not null group by I order by count(S) desc ' +
+    'label I \'Tipo guasto\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"Nessun fermo chiuso con questi filtri")');
+  sh.getRange('D13:E13').setValues([['% cumulata', 'RFR']]);
+  sh.getRange('D14').setFormula('=ARRAYFORMULA(IF(B14:B200="","",SCAN(0,B14:B200,LAMBDA(a,b,a+N(b)))/SUM(B14:B200)))');
+  sh.getRange('E14').setFormula('=ARRAYFORMULA(IF(B14:B200="","",B14:B200/SUM(B14:B200)))');
+  sh.getRange('A13:E13').setFontWeight('bold').setBackground(H);
+  sh.getRange('C14:C200').setNumberFormat('[h]:mm');
+  sh.getRange('D14:E200').setNumberFormat('0%');
+
+  // Per macchina
+  sh.getRange('G12').setValue('Fermi per macchina').setFontWeight('bold');
+  sh.getRange('G13').setFormula('=IFERROR(QUERY(KPI_dati!A1:U,"select M, F, count(S), sum(K) where S is not null group by M, F order by sum(K) desc ' +
+    'label M \'Linea\', F \'Macchina\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"")');
+  sh.getRange('K13').setValue('MTTR');
+  sh.getRange('K14').setFormula('=ARRAYFORMULA(IF(I14:I200="","",J14:J200/I14:I200))');
+  sh.getRange('G13:K13').setFontWeight('bold').setBackground(H);
+  sh.getRange('J14:K200').setNumberFormat('[h]:mm');
+
+  sh.setColumnWidth(1, 300); sh.setColumnWidth(2, 230); sh.setColumnWidth(3, 170); sh.setColumnWidth(8, 260);
+  sh.setFrozenRows(10);
+
+  // Grafico di Pareto: barre = n° fermi, linea = % cumulata
+  try {
+    const chart = sh.newChart().asComboChart()
+      .addRange(sh.getRange('A13:B33')).addRange(sh.getRange('D13:D33'))
+      .setNumHeaders(1)
+      .setOption('title', 'Pareto guasti')
+      .setOption('legend', { position: 'bottom' })
+      .setOption('series', { 0: { type: 'bars', targetAxisIndex: 0, color: '#245a7a' }, 1: { type: 'line', targetAxisIndex: 1, color: '#c23b2a', pointSize: 5 } })
+      .setOption('vAxes', { 0: { title: 'N° fermi', minValue: 0 }, 1: { title: '% cumulata', format: 'percent', minValue: 0, maxValue: 1 } })
+      .setPosition(2, 13, 0, 0).setOption('width', 720).setOption('height', 380)
+      .build();
+    sh.insertChart(chart);
+  } catch (e) { Logger.log('Grafico non creato: ' + e); }
 }
 
 /* =================== API =================== */
@@ -308,8 +388,8 @@ function openFermo_(p) {
   const eq = equipment_(ss).find(x => x.code === p.code) || { linea: p.linea || '', macchina: p.macchina || '' };
   const d = new Date(Number(p.ts));
   const stamp = Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm');
+  const lotto = lotto_(p.lotto);
   const url = savePhoto_(p.foto, stamp + '_' + p.code + '_apertura');
-  const lotto = /^\d+$/.test(String(p.lotto || '')) ? Number(p.lotto) : (p.lotto || '');
   const row = new Array(HEAD.length).fill('');
   row[C.LOTTO - 1] = lotto;
   row[C.DATA - 1] = dateOnly_(d);
@@ -333,11 +413,19 @@ function openFermo_(p) {
   return { row: r };
 }
 
+// Lotto obbligatorio: solo cifre, da 4 a 10
+function lotto_(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!/^\d{4,10}$/.test(s)) throw new Error('Lotto obbligatorio: inserisci il numero di lotto');
+  return Number(s);
+}
+
 function closeFermo_(p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);
   const r = findRow_(sh, p.id);
   if (!r) throw new Error('Fermo ' + p.id + ' non trovato');
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
+  lotto_(p.lotto);
   const d = new Date(Number(p.ts));
   const code = sh.getRange(r, C.EQ).getValue();
   const url = savePhoto_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura');
@@ -347,9 +435,7 @@ function closeFermo_(p) {
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(linkFormula_(url));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
-  if (p.lotto !== undefined && p.lotto !== '') {
-    sh.getRange(r, C.LOTTO).setValue(/^\d+$/.test(String(p.lotto)) ? Number(p.lotto) : p.lotto);
-  }
+  sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
   return { row: r };
 }
