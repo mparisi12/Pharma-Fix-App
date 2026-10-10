@@ -1,9 +1,17 @@
 # Pharma-Fix · Fermi macchina
 
-App per registrare i fermi macchina dal telefono in meno di 30 secondi: si scansiona il QR sulla macchina, si apre il fermo, a fine intervento si chiude con la foto della zona e i dati del template "fermi meccanici". Ogni fermo diventa una riga di un foglio Google che si aggiorna da solo e si può aprire anche in Excel.
+App di reparto costruita attorno al **QR della macchina**:
+
+- **Fermi macchina** in meno di 30 secondi: si scansiona il QR, si apre il fermo, a fine intervento si chiude con la foto della zona e i dati del template "fermi meccanici".
+- **Scheda macchina**: fermi, soluzioni, manuali/schemi, schede formato e anomalie aperte di quella macchina.
+- **Soluzioni** (troubleshooting): quelle verificate e quelle nate dai fermi chiusi.
+- **Documenti**: manuali, schemi e schede formato collegati alla macchina o alla linea.
+- **Anomalie**: segnalazioni con urgenza 1 critico / 2 urgente / 3 programmabile, da prendere in carico e chiudere.
+
+Tutto finisce in un foglio Google che si aggiorna da solo e si può aprire anche in Excel.
 
 Indirizzo dell'app: **https://mparisi12.github.io/Pharma-Fix-App/fermi/**
-(Pharma-Fix si apre già qui; il pulsante **Menu** in alto riporta alle altre funzioni.)
+(Pharma-Fix si apre già qui. La vecchia versione resta raggiungibile: tocca il tuo nome in alto → **Vecchia Pharma-Fix**.)
 
 ---
 
@@ -47,6 +55,9 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Equipment** | Elenco macchine: codice del QR, linea, area, nome macchina, attivo. | Tu. |
 | **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori abilitati**. | Tu. |
 | **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
+| **Soluzioni** | Troubleshooting: dove vale (codice macchina, linea o `TUTTE`), tipo guasto, problema, soluzione, codici ricambio, allegato. | L'app (pulsante *Aggiungi soluzione*) e tu. |
+| **Documenti** | Manuali, schemi, schede formato: dove vale, tipo, titolo, descrizione, **link**. | Tu (vedi 5.6). |
+| **Anomalie** | Segnalazioni: macchina, urgenza (cella colorata), descrizione, cosa serve, foto, stato APERTA / IN CORSO / CHIUSA, chi l'ha gestita, nota. | L'app; tu puoi cambiare stato e note. |
 | **KPI** | Indicatori con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, Pareto guasti con grafico e RFR, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
@@ -150,6 +161,15 @@ L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
+### Scheda macchina, soluzioni, documenti, anomalie
+- **Scheda macchina**: dalla home **Scegli macchina a mano**, oppure tocca un fermo/anomalia, oppure dalla barra in basso dopo aver scelto una macchina. Mostra fermo in corso (o **Apri fermo**), numeri degli ultimi 30 giorni, i quattro riquadri e gli ultimi interventi.
+- **Soluzioni**: cerca per parola (pinze, ventose…) o per tipo guasto. **VERIFICATA** = scritta nel foglio Soluzioni; **DA UN FERMO** = descrizione di un fermo chiuso su quella macchina. **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo.
+- **Documenti**: due schede, *Manuali e schemi* e *Schede formato*; filtro *Questa macchina* / *Tutta la linea*. Si aprono con un tocco.
+- **Segnala anomalia**: macchina (dal QR o *Cambia*), **urgenza 1 / 2 / 3**, cosa hai visto, foto con cerchio, cosa serve → **Invia segnalazione**.
+- **Anomalie** (barra in basso): *Da gestire* e *Chiuse* (ultimi 30 giorni). Tocca una anomalia → **Prendo in carico** oppure **Chiudi anomalia** con una nota.
+
+Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
+
 ### Il pallino in alto
 | Pallino | Significa |
 |---|---|
@@ -224,6 +244,27 @@ Tutto il foglio si ricalcola sulla scelta:
 
 Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano quando cambi una cella gialla, quando si chiude un fermo, oppure dal menu **Pharma-Fix → Aggiorna KPI** (in alto nel foglio, accanto a Guida). Se il foglio KPI si rovina: **Pharma-Fix → Ricrea foglio KPI**.
 
+### 5.6 Documenti (foglio Documenti)
+Una riga per documento:
+
+| Colonna | Cosa scrivere |
+|---|---|
+| **Dove** | Codice QR della macchina (`ST3-04`), oppure la linea (`ST3`) per tutta la linea, oppure `TUTTE` |
+| **Tipo** | `MANUALE`, `SCHEMA`, `SCHEDA FORMATO` o `ALTRO` (le *Schede formato* vanno nella seconda scheda dell'app) |
+| **Titolo** / **Descrizione** | Quello che vede il tecnico (es. *Schema elettrico* · *rev. 3*) |
+| **Link** | Link al file su Drive/SharePoint: in Drive tasto destro → Condividi → *Chiunque nell'organizzazione con il link* → Copia link |
+
+Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mostra solo il link, quindi lo apre solo chi ha già i permessi.
+
+### 5.7 Portare i dati della vecchia Pharma-Fix
+Una volta sola, per non perdere troubleshooting, documenti e anomalie già registrati:
+1. Apri il foglio della vecchia Pharma-Fix, seleziona tutto (intestazioni comprese) e copia.
+2. In *Pharma-Fix Fermi* crea una scheda chiamata **Import_PharmaFix** e incolla in A1.
+3. Estensioni → Apps Script → funzione **importaPharmaFix** → **Esegui**. La prima volta crea il foglio **Mappa_import**: per ogni coppia *reparto + macchina* propone il codice QR. Controlla la colonna del codice e correggi quelli sbagliati (vuoto = vale per tutta la linea).
+4. Esegui di nuovo **importaPharmaFix**: i GUASTI vanno in Soluzioni, MANUALI/SCHEMI/SCHEDE in Documenti, le ANOMALIE in Anomalie.
+
+Si può rieseguire: le righe già importate non vengono duplicate.
+
 ---
 
 ## 6. I dati in Excel
@@ -247,7 +288,7 @@ Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano qu
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
   - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea il foglio KPI; va reinserito solo il valore delle ore di funzionamento.
-  - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
+  - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti, Soluzioni, Documenti, Anomalie) e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
 ---
 
