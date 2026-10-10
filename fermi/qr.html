@@ -18,18 +18,23 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;paddin
 .lab .l{font-size:12px;color:#333}
 .lab .c{font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.05em}
 .lab .h{font-size:9px;color:#555}
-@media print{.bar,.note{display:none}body{padding:0}.lab{border-color:#bbb}}
+.lab{cursor:pointer;position:relative}
+.lab.sel{outline:3px solid #245a7a;outline-offset:1mm;background:#e3edf3}
+.lab.sel::after{content:"✓";position:absolute;top:2mm;right:3mm;font:700 16px system-ui;color:#245a7a}
+body.only .lab:not(.sel){display:none}
+@media print{.bar,.note{display:none}body{padding:0}.lab{border-color:#bbb}.lab.sel{outline:0;background:none}.lab.sel::after{display:none}body.hassel .lab:not(.sel){display:none}}
 </style>
 </head>
 <body>
 <div class="bar">
   <select id="linea"><option value="">Tutte le linee</option></select>
-  <button class="pr" onclick="window.print()">Stampa</button>
+  <button class="pr" id="print" onclick="window.print()">Stampa tutte</button>
+  <button id="clear" onclick="clearSel()" hidden>Deseleziona</button>
   <input id="pin" type="password" placeholder="Codice reparto" style="font:inherit;padding:8px 12px;border:1px solid #c5cfd6;border-radius:8px;width:150px">
   <button onclick="loadEq()">Carica macchine</button>
   <span class="note" id="src"></span>
 </div>
-<p class="note">Ogni QR apre l'app direttamente sulla scheda della macchina. Funziona sia con lo scanner dell'app sia con la fotocamera normale del telefono. Stampa su carta adesiva o plastificata, al 100% senza adattare alla pagina.</p>
+<p class="note"><b>Tocca le etichette</b> per stampare solo quelle (es. macchine nuove): senza selezione si stampano tutte quelle della linea scelta.<br>Ogni QR apre l'app direttamente sulla scheda della macchina. Funziona sia con lo scanner dell'app sia con la fotocamera normale del telefono. Stampa su carta adesiva o plastificata, al 100% senza adattare alla pagina.</p>
 <div class="grid" id="grid"></div>
 
 <script src="config.js"></script>
@@ -37,15 +42,25 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;paddin
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 const base = new URL('./', location.href).href; // cartella dell'app su GitHub Pages
+// ?eq=ST3-04 oppure ?eq=ST3-04,ST6-05: preseleziona quelle etichette
+const SEL = new Set((new URL(location.href).searchParams.get('eq') || '').split(',').map(s => s.trim()).filter(Boolean));
+function updSel() {
+  const n = SEL.size; document.body.classList.toggle('hassel', n > 0);
+  document.getElementById('print').textContent = n ? 'Stampa ' + n + (n === 1 ? ' selezionata' : ' selezionate') : 'Stampa tutte';
+  document.getElementById('clear').hidden = !n;
+}
+function clearSel() { SEL.clear(); document.body.classList.remove('only'); draw(); }
 let EQ = PF_DEFAULTS.equipment;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function draw() {
   const L = document.getElementById('linea').value;
   document.getElementById('grid').innerHTML = EQ.filter(e => !L || e.linea === L).map(e => {
     const q = qrcode(0, 'M'); q.addData(base + '?eq=' + encodeURIComponent(e.code)); q.make();
-    return `<div class="lab"><div class="m">${esc(e.macchina)}</div><div class="qr">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>
+    return `<div class="lab${SEL.has(e.code) ? ' sel' : ''}" data-c="${esc(e.code)}"><div class="m">${esc(e.macchina)}</div><div class="qr">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>
       <div class="l">${esc(e.linea)} · ${esc(e.area)}</div><div class="c">${esc(e.code)}</div><div class="h">Fermo macchina? Scansiona</div></div>`;
   }).join('');
+  document.querySelectorAll('.lab').forEach(l => l.onclick = () => { const c = l.dataset.c; SEL.has(c) ? SEL.delete(c) : SEL.add(c); l.classList.toggle('sel'); updSel(); });
+  updSel();
 }
 function fillLines() {
   const sel = document.getElementById('linea');
@@ -56,6 +71,7 @@ const getPin = () => { try { return JSON.parse(localStorage.getItem('pf_pin') ||
 async function loadEq() {
   const cfg = window.PF_CONFIG || {}, src = document.getElementById('src');
   const pin = document.getElementById('pin').value.trim() || getPin();
+  if (getPin()) document.getElementById('pin').hidden = true;
   if (!cfg.API_URL || !pin) { src.textContent = 'Macchine: elenco di partenza. Inserisci il codice reparto per leggere il foglio Equipment.'; return; }
   src.textContent = 'Carico…';
   try {
@@ -65,6 +81,7 @@ async function loadEq() {
     EQ = j.equipment; src.textContent = 'Macchine: dal foglio Equipment (' + EQ.length + ')'; fillLines(); draw();
   } catch { src.textContent = 'Foglio non raggiungibile: uso l\'elenco di partenza'; }
 }
+if (SEL.size) document.body.classList.add('only'); // aperta da una scheda macchina: mostra solo quella
 fillLines(); draw(); loadEq();
 </script>
 </body>

@@ -611,7 +611,8 @@ function renderEquip() {
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}</h2>
     <div class="list" id="hist">${hist.length ? hist.slice(0, 5).map(histRow).join('') : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}</div>
-    ${hist.length > 5 ? '<div class="center"><button class="linkbtn" id="morehist">Mostra tutto lo storico</button></div>' : ''}`;
+    ${hist.length > 5 ? '<div class="center"><button class="linkbtn" id="morehist">Mostra tutto lo storico</button></div>' : ''}
+    <div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
   const mh = $('#morehist'); if (mh) mh.onclick = () => { $('#hist').innerHTML = hist.map(histRow).join(''); mh.remove(); };
@@ -831,6 +832,7 @@ function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <p class="hint">Fermi, soluzioni e anomalie vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
+    <a class="submit blue" href="qr.html" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;margin-bottom:10px">${I.qr.replace('<svg', '<svg width="22" height="22"')}Stampa etichette QR</a>
     <button class="submit red" id="logout">Esci</button>`);
   $('#logout').onclick = logout;
 };
