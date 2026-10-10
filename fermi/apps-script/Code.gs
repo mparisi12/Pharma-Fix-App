@@ -163,6 +163,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
+    if (p.action === 'open' || p.action === 'close') checkTecnico_(p.manutentore);
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -180,6 +181,13 @@ function doPost(e) {
 function checkKey_(k) {
   const key = PropertiesService.getScriptProperties().getProperty('KEY');
   if (!key || k !== key) throw new Error('Chiave non valida: controlla KEY in config.js');
+}
+// Solo i nomi presenti nella colonna Manutentori del foglio Liste possono registrare fermi
+function checkTecnico_(nome) {
+  const lv = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE).getDataRange().getValues();
+  const col = lv[0].indexOf('Manutentori');
+  const ok = col >= 0 && lv.slice(1).some(r => String(r[col]).trim() !== '' && String(r[col]).trim() === String(nome || '').trim());
+  if (!ok) throw new Error('Manutentore non abilitato: ' + nome);
 }
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
