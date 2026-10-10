@@ -7,7 +7,9 @@
 <title>Pharma-Fix</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Pharma-Fix">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -823,8 +825,7 @@ function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <p class="hint">Fermi, soluzioni e anomalie vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
-    <button class="submit red" id="logout">Esci</button>
-    <div class="center" style="margin-top:12px"><a class="linkbtn" href="../?menu=1">Vecchia Pharma-Fix</a></div>`);
+    <button class="submit red" id="logout">Esci</button>`);
   $('#logout').onclick = logout;
 };
 
