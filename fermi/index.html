@@ -105,6 +105,7 @@ h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:va
 /* Urgenza */
 .urg{display:inline-flex;align-items:center;font:700 12px var(--display);letter-spacing:.05em;border-radius:6px;padding:3px 8px;white-space:nowrap}
 .u1{background:var(--crit);color:#fff}.u2{background:var(--yel);color:var(--yel-ink)}.u3{background:var(--ok);color:#fff}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:10px}.times label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
 .qrbtn{display:flex;align-items:center;gap:6px;border:0;border-radius:10px;background:var(--steel);color:var(--steel-ink);font:700 15px var(--display);letter-spacing:.06em;padding:10px 12px;min-height:44px;flex:none}
 .qrbtn svg{width:20px;height:20px}
 .urgpick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -243,6 +244,12 @@ const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: 
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
 let OUTBOX = load('outbox', []);
+// Identificativo di questo telefono: ogni tecnico è legato al suo telefono (foglio Telefoni)
+const DEV = load('dev', '') || (() => { const d = 'T-' + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase(); save('dev', d); return d; })();
+const DEV_NAME = (() => { const u = navigator.userAgent; const m = u.match(/\(([^)]+)\)/); const parts = m ? m[1].split(';').map(x => x.trim()) : [];
+  const model = parts.find(x => /Build|SM-|Pixel|Redmi|iPhone|iPad|moto|Nokia|OnePlus|HUAWEI|Xiaomi/i.test(x)) || parts[parts.length - 1] || '';
+  return ((/Android/.test(u) ? 'Android ' : /iPhone|iPad/.test(u) ? 'iOS ' : '') + model.replace(/Build.*/, '')).trim().slice(0, 60); })();
+const isTelErr = e => /Telefono non/.test(e && e.message || '');
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
@@ -259,6 +266,9 @@ function turnoOf(t) { const h = new Date(t).getHours(); return h >= 6 && h < 14 
 function uid(p = 'F') { return p + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
 function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
 const U = s => String(s || '').trim().toUpperCase();
+// Aree: FILLING (sterile, telefono non ammesso: fermo registrato all'uscita) e PACKAGING
+const isFill = eq => !!eq && /^(FILL|STERIL)/i.test(String(eq.area || '').trim());
+const areaLbl = a => /^(FILL|STERIL)/i.test(String(a || '').trim()) ? 'FILLING' : /^(PACK|SECOND)/i.test(String(a || '').trim()) ? 'PACKAGING' : U(a);
 const eqBy = code => S.equipment.find(e => U(e.code) === U(code));
 const nice = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 const I = {
@@ -322,6 +332,7 @@ function soluzioniDaFermi(eq) {
 }
 function lastLotto(linea) { const f = allFermi().find(x => x.linea === linea && x.lotto && x.lotto !== 'undefined'); return f ? String(f.lotto) : ''; }
 function enqueue(op) {
+  if (!op.reg) op.reg = Date.now(); // ora reale della registrazione (traccia)
   OUTBOX.push(op);
   if (!save('outbox', OUTBOX)) { // memoria piena: si tengono i dati, si perdono gli allegati più vecchi
     for (const o of OUTBOX) { if (o.foto || o.file) { o.foto = ''; o.file = ''; if (save('outbox', OUTBOX)) break; } }
@@ -356,7 +367,7 @@ async function apiPost(op) {
   }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60000);
   try {
-    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: getPin() }), signal: ctl.signal });
+    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: getPin(), dev: DEV, devName: DEV_NAME }), signal: ctl.signal });
     const j = await r.json(); if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
   } finally { clearTimeout(t); }
 }
@@ -369,6 +380,7 @@ async function sync() {
       try { await apiPost(op); }
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
+        if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
         if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
@@ -483,7 +495,7 @@ async function openScanner(onEq, msg) {
 function afterScan(eq) {
   go({ name: 'equip', code: eq.code });
   const f = allFermi().find(x => x.code === eq.code && x.stato === 'APERTO');
-  needMan(() => f ? closeSheet(f) : openSheet(eq));
+  needMan(() => f ? closeSheet(f) : isFill(eq) ? fillSheet(eq) : openSheet(eq));
 }
 function scanFromPhoto(cb = afterScan) {
   capture(img => {
@@ -514,6 +526,7 @@ function render() {
 function renderSync() {
   const n = OUTBOX.length; let cls = 'dot', txt;
   if (MOCK) { cls += ' demo'; txt = 'MODALITÀ DEMO · dati solo su questo telefono'; }
+  else if (S.net === 'tel') { cls += ' off'; txt = (S.telErr || 'Telefono non autorizzato') + (n ? ' · ' + n + ' in attesa' : ''); }
   else if (S.net === 'off') { cls += ' off'; txt = 'Non connesso' + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
   else if (n) { cls += ' warn'; txt = 'Invio in corso · ' + n + ' in coda'; }
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
@@ -595,11 +608,12 @@ function renderEquip() {
   const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
   const C = eq.code;
   $('#view').innerHTML = `
-    ${topline('', eq.code + ' · ' + eq.linea + ' · ' + eq.area, 'home')}
+    ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
     ${open ? `<div class="fermobanner"><div style="flex:1"><div style="font-weight:600;font-size:13px">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}</div>
       <div class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</div></div><button class="closebtn" data-close="${esc(open.id)}">Chiudi fermo</button></div>`
-      : `<button class="bigbtn" id="openf">${I.qr.replace('<svg', '<svg width="26" height="26"')}Apri fermo</button>`}
+      : `<button class="bigbtn" id="openf">${I.qr.replace('<svg', '<svg width="26" height="26"')}${isFill(eq) ? 'Registra fermo' : 'Apri fermo'}</button>
+        ${isFill(eq) ? '<div class="hint center" style="margin-top:-4px">FILLING: registra il fermo all\'uscita dallo sterile, con gli orari del batch record</div>' : ''}`}
     <div class="stats">
       <div class="stat"><div class="label">Fermi 30 gg</div><div class="v">${c30.length}</div></div>
       <div class="stat"><div class="label">MTTR 30 gg</div><div class="v">${c30.length ? fmtDur(mttr) : '—'}</div></div>
@@ -616,7 +630,7 @@ function renderEquip() {
     <div class="list" id="hist">${hist.length ? hist.slice(0, 5).map(histRow).join('') : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}</div>
     ${hist.length > 5 ? '<div class="center"><button class="linkbtn" id="morehist">Mostra tutto lo storico</button></div>' : ''}
     <div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>`;
-  const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
+  const of = $('#openf'); if (of) of.onclick = () => needMan(() => isFill(eq) ? fillSheet(eq) : openSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
   const mh = $('#morehist'); if (mh) mh.onclick = () => { $('#hist').innerHTML = hist.map(histRow).join(''); mh.remove(); };
   bindCommon();
@@ -823,6 +837,17 @@ $('#lform').onsubmit = async e => {
   if (!t && !MOCK) { btn.disabled = true; btn.textContent = 'Verifica…'; await refresh(); t = findTecnico(n, c); }
   btn.disabled = false; btn.textContent = 'Entra';
   if (!t) { err.textContent = 'Non trovo "' + n.trim() + ' ' + c.trim() + '" tra i manutentori abilitati. Controlla come è scritto o chiedi al responsabile di aggiungerti.'; err.hidden = false; return; }
+  if (!MOCK) { // il nome deve essere quello del proprietario di questo telefono
+    const okList = load('devok', []);
+    btn.disabled = true; btn.textContent = 'Verifica…';
+    try {
+      const r = await fetch(CFG.API_URL + '?action=login&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(t) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
+      const j = await r.json();
+      if (!j.ok) { if (isPinErr({ message: j.error })) { pinInvalid(); return; } return fail(j.error || 'Accesso non riuscito'); }
+      if (!okList.includes(t)) save('devok', [...okList, t]);
+    } catch { if (!okList.includes(t)) return fail('Primo accesso con questo nome su questo telefono: serve la connessione.'); }
+    btn.disabled = false; btn.textContent = 'Entra';
+  }
   const sess = { man: t, exp: Date.now() + SESSION_H * 3600e3 };
   try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {}
   save('sess', sess);
@@ -879,17 +904,39 @@ function openSheet(eq) {
 }
 function guastiFor(eq) {
   const G = S.guasti || {};
-  if (!Object.keys(G).length) return S.liste[eq.area === 'Sterile' ? 'Guasto Sterile' : 'Guasto Secondario'] || ['ALTRO'];
+  if (!Object.keys(G).length) return S.liste[isFill(eq) ? 'Guasto Sterile' : 'Guasto Secondario'] || ['ALTRO'];
   const all = [...(G[U(eq.code)] || []), ...(G[U(eq.linea)] || []), ...(G['TUTTE'] || [])];
   const seen = new Set(), out = [];
   for (const g of all) { const k = U(g); if (!seen.has(k)) { seen.add(k); out.push(g); } }
   const i = out.findIndex(g => U(g) === 'ALTRO'); if (i >= 0) out.push(out.splice(i, 1)[0]); else out.push('ALTRO');
   return out;
 }
-function closeSheet(f) {
-  const eq = eqBy(f.code) || { area: 'Secondario', code: f.code, linea: f.linea };
+// FILLING: in sterile il telefono non entra. All'uscita si scansiona/fotografa il QR e si registra il fermo
+// con inizio e fine scritti a mano (gli stessi del batch record), solo dentro il turno in corso.
+function inizioTurno(now = Date.now()) {
+  const d = new Date(now), h = d.getHours(), s = new Date(d);
+  s.setHours(h >= 6 && h < 14 ? 6 : h >= 14 && h < 22 ? 14 : 22, 0, 0, 0);
+  if (h < 6) s.setDate(s.getDate() - 1);
+  return s.getTime();
+}
+function oraToTs(v, now = Date.now()) { // "HH:MM" → istante più recente non nel futuro
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || '').trim()); if (!m) return null;
+  const d = new Date(now); d.setHours(+m[1], +m[2], 0, 0);
+  if (d.getTime() > now + 60000) d.setDate(d.getDate() - 1);
+  return d.getTime();
+}
+function fillSheet(eq) {
+  closeSheet({ id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lastLotto(eq.linea) }, { reg: true });
+}
+function closeSheet(f, opt = {}) {
+  const eq = eqBy(f.code) || { area: 'Packaging', code: f.code, linea: f.linea };
   const C = { img: null, circles: [], cat: null, int: null, guasto: null };
-  sheet(`<div class="sheet-h"><div><h3>Chiudi fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span></div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+  const REG = !!opt.reg, t0 = inizioTurno();
+  const hhmm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
+  sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>FILLING</b>' : ` · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span>`}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    ${REG ? `<div class="group"><span class="label">Orari del fermo · come sul batch record</span>
+      <div class="times"><label>Inizio<input class="field" type="time" id="tini" required></label><label>Fine<input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
+      <div class="hint">Solo fermi del turno in corso (dalle ${hhmm(t0)}). Gli orari vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
     <div class="group" id="phgrp"></div>
     <div class="group"><span class="label">Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
     <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
@@ -898,8 +945,8 @@ function closeSheet(f) {
     <div class="group"><label class="label" for="clotto">Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
     <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
     <div class="err" id="err" hidden></div>
-    <button class="submit" id="go">Chiudi fermo</button>
-    <div class="center" style="margin-top:8px"><button class="linkbtn danger" id="canc">Fermo aperto per errore? Annullalo</button></div>`);
+    <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
+    ${REG ? '' : '<div class="center" style="margin-top:8px"><button class="linkbtn danger" id="canc">Fermo aperto per errore? Annullalo</button></div>'}`);
   photoBox($('#phgrp'), C, 'Foto zona di intervento');
   singleChoice($('#cat'), v => C.cat = v);
   singleChoice($('#int'), v => C.int = v);
@@ -910,13 +957,23 @@ function closeSheet(f) {
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
     if (!msg && (C.guasto === 'ALTRO' || C.int === 'ALTRO') && !altro) msg = 'Hai scelto ALTRO: scrivi una descrizione breve.';
     if (!msg && !LOTTO_OK($('#clotto').value)) msg = LOTTO_MSG;
+    const now = Date.now();
+    let ini = f.start, fin = now;
+    if (!msg && REG) {
+      ini = oraToTs($('#tini').value, now); fin = oraToTs($('#tfin').value, now);
+      if (ini == null || fin == null) msg = 'Scrivi ora di inizio e di fine del fermo.';
+      else if (ini < t0 || fin < t0) msg = 'Si possono registrare solo fermi del turno in corso (dalle ' + hhmm(t0) + ').';
+      else if (fin <= ini) msg = 'La fine deve essere dopo l\'inizio.';
+    }
     if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
-    enqueue({ action: 'close', id: f.id, ts: Date.now(), manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
-      altro, pezzo: $('#pezzo').value.trim(), lotto: $('#clotto').value.trim(), foto: C.img ? toJpeg(C.img, C.circles) : '' });
-    closeSh(); toast('Fermo chiuso · ' + fmtDur((Date.now() - f.start) / 60000));
+    const lotto = $('#clotto').value.trim();
+    if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
+    enqueue({ action: 'close', id: f.id, ts: fin, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
+      altro, pezzo: $('#pezzo').value.trim(), lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: REG || undefined, reg: now });
+    closeSh(); toast((REG ? 'Fermo registrato · ' : 'Fermo chiuso · ') + fmtDur((fin - ini) / 60000));
   };
   const cb = $('#canc');
-  cb.onclick = () => {
+  if (cb) cb.onclick = () => {
     if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = 'Tocca ancora per annullare il fermo'; return; }
     enqueue({ action: 'cancel', id: f.id }); closeSh(); toast('Fermo annullato');
   };
