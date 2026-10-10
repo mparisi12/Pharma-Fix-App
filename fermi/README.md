@@ -128,7 +128,7 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 
 1. Foglio **Liste** → colonna **Manutentori**: controlla che ci siano tutti i tecnici, scritti `COGNOME Nome` (vedi [5.1](#51-tecnici-abilitati)).
 2. Foglio **Equipment**: controlla e completa le macchine (vedi [5.2](#52-lista-macchine-foglio-equipment)).
-3. Dal PC apri **https://mparisi12.github.io/Pharma-Fix-App/fermi/qr.html** → scrivi il codice reparto → **Carica macchine** → scegli la linea → **Stampa** al 100% su carta adesiva o da plastificare → attacca ogni etichetta sulla sua macchina, lato operatore.
+3. Nell'app tocca il tuo nome in alto → **Stampa etichette QR** (oppure dal PC apri **https://mparisi12.github.io/Pharma-Fix-App/fermi/qr.html**, scrivi il codice reparto → **Carica macchine**) → scegli la linea → **Stampa** al 100% su carta adesiva o da plastificare → attacca ogni etichetta sulla sua macchina, lato operatore.
 
 ### 3.5 Installare l'app sui telefoni
 
@@ -205,7 +205,13 @@ Una riga per ogni macchina che deve avere il suo QR:
 - **Macchina**: il nome che finisce nella colonna Macchina del foglio Fermi (per le pivot usa sempre gli stessi nomi).
 - **Attivo**: `NO` per toglierla dall'app senza perdere lo storico.
 
-Puoi incollare l'elenco direttamente da Excel. Dopo aver aggiunto macchine, da `qr.html` stampa solo le etichette nuove.
+Puoi incollare l'elenco direttamente da Excel. **Non rinumerare** le macchine che hanno già l'etichetta: aggiungi quelle nuove con un codice libero.
+
+**Stampare le etichette QR** (si trovano anche dall'app):
+- **Tutte o alcune**: nell'app tocca il tuo nome in alto → **Stampa etichette QR**. Scegli la linea; **tocca le etichette** che ti servono (es. le macchine nuove) e premi **Stampa N selezionate**. Senza selezione si stampano tutte.
+- **Una sola**: dalla scheda della macchina, in fondo → **Stampa etichetta QR di questa macchina**.
+
+Stampa al 100% (senza adattare alla pagina) su carta adesiva o da plastificare.
 
 > L'elenco iniziale creato da `setup()` mette Riordinatore + Filling su ogni linea con filling e le 6 macchine del secondario su ogni linea con packaging: **va controllato**, in particolare per le linee con macchine diverse (es. ST4, ST5).
 
