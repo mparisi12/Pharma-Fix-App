@@ -51,13 +51,14 @@ function updSel() {
 }
 function clearSel() { SEL.clear(); document.body.classList.remove('only'); draw(); }
 let EQ = PF_DEFAULTS.equipment;
+const areaLbl = a => /^(FILL|STERIL)/i.test(String(a || '').trim()) ? 'FILLING' : /^(PACK|SECOND)/i.test(String(a || '').trim()) ? 'PACKAGING' : String(a || '').toUpperCase();
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function draw() {
   const L = document.getElementById('linea').value;
   document.getElementById('grid').innerHTML = EQ.filter(e => !L || e.linea === L).map(e => {
     const q = qrcode(0, 'M'); q.addData(base + '?eq=' + encodeURIComponent(e.code)); q.make();
     return `<div class="lab${SEL.has(e.code) ? ' sel' : ''}" data-c="${esc(e.code)}"><div class="m">${esc(e.macchina)}</div><div class="qr">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>
-      <div class="l">${esc(e.linea)} · ${esc(e.area)}</div><div class="c">${esc(e.code)}</div><div class="h">Fermo macchina? Scansiona</div></div>`;
+      <div class="l">${esc(e.linea)} · ${esc(areaLbl(e.area))}</div><div class="c">${esc(e.code)}</div><div class="h">${/^(FILL|STERIL)/i.test(String(e.area || '').trim()) ? 'Fermo? Scansiona all\'uscita dallo sterile' : 'Fermo macchina? Scansiona'}</div></div>`;
   }).join('');
   document.querySelectorAll('.lab').forEach(l => l.onclick = () => { const c = l.dataset.c; SEL.has(c) ? SEL.delete(c) : SEL.add(c); l.classList.toggle('sel'); updSel(); });
   updSel();

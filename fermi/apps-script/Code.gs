@@ -35,10 +35,11 @@ const HEAD = [
   'Tipo intervento', 'Tipo guasto', 'Altro (descrizione breve)', 'Durata intervento MTTR',
   'Intervento-Guasto',
   'Linea', 'Turno', 'Codice pezzo', 'Foto apertura', 'Foto chiusura', 'Stato', 'ID fermo',
-  'Equipment', 'Aperto da'
+  'Equipment', 'Aperto da',
+  'Orari', 'Registrato alle', 'Telefono'
 ];
 const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT: 8, GUASTO: 9, ALTRO: 10,
-  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21 };
+  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24 };
 
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
@@ -136,8 +137,8 @@ function setup() {
   if (sh.getLastRow() === 0) {
     const rows = [['Codice (QR)', 'Linea', 'Area', 'Macchina', 'Attivo']];
     DEF_LINEE.forEach(([cod, nome, f, p]) => {
-      if (f) DEF_MACC.Sterile.forEach(([m, n]) => rows.push([cod + '-' + m, nome, 'Sterile', n, 'SI']));
-      if (p) DEF_MACC.Secondario.forEach(([m, n]) => rows.push([cod + '-' + m, nome, 'Secondario', n, 'SI']));
+      if (f) DEF_MACC.Sterile.forEach(([m, n]) => rows.push([cod + '-' + m, nome, 'Filling', n, 'SI']));
+      if (p) DEF_MACC.Secondario.forEach(([m, n]) => rows.push([cod + '-' + m, nome, 'Packaging', n, 'SI']));
     });
     sh.getRange(1, 1, rows.length, 5).setValues(rows);
     sh.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#dfe7ec');
@@ -159,6 +160,7 @@ function setup() {
   if (!ss.getSheetByName(SH_KPI)) buildKpi_(ss); // il foglio KPI non viene più ricostruito se esiste già
   if (!ss.getSheetByName(SH_GUASTI)) buildGuasti_(ss);
   creaFogliArchivio_(ss);
+  aggiornaV3_(ss);
   sistemaDurate();
 
   // Cartella foto
@@ -220,6 +222,8 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Pharma-Fix')
     .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
+    .addSeparator()
+    .addItem('Controlla registrazioni', 'controllaRegistrazioni')
     .addToUi();
 }
 
@@ -572,6 +576,113 @@ function indovinaCodice_(rep, mac, eq, linee) {
   return hit ? hit.code : (linea || 'TUTTE');
 }
 
+/* ---------- Telefoni dei tecnici ----------
+   Ogni nome è legato al suo telefono. Il primo telefono con cui un tecnico entra viene registrato in automatico;
+   un telefono diverso, o un telefono già di un altro tecnico, resta DA APPROVARE finché il responsabile non scrive OK. */
+const SH_TEL = 'Telefoni';
+const TEL_H = ['Tecnico', 'ID telefono', 'Modello', 'Primo accesso', 'Ultimo uso', 'Stato (OK / DA APPROVARE / BLOCCATO)'];
+function telSheet_(ss) {
+  let sh = ss.getSheetByName(SH_TEL);
+  if (!sh) {
+    sh = ss.insertSheet(SH_TEL);
+    sh.getRange(1, 1, 1, TEL_H.length).setValues([TEL_H]).setFontWeight('bold').setBackground('#dfe7ec');
+    sh.setFrozenRows(1); sh.setColumnWidth(1, 180); sh.setColumnWidth(3, 220); sh.setColumnWidth(6, 230);
+  }
+  return sh;
+}
+function checkTelefono_(man, dev, devName) {
+  man = String(man || '').trim(); dev = String(dev || '').trim();
+  if (!dev) throw new Error('Telefono non riconosciuto: aggiorna l\'app');
+  const sh = telSheet_(SpreadsheetApp.getActiveSpreadsheet());
+  const last = sh.getLastRow();
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, TEL_H.length).getValues() : [];
+  const stato = r => String(r[5] || '').trim().toUpperCase();
+  const mine = rows.findIndex(r => String(r[0]).trim() === man && String(r[1]).trim() === dev);
+  if (mine >= 0) {
+    const st = stato(rows[mine]);
+    if (st === 'OK') {
+      const cell = sh.getRange(mine + 2, 5); const prev = cell.getValue();
+      if (!(prev instanceof Date) || Date.now() - prev.getTime() > 3600e3) cell.setValue(new Date()).setNumberFormat('dd/MM/yyyy HH:mm');
+      return;
+    }
+    throw new Error(st === 'BLOCCATO' ? 'Telefono non autorizzato: bloccato dal responsabile' : 'Telefono non autorizzato per ' + man + ': in attesa di approvazione del responsabile');
+  }
+  const altro = rows.find(r => String(r[1]).trim() === dev && String(r[0]).trim() !== man && stato(r) === 'OK');
+  const giaOk = rows.some(r => String(r[0]).trim() === man && stato(r) === 'OK');
+  const auto = !altro && !giaOk; // primo telefono di questo tecnico e non usato da altri
+  sh.appendRow([man, dev, String(devName || '').slice(0, 80), new Date(), new Date(), auto ? 'OK' : 'DA APPROVARE']);
+  const r = sh.getLastRow();
+  sh.getRange(r, 4, 1, 2).setNumberFormat('dd/MM/yyyy HH:mm');
+  if (auto) return;
+  sh.getRange(r, 1, 1, TEL_H.length).setBackground('#fbeaa0');
+  throw new Error('Telefono non autorizzato per ' + man + ': ' + (altro ? 'è il telefono di ' + altro[0] : 'telefono nuovo') + '. Chiedi al responsabile di approvarlo');
+}
+
+/* Orari dichiarati (fermi FILLING registrati all'uscita dallo sterile): solo dentro il turno in cui si registra */
+function controllaDichiarati_(p, inizio) {
+  const reg = Number(p.reg) || Date.now(), ts = Number(p.ts);
+  const avvio = inizioTurno_(new Date(reg)).getTime();
+  if (ts > reg + 120000) throw new Error('Orario non valido: nel futuro');
+  if (ts < avvio - 60000) throw new Error('Orario non valido: fuori dal turno in corso');
+  if (inizio instanceof Date && ts <= inizio.getTime()) throw new Error('Orario non valido: la fine è prima dell\'inizio');
+}
+function inizioTurno_(d) {
+  const h = Number(Utilities.formatDate(d, TZ, 'H'));
+  const base = dateOnly_(d);
+  const ore = h >= 6 && h < 14 ? 6 : h >= 14 && h < 22 ? 14 : 22;
+  const t = new Date(base.getTime() + ore * 3600e3);
+  return h < 6 ? new Date(t.getTime() - 864e5) : t; // T3 dopo mezzanotte: iniziato alle 22 del giorno prima
+}
+
+/* Menu Pharma-Fix → Controlla registrazioni: elenca i casi da guardare nel foglio "Controlli" */
+function controllaRegistrazioni() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const out = [['Tipo', 'Dettaglio', 'Riferimento']];
+  // 1) telefoni in attesa e telefoni usati da più tecnici
+  const tv = telSheet_(ss).getDataRange().getValues().slice(1);
+  tv.filter(r => String(r[5]).toUpperCase().trim() === 'DA APPROVARE')
+    .forEach(r => out.push(['Telefono da approvare', r[0] + ' ha provato a entrare da un telefono nuovo (' + (r[2] || r[1]) + ')', 'Telefoni: ' + r[1]]));
+  const perTel = {};
+  tv.forEach(r => { const k = String(r[1]); (perTel[k] = perTel[k] || new Set()).add(String(r[0])); });
+  Object.keys(perTel).forEach(k => { if (perTel[k].size > 1) out.push(['Stesso telefono, più tecnici', [...perTel[k]].join(', '), 'Telefoni: ' + k]); });
+  // 2) fermi: sovrapposti per lo stesso tecnico, orari dichiarati registrati molto dopo
+  const sh = ss.getSheetByName(SH_FERMI), last = sh.getLastRow();
+  if (last > 1) {
+    const v = sh.getRange(2, 1, last - 1, HEAD.length).getValues().map((r, i) => ({ r: i + 2, man: String(r[C.MAN - 1]), a: r[C.INIZIO - 1], b: r[C.FINE - 1], orari: r[C.ORARI - 1], reg: r[C.REG - 1], id: r[C.ID - 1] }))
+      .filter(x => x.a instanceof Date && x.b instanceof Date && x.man);
+    const per = {};
+    v.forEach(x => (per[x.man] = per[x.man] || []).push(x));
+    Object.keys(per).forEach(m => {
+      const l = per[m].sort((x, y) => x.a - y.a);
+      for (let i = 1; i < l.length; i++) if (l[i].a < l[i - 1].b) out.push(['Fermi sovrapposti', m + ': righe ' + l[i - 1].r + ' e ' + l[i].r, 'Fermi riga ' + l[i].r]);
+    });
+    v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
+      .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
+  }
+  if (out.length === 1) out.push(['Nessun caso da controllare', '', '']);
+  let c = ss.getSheetByName('Controlli'); if (c) c.clear(); else c = ss.insertSheet('Controlli');
+  c.getRange(1, 1, out.length, 3).setValues(out);
+  c.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#dfe7ec');
+  c.setColumnWidth(1, 240); c.setColumnWidth(2, 460); c.setColumnWidth(3, 160); c.setFrozenRows(1);
+  c.getRange(1, 4).setValue('Aggiornato: ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
+  ss.setActiveSheet(c);
+}
+
+/* Aggiornamento v3 (rieseguibile): aree Filling/Packaging, colonne di traccia in Fermi, foglio Telefoni */
+function aggiornaV3_(ss) {
+  const eq = ss.getSheetByName(SH_EQ);
+  if (eq && eq.getLastRow() > 1) {
+    const rg = eq.getRange(2, 3, eq.getLastRow() - 1, 1), v = rg.getValues();
+    rg.setValues(v.map(([a]) => [/^steril/i.test(String(a).trim()) ? 'Filling' : /^secondar/i.test(String(a).trim()) ? 'Packaging' : a]));
+  }
+  const f = ss.getSheetByName(SH_FERMI);
+  if (f) {
+    const h = f.getRange(1, C.ORARI, 1, 3);
+    if (!String(h.getValues()[0][0])) h.setValues([['Orari', 'Registrato alle', 'Telefono']]).setFontWeight('bold').setBackground('#fff3d6');
+  }
+  telSheet_(ss);
+}
+
 /* =================== API =================== */
 function doGet(e) {
   try {
@@ -579,6 +690,12 @@ function doGet(e) {
     const action = e.parameter.action || 'init';
     if (action === 'init') return json_(init_());
     if (action === 'ping') return json_({ ok: true });
+    if (action === 'login') { // nome + telefono: il telefono deve essere quello del tecnico
+      const lock = LockService.getScriptLock(); lock.waitLock(20000);
+      try { checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName); SpreadsheetApp.flush(); }
+      finally { lock.releaseLock(); }
+      return json_({ ok: true });
+    }
     throw new Error('Azione sconosciuta');
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
@@ -591,7 +708,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato'].indexOf(p.action) >= 0) checkTecnico_(p.manutentore);
+    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -705,10 +822,15 @@ function openFermo_(p) {
   row[C.ID - 1] = p.id;
   row[C.EQ - 1] = p.code;
   row[C.APERTO_DA - 1] = p.manutentore || '';
+  row[C.ORARI - 1] = p.dichiarato ? 'DICHIARATI' : 'TEMPO REALE';
+  row[C.REG - 1] = new Date(Number(p.reg) || Date.now());
+  row[C.TEL - 1] = p.dev || '';
+  if (p.dichiarato) controllaDichiarati_(p);
   sh.appendRow(row);
   const r = sh.getLastRow();
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
+  sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
   sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
   sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
   if (url) sh.getRange(r, C.FOTO_A).setFormula(F_(linkFormula_(url)));
@@ -730,6 +852,7 @@ function closeFermo_(p) {
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
   lotto_(p.lotto);
   const d = new Date(Number(p.ts));
+  if (p.dichiarato) controllaDichiarati_(p, sh.getRange(r, C.INIZIO).getValue());
   const code = sh.getRange(r, C.EQ).getValue();
   const url = savePhoto_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura');
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
@@ -738,6 +861,9 @@ function closeFermo_(p) {
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
+  sh.getRange(r, C.REG).setValue(new Date(Number(p.reg) || Date.now())).setNumberFormat('dd/MM/yyyy HH:mm');
+  const tel = String(sh.getRange(r, C.TEL).getValue() || '');
+  if (p.dev && tel.indexOf(p.dev) < 0) sh.getRange(r, C.TEL).setValue(tel ? tel + ' / ' + p.dev : p.dev);
   sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
   try { SpreadsheetApp.flush(); aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
