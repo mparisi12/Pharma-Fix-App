@@ -1,5 +1,5 @@
 /**
- * Pharma-Fix Fermi — backend Google Apps Script
+ * Pharma-Fix — backend Google Apps Script
  * --------------------------------------------------------------
  * Il Google Sheet che contiene questo script È il database.
  * Fogli:
