@@ -11,7 +11,7 @@ App di reparto costruita attorno al **QR della macchina**:
 Tutto finisce in un foglio Google che si aggiorna da solo e si può aprire anche in Excel.
 
 Indirizzo dell'app: **https://mparisi12.github.io/Pharma-Fix-App/fermi/**
-(Pharma-Fix si apre già qui. La vecchia versione resta raggiungibile: tocca il tuo nome in alto → **Vecchia Pharma-Fix**.)
+(Anche il vecchio indirizzo https://mparisi12.github.io/Pharma-Fix-App/ porta qui.)
 
 ---
 
@@ -86,7 +86,7 @@ Finché `API_URL` è vuoto l'app gira in **modalità demo**: i dati restano solo
 | `apps-script/appsscript.json` | Impostazioni dello script (fuso orario Europe/Rome, accesso app web). | No, si **copia** nel Google Sheet |
 | `README.md` | Questo file. | — |
 
-Nella cartella principale del repository, `index.html` è Pharma-Fix: all'apertura rimanda qui; con `?menu=1` (pulsante **Menu**) mostra le funzioni di sempre.
+Nella cartella principale del repository, `index.html` è la vecchia Pharma-Fix: ora rimanda sempre qui (i suoi dati sono stati importati, vedi 5.7).
 
 ---
 
