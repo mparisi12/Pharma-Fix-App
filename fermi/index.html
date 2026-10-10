@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#245a7a">
-<title>Pharma-Fix Fermi</title>
+<title>Pharma-Fix</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -12,63 +12,153 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
 :root{
-  --bg:#e9edf0; --surface:#ffffff; --surface2:#f4f6f8; --ink:#152028; --muted:#5a6873; --line:#d3dbe1;
-  --steel:#245a7a; --steel-ink:#ffffff; --amber:#c98600; --amber-soft:#fff3d6; --ok:#2b8456; --crit:#c23b2a;
-  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --bg:#e9edf0; --surface:#ffffff; --surface2:#f3f6f8; --ink:#152028; --muted:#4d5b66; --line:#c9d2d9;
+  --steel:#245a7a; --steel-ink:#ffffff; --steel-soft:#e3edf3; --amber:#c98600; --amber-ink:#6b4600; --amber-soft:#fff3d6;
+  --ok:#2b8456; --ok-soft:#dff1e7; --crit:#c23b2a; --crit-soft:#fbe4e0; --yel:#f2cc1d; --yel-ink:#3d3100;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --r:10px; color-scheme:light;
+  --r:12px; color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#101519; --surface:#192127; --surface2:#1f2930; --ink:#e4ebef; --muted:#93a3ad; --line:#2b373f;
-  --steel:#5f9ec4; --steel-ink:#0d1418; --amber:#f0b429; --amber-soft:#3a2f12; --ok:#4cb67f; --crit:#e5654f; color-scheme:dark}}
+  --bg:#101519; --surface:#192127; --surface2:#1f2930; --ink:#e4ebef; --muted:#9aaab4; --line:#2e3a42;
+  --steel:#5f9ec4; --steel-ink:#0d1418; --steel-soft:#1d3240; --amber:#f0b429; --amber-ink:#f6d48a; --amber-soft:#3a2f12;
+  --ok:#4cb67f; --ok-soft:#173528; --crit:#e5654f; --crit-soft:#3d1e19; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;min-height:100%}
 body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);-webkit-tap-highlight-color:transparent;padding-top:env(safe-area-inset-top,0px)}
 button,input,textarea{font:inherit;color:inherit}
-button{cursor:pointer}
+button,a{cursor:pointer}
 :focus-visible{outline:2px solid var(--steel);outline-offset:2px}
-.app{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:0 calc(40px + env(safe-area-inset-bottom,0px))}
-header.top{display:flex;align-items:center;gap:10px;padding-block:14px 6px}
-.brand{font:700 24px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;flex:1}
-.brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:3px}
-.manbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:13px;font-weight:500;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:6px}
+.app{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:0 calc(96px + env(safe-area-inset-bottom,0px))}
+header.top{display:flex;align-items:center;gap:10px;padding-block:14px 4px}
+.brand{font:700 26px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;flex:1}
+.brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:4px;text-transform:none}
+.manbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:7px 12px;font-size:13px;font-weight:500;max-width:48%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:8px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
 .dot.warn{background:var(--amber)}.dot.off{background:var(--crit)}.dot.demo{background:var(--muted)}
-.banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px}
-h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:24px 0 10px;color:var(--muted)}
+.banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px;color:var(--amber-ink)}
+h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:22px 0 10px;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
+h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:var(--steel);background:none;border:0;padding:0}
 .label{font:500 11px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-.bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--steel);color:var(--steel-ink);
-  font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:24px 16px}
-.bigbtn.red{background:var(--crit);color:#fff}
-.bigbtn:active{transform:translateY(1px)}
-.bigbtn svg{width:30px;height:30px;flex:none}
-.linkbtn{background:none;border:0;color:var(--steel);font-weight:600;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
 .center{text-align:center}
-.list{display:grid;gap:10px}
-.ocard{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--amber);border-radius:0 var(--r) var(--r) 0;padding:10px 12px}
-.ocard .what{min-width:0;text-align:left;background:none;border:0;padding:0}
-.ocard .ln{font:700 19px/1.1 var(--display);letter-spacing:.03em}
-.ocard .mc{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.timer{font:500 18px var(--mono);color:var(--amber);font-variant-numeric:tabular-nums}
-.closebtn{border:0;border-radius:10px;background:var(--ok);color:#fff;font:700 17px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:14px 16px}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.list{display:grid;gap:8px;grid-template-columns:minmax(0,1fr)}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:16px;color:var(--muted);text-align:center;font-size:14px}
-.hrow{display:grid;grid-template-columns:1fr auto;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:9px 12px}
-.hrow > div{min-width:0}
-.hrow .t1{font-weight:600}
-.hrow .t2{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dur{font:500 15px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+
+/* Pulsante FERMO (home) */
+.fermocard{display:flex;flex-direction:column;gap:10px;width:100%;border:0;background:var(--crit);color:#fff;border-radius:16px;padding:18px;text-align:left}
+.fermocard .row{display:flex;align-items:center;gap:14px}
+.fermocard .qr{width:58px;height:58px;border-radius:12px;background:#fff;color:#c23b2a;display:flex;align-items:center;justify-content:center;flex:none}
+.fermocard .qr svg{width:36px;height:36px}
+.fermocard .t1{font:700 32px/1 var(--display);letter-spacing:.04em}
+.fermocard .t2{font:600 19px var(--display);letter-spacing:.04em;margin-top:4px}
+.fermocard .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;font-size:12px;font-weight:600}
+.fermocard .steps span{background:#a32f20;border-radius:8px;padding:6px 4px;text-align:center}
+.tiles3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600;min-height:44px;text-align:center}
+.tile svg{width:22px;height:22px}
+.tiles2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile2{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;position:relative}
+.tile2 svg{width:26px;height:26px}
+.tile2 b{font:700 18px var(--display);letter-spacing:.03em}
+.tile2 span{font-size:12px;color:var(--muted)}
+.tile2 .n{position:absolute;top:10px;right:10px;font:500 12px var(--mono);background:var(--steel-soft);color:var(--steel);border-radius:10px;padding:1px 8px}
+
+/* Fermi */
+.ocard{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.ocard .bar{width:6px;align-self:stretch;background:var(--amber);border-radius:3px}
+.ocard .what{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0}
+.ocard .ln{font:700 19px/1.1 var(--display);letter-spacing:.03em}
+.ocard .mc{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer{font:500 17px var(--mono);color:#9a6500;font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){.timer{color:var(--amber)}}
+.closebtn{border:0;border-radius:10px;background:var(--ok);color:#fff;font:700 16px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:14px}
+.hrow{display:flex;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:100%;text-align:left}
+.hrow > div{min-width:0;flex:1}
+.hrow .t1{font-weight:600;font-size:14px}
+.hrow .t2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dur{font:500 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right;flex:none!important}
 .pend{font:500 10px var(--mono);color:var(--amber);display:block;text-align:right}
-.eqhead{display:flex;align-items:center;gap:10px;margin-top:6px}
-.back{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-width:44px;height:44px;font-size:20px}
-.eqcode{font:500 13px var(--mono);color:var(--muted)}
-.eqtitle h1{margin:10px 0 2px;font:700 34px/1.05 var(--display);letter-spacing:.02em;text-transform:uppercase}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:14px}
+
+/* Scheda macchina */
+.topline{display:flex;align-items:center;gap:10px;margin-top:4px}
+.back{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex:none}
+.back svg{width:20px;height:20px}
+.code{font:500 13px var(--mono);color:var(--muted)}
+.ptitle{font:700 24px/1 var(--display);text-transform:uppercase}
+.eqtitle h1{margin:12px 0 2px;font:700 36px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;overflow-wrap:anywhere}
+.fermobanner{display:flex;align-items:center;gap:10px;background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;margin-top:14px;color:var(--amber-ink)}
+.fermobanner .timer{font-size:20px;color:inherit}
+.bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--crit);color:#fff;font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:20px 16px;margin-top:14px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-block:14px}
 .stat{background:var(--surface);padding:10px}
 .stat .v{font:700 24px/1.1 var(--display);margin-top:3px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat .v.sm{font-size:16px;line-height:1.5}
+
+/* Urgenza */
+.urg{display:inline-flex;align-items:center;font:700 12px var(--display);letter-spacing:.05em;border-radius:6px;padding:3px 8px;white-space:nowrap}
+.u1{background:var(--crit);color:#fff}.u2{background:var(--yel);color:var(--yel-ink)}.u3{background:var(--ok);color:#fff}
+.urgpick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.urgpick button{border:3px solid transparent;border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.urgpick button b{font:700 26px/1 var(--display)}
+.urgpick button span{font:700 14px var(--display);letter-spacing:.02em;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:400px){.urgpick button span{font-size:12.5px;letter-spacing:0}}
+.urgpick button[aria-pressed="true"] b::after{content:" \2713";font-size:20px}
+.urgpick button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px #fff}
+.acard{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;width:100%;text-align:left}
+.acard > div{flex:1;min-width:0}
+.acard .t1{font-weight:600;font-size:14px}
+.acard .t2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acard .age{font-size:12px;color:var(--muted);flex:none}
+
+/* Soluzioni e documenti */
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 12px;height:46px;margin-top:12px}
+.search input{border:0;outline:0;flex:1;background:transparent;font-size:16px;min-width:0}
+.search svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:14px;text-align:left}
+.chip[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
+.chips.big .chip{font:700 18px var(--display);letter-spacing:.04em;min-width:76px;text-align:center;min-height:44px}
+.filters{margin-top:10px}
+.scard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+.scard .tags{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tag{font:500 11px var(--mono);border-radius:6px;padding:3px 7px}
+.tag.g{background:var(--steel-soft);color:var(--steel)}
+.tag.v{background:var(--ok-soft);color:var(--ok)}
+.tag.f{background:var(--amber-soft);color:var(--amber-ink)}
+.scard .meta{margin-left:auto;font-size:12px;color:var(--muted)}
+.scard .prob{font-weight:600}
+.scard .sol{background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:14px;white-space:pre-line}
+.scard .ric{display:flex;gap:6px;flex-wrap:wrap}
+.scard .ric span{font:500 12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:12px}
+.seg button{border:0;background:none;padding:12px 6px;font:700 16px var(--display);letter-spacing:.05em}
+.seg button[aria-pressed="true"]{background:var(--steel);color:var(--steel-ink)}
+.drow{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;text-decoration:none;color:inherit}
+.drow .ico{width:44px;height:52px;border-radius:6px;background:var(--crit-soft);color:var(--crit);display:flex;align-items:center;justify-content:center;font:500 11px var(--mono);flex:none}
+.drow .ico.s{background:var(--steel-soft);color:var(--steel)}
+.drow > div{flex:1;min-width:0}
+.drow .t1{font-weight:600}
+.drow .t2{font-size:12px;color:var(--muted)}
+.drow svg{width:20px;height:20px;color:var(--steel);flex:none}
+.addbtn{width:100%;border:0;border-radius:12px;background:var(--steel);color:var(--steel-ink);padding:16px;font:700 20px var(--display);letter-spacing:.06em;text-transform:uppercase;margin-top:14px}
+.ctxbar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-top:12px}
+.ctxbar > div{flex:1;min-width:0}
+.ctxbar .t1{font-weight:600}
+.linkbtn{background:none;border:0;color:var(--steel);font-weight:600;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
+.danger{color:var(--crit)}
+
+/* Barra in basso */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
+nav.tabs .in{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));max-width:640px;margin:0 auto}
+nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font:700 12px var(--display);letter-spacing:.08em;padding:4px 0;min-height:44px}
+nav.tabs button svg{width:22px;height:22px}
+nav.tabs button[aria-current="page"]{color:var(--steel)}
+
+/* Fogli a comparsa */
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--bg);width:100%;max-width:640px;max-height:94%;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -76,52 +166,49 @@ h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercas
 .x{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:44px;height:44px;font-size:20px;line-height:1;flex:none}
 .group{margin-top:16px}
 .group > .label{display:block;margin-bottom:8px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{min-height:44px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:14px;text-align:left}
-.chip[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
-.chips.big .chip{font:700 18px var(--display);letter-spacing:.04em;min-width:76px;text-align:center}
 .field{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;font-size:16px}
-textarea.field{min-height:60px;resize:vertical}
-.err{color:var(--crit);font-size:13px;margin-top:6px}
-.prev{width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
+textarea.field{min-height:64px;resize:vertical}
+.err{color:var(--crit);font-size:13px;margin-top:8px}
 .annot{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;touch-action:manipulation}
 .annot canvas{display:block;width:100%;height:auto}
-.hint{font-size:13px;color:var(--muted);margin-top:6px}
 .camtile{display:flex;align-items:center;gap:10px;border:1px dashed var(--steel);color:var(--steel);background:var(--surface);border-radius:10px;padding:14px;font-weight:600;width:100%}
-.camtile svg{width:24px;height:24px}
+.camtile svg{width:22px;height:22px}
 .submit{width:100%;margin-top:20px;border:0;border-radius:12px;padding:18px;font:700 22px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--ok)}
-.submit.red{background:var(--crit)}
-.danger{color:var(--crit)}
+.submit.red{background:var(--crit)}.submit.blue{background:var(--steel);color:var(--steel-ink)}
 .scanner{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}
 .scanner video{flex:1;width:100%;object-fit:cover;min-height:0}
 .scanner .frame{position:absolute;left:50%;top:42%;width:min(70vw,300px);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
-.scanner .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));color:#fff;background:#000}
-.scanner .bar button{background:#fff;color:#000;border:0;border-radius:10px;padding:12px 16px;font-weight:600}
+.scanner .bar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));background:#000}
+.scanner .bar button{background:#fff;color:#000;border:0;border-radius:10px;padding:12px 12px;font-weight:600}
 .scanner .msg{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top,0px));text-align:center;color:#fff;font-weight:600;text-shadow:0 1px 3px #000}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
 .login{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:auto;padding:calc(32px + env(safe-area-inset-top,0px)) 16px 32px}
 .login .in{max-width:420px;margin:0 auto}
 .login h1{font:700 40px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0}
 .login p{color:var(--muted)}
 .login label{display:block;margin-top:16px}
-.topbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:13px;font-weight:500;color:var(--ink);text-decoration:none;white-space:nowrap}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">Pharma-Fix<small id="clock">Fermi macchina</small></div>
-    <a class="topbtn" href="../?menu=1">Menu</a>
+    <div class="brand">Pharma-Fix<small id="clock">—</small></div>
     <button class="manbtn" id="manbtn">—</button>
   </header>
   <div class="sync" id="sync"><span class="dot demo"></span><span>…</span></div>
   <div id="banner"></div>
   <main id="view"></main>
 </div>
+<nav class="tabs" aria-label="Sezioni"><div class="in">
+  <button data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>HOME</button>
+  <button data-nav="sol"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 6a4 4 0 0 0-5 5l-5 5 3 3 5-5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/></svg>SOLUZIONI</button>
+  <button data-nav="doc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>DOCUMENTI</button>
+  <button data-nav="ano"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>ANOMALIE</button>
+</div></nav>
 <div id="sheet"></div>
 <div id="login" class="login" hidden><div class="in">
-  <h1>Pharma-Fix</h1><div class="label" style="margin-top:6px">Fermi macchina · accesso tecnico</div>
+  <h1>Pharma-Fix</h1><div class="label" style="margin-top:6px">Manutenzione · accesso tecnico</div>
   <p>Inserisci nome e cognome. Devono essere nell'elenco dei manutentori abilitati.</p>
   <form id="lform" novalidate>
     <div id="pinwrap"><label class="label" for="lpin">Codice reparto</label><input class="field" id="lpin" type="password" autocomplete="off" inputmode="text">
@@ -134,6 +221,7 @@ textarea.field{min-height:60px;resize:vertical}
 </div></div>
 <div id="scanwrap"></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+<input id="fileup" type="file" accept="image/*,application/pdf" hidden>
 
 <script src="config.js"></script>
 <script src="defaults.js"></script>
@@ -143,13 +231,14 @@ textarea.field{min-height:60px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: [], loaded: false, view: { name: 'home' },
-  man: '', net: 'ok', lastSync: 0 };
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [],
+  loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
 let OUTBOX = load('outbox', []);
 
 const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
 function load(k, d) { try { const v = localStorage.getItem('pf_' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }
@@ -157,12 +246,27 @@ function save(k, v) { try { localStorage.setItem('pf_' + k, JSON.stringify(v)); 
 function fmtDur(min) { min = Math.round(min); if (min < 60) return min + '′'; const h = Math.floor(min / 60), m = min % 60; return h + 'h' + (m ? ' ' + pad(m) + '′' : ''); }
 function fmtTimer(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' : '') + pad(m) + ':' + pad(x); }
 function fmtDT(t) { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function fmtD(t) { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); }
+function age(t) { if (!t) return ''; const m = (Date.now() - t) / 60000; if (m < 60) return Math.max(1, Math.round(m)) + ' min fa'; if (m < 1440) return Math.round(m / 60) + ' h fa'; const g = Math.round(m / 1440); return g === 1 ? 'ieri' : g + ' gg fa'; }
 function turnoOf(t) { const h = new Date(t).getHours(); return h >= 6 && h < 14 ? 'T1' : h >= 14 && h < 22 ? 'T2' : 'T3'; }
-function uid() { return 'F' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+function uid(p = 'F') { return p + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
 function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
-const eqBy = code => S.equipment.find(e => e.code.toUpperCase() === String(code || '').toUpperCase());
-const ICAM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="4"/></svg>';
-const IQR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>';
+const U = s => String(s || '').trim().toUpperCase();
+const eqBy = code => S.equipment.find(e => U(e.code) === U(code));
+const nice = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+const I = {
+  qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="4"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+  sol: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 6a4 4 0 0 0-5 5l-5 5 3 3 5-5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
+  sch: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M10 10v9"/></svg>',
+  ano: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg>'
+};
+const URG = { 1: 'CRITICO', 2: 'URGENTE', 3: 'PROGRAMMABILE' };
+const urgTag = u => `<span class="urg u${u}">${u} · ${URG[u] || ''}</span>`;
 
 /* ================= Dati: server + coda locale ================= */
 function allFermi() {
@@ -176,12 +280,45 @@ function allFermi() {
   }
   return [...m.values()].sort((a, b) => b.start - a.start);
 }
+function allSoluzioni() {
+  const out = S.soluzioni.slice();
+  for (const op of OUTBOX) if (op.action === 'soluzione' && !out.some(s => s.id === op.id)) {
+    const e = eqBy(op.code) || {};
+    out.push({ id: op.id, ts: op.ts, dove: op.code || op.linea || 'TUTTE', linea: e.linea || op.linea || '', macchina: e.macchina || '', guasto: op.guasto, problema: op.problema, soluzione: op.soluzione, ricambi: op.ricambi, link: '', autore: op.manutentore, pending: true });
+  }
+  return out;
+}
+function allAnomalie() {
+  const m = new Map(S.anomalie.map(a => [a.id, { ...a }]));
+  for (const op of OUTBOX) {
+    if (op.action === 'anomalia' && !m.has(op.id)) {
+      const e = eqBy(op.code) || {};
+      m.set(op.id, { id: op.id, ts: op.ts, code: op.code, linea: e.linea, macchina: e.macchina, urgenza: op.urgenza, descr: op.descr, serve: op.serve, da: op.manutentore, stato: 'APERTA', pending: true });
+    } else if (op.action === 'anomaliaStato' && m.has(op.id)) Object.assign(m.get(op.id), { stato: op.stato, gestita: op.manutentore, note: op.note || m.get(op.id).note, chiusa: op.stato === 'CHIUSA' ? op.ts : null, pending: true });
+  }
+  return [...m.values()];
+}
+const anoAperte = list => list.filter(a => a.stato !== 'CHIUSA').sort((a, b) => a.urgenza - b.urgenza || b.ts - a.ts);
+// "Dove" di soluzioni e documenti: codice macchina, nome linea o TUTTE
+function vale(dove, eq, ancheLinea = true) {
+  const d = U(dove);
+  if (!eq) return true;
+  if (d === U(eq.code)) return true;
+  return ancheLinea && (d === U(eq.linea) || d === 'TUTTE' || d === '');
+}
+function lineaDi(dove) { const d = U(dove); const e = eqBy(d); return e ? e.linea : (S.equipment.find(x => U(x.linea) === d) || {}).linea || ''; }
+// Soluzioni ricavate dai fermi chiusi con una descrizione
+function soluzioniDaFermi(eq) {
+  return allFermi().filter(f => f.stato === 'CHIUSO' && String(f.altro || '').trim().length >= 6 && (!eq || f.code === eq.code))
+    .map(f => ({ id: 'FE-' + f.id, fromFermo: true, ts: f.start, dove: f.code, linea: f.linea, macchina: f.macchina, guasto: f.guasto, problema: f.guasto || 'Fermo',
+      soluzione: f.altro, dur: f.end ? (f.end - f.start) / 60000 : 0, autore: f.man }));
+}
 function lastLotto(linea) { const f = allFermi().find(x => x.linea === linea && x.lotto && x.lotto !== 'undefined'); return f ? String(f.lotto) : ''; }
 function enqueue(op) {
   OUTBOX.push(op);
-  if (!save('outbox', OUTBOX)) { // memoria piena: si tengono i dati, si perdono le foto più vecchie
-    for (const o of OUTBOX) { if (o.foto) { o.foto = ''; if (save('outbox', OUTBOX)) break; } }
-    toast('Memoria del telefono piena: alcune foto non verranno inviate');
+  if (!save('outbox', OUTBOX)) { // memoria piena: si tengono i dati, si perdono gli allegati più vecchi
+    for (const o of OUTBOX) { if (o.foto || o.file) { o.foto = ''; o.file = ''; if (save('outbox', OUTBOX)) break; } }
+    toast('Memoria del telefono piena: alcune foto o allegati non verranno inviati');
   }
   render(); sync();
 }
@@ -190,12 +327,12 @@ function enqueue(op) {
 const getPin = () => load('pin', '');
 const setPin = p => save('pin', p);
 const isPinErr = e => /Codice reparto/.test(e && e.message || '');
-function pinInvalid() { // il codice è stato cambiato dal responsabile: si richiede
+function pinInvalid() {
   const had = !!getPin(); setPin(''); try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null);
   showLogin(); if (had) { const e = $('#lerr'); e.textContent = 'Il codice reparto è cambiato: inseriscilo di nuovo.'; e.hidden = false; }
 }
 async function apiGet(pin = getPin()) {
-  if (MOCK) { const db = load('mockdb', { fermi: [] }); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, fermi: db.fermi }; }
+  if (MOCK) { const db = load('mockdb', {}); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: db.fermi || [], soluzioni: db.soluzioni || [], documenti: [], anomalie: db.anomalie || [] }; }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
   try {
     const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(pin), { signal: ctl.signal });
@@ -203,14 +340,14 @@ async function apiGet(pin = getPin()) {
   } finally { clearTimeout(t); }
 }
 async function apiPost(op) {
-  if (MOCK) {
-    const db = load('mockdb', { fermi: [] });
-    if (op.action === 'open' && !db.fermi.some(f => f.id === op.id)) db.fermi.push({ id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, apertoDa: op.manutentore });
-    if (op.action === 'close') { const f = db.fermi.find(x => x.id === op.id); if (f) Object.assign(f, { stato: 'CHIUSO', end: op.ts, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore }); }
-    if (op.action === 'cancel') db.fermi = db.fermi.filter(f => f.id !== op.id);
-    save('mockdb', db); return { ok: true };
+  if (MOCK) { // modalità demo: i dati restano sul telefono
+    const db = load('mockdb', {}); db.fermi = db.fermi || []; db.soluzioni = db.soluzioni || []; db.anomalie = db.anomalie || [];
+    const S0 = { ...S, fermi: db.fermi, soluzioni: db.soluzioni, anomalie: db.anomalie }, keep = OUTBOX;
+    OUTBOX = [op]; Object.assign(S, S0);
+    db.fermi = allFermi().map(f => ({ ...f, pending: false })); db.soluzioni = allSoluzioni().map(s => ({ ...s, pending: false })); db.anomalie = allAnomalie().map(a => ({ ...a, pending: false }));
+    OUTBOX = keep; save('mockdb', db); return { ok: true };
   }
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60000);
   try {
     const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: getPin() }), signal: ctl.signal });
     const j = await r.json(); if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
@@ -225,7 +362,7 @@ async function sync() {
       try { await apiPost(op); }
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
-        if (e.server && /non trovato|solo fermi aperti|non abilitato|Lotto obbligatorio/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       OUTBOX.shift(); save('outbox', OUTBOX);
@@ -237,8 +374,9 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
-  S.fermi = j.fermi || []; S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi });
+  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || [];
+  S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie });
 }
 async function refresh() {
   if (!MOCK && !getPin()) return;
@@ -247,10 +385,20 @@ async function refresh() {
   render();
 }
 
-/* ================= Foto ================= */
+/* ================= Foto e allegati ================= */
 function capture(cb) {
   const i = $('#cam'); i.value = '';
   i.onchange = async () => { const f = i.files && i.files[0]; if (!f) return; try { cb(await loadImg(f)); } catch { toast('Foto non leggibile, riprova'); } };
+  i.click();
+}
+function pickFile(cb) {
+  const i = $('#fileup'); i.value = '';
+  i.onchange = () => {
+    const f = i.files && i.files[0]; if (!f) return;
+    if (f.type.startsWith('image/')) { loadImg(f).then(img => cb({ name: f.name.replace(/\.\w+$/, '') + '.jpg', mime: 'image/jpeg', data: toJpeg(img, [], 1400, .75) })).catch(() => toast('File non leggibile')); return; }
+    if (f.size > 3 * 1024 * 1024) { toast('PDF troppo grande: massimo 3 MB'); return; }
+    const r = new FileReader(); r.onload = () => cb({ name: f.name, mime: f.type || 'application/pdf', data: String(r.result).split(',')[1] }); r.readAsDataURL(f);
+  };
   i.click();
 }
 function loadImg(f) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(f); }); }
@@ -267,6 +415,22 @@ function toJpeg(img, circles = [], max = 1024, q = .7) {
   x.drawImage(img, 0, 0, w, h); drawCircles(x, circles, w, h);
   return c.toDataURL('image/jpeg', q).split(',')[1];
 }
+// Foto con cerchi: disegna dentro el, aggiorna lo stato P {img, circles}
+function photoBox(el, P, label) {
+  const draw = () => {
+    if (!P.img) { el.innerHTML = `<button class="camtile" type="button">${I.cam}${esc(label)}</button>`; el.querySelector('button').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); }); return; }
+    el.innerHTML = `<span class="label">${esc(label)}</span><div class="annot" style="margin-top:8px"><canvas></canvas></div>
+      <div class="hint">Tocca la foto per cerchiare il punto. Tocca un cerchio per toglierlo. <button class="linkbtn" type="button" style="padding:0 0 0 6px">Rifai foto</button></div>`;
+    const cv = el.querySelector('canvas'), s = Math.min(1, 900 / Math.max(P.img.naturalWidth, P.img.naturalHeight));
+    cv.width = Math.round(P.img.naturalWidth * s); cv.height = Math.round(P.img.naturalHeight * s);
+    const paint = () => { const x = cv.getContext('2d'); x.drawImage(P.img, 0, 0, cv.width, cv.height); drawCircles(x, P.circles, cv.width, cv.height); }; paint();
+    cv.onpointerdown = e => { const r = cv.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height; const m = Math.min(cv.width, cv.height);
+      const hit = P.circles.findIndex(c => Math.hypot((c.x - px) * cv.width, (c.y - py) * cv.height) < c.r * m);
+      if (hit >= 0) P.circles.splice(hit, 1); else P.circles.push({ x: px, y: py, r: .11 }); paint(); };
+    el.querySelector('.linkbtn').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); });
+  };
+  draw();
+}
 
 /* ================= Scanner QR ================= */
 let scanStream = null, scanRun = false;
@@ -275,13 +439,11 @@ async function openScanner() {
     <div class="msg" id="smsg">Inquadra il QR sulla macchina</div>
     <div class="bar"><button id="smanual">Scegli a mano</button><button id="sphoto">Fotografa QR</button><button id="sclose">Chiudi</button></div></div>`;
   $('#sclose').onclick = closeScanner;
-  $('#smanual').onclick = () => { closeScanner(); pickSheet(); };
+  $('#smanual').onclick = () => { closeScanner(); pickSheet(eq => afterScan(eq)); };
   $('#sphoto').onclick = () => { closeScanner(); scanFromPhoto(); };
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-  } catch (e) {
-    $('#smsg').textContent = 'Fotocamera live non disponibile: usa "Fotografa QR"'; return;
-  }
+  } catch (e) { $('#smsg').textContent = 'Fotocamera live non disponibile: usa "Fotografa QR"'; return; }
   const v = $('#vid'); v.srcObject = scanStream; await v.play().catch(() => {});
   let det = null; try { if ('BarcodeDetector' in window) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch {}
   const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
@@ -308,12 +470,12 @@ async function openScanner() {
   };
   tick();
 }
+// Dopo il QR: scheda macchina + subito apertura del fermo (o chiusura, se già aperto)
 function afterScan(eq) {
   go({ name: 'equip', code: eq.code });
   const f = allFermi().find(x => x.code === eq.code && x.stato === 'APERTO');
-  needMan(() => f ? closeSheet(f, null) : openSheet(eq));
+  needMan(() => f ? closeSheet(f) : openSheet(eq));
 }
-// Riserva: se la fotocamera live non parte (es. iPhone), si fotografa il QR e lo si legge dalla foto
 function scanFromPhoto() {
   capture(img => {
     const w = Math.min(1200, img.naturalWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth);
@@ -324,16 +486,22 @@ function scanFromPhoto() {
   });
 }
 function closeScanner() { scanRun = false; if (scanStream) scanStream.getTracks().forEach(t => t.stop()); scanStream = null; $('#scanwrap').innerHTML = ''; }
-function parseQr(text) {
-  let code = text.trim();
-  try { const u = new URL(code); code = u.searchParams.get('eq') || code; } catch {}
-  return eqBy(code);
-}
+function parseQr(text) { let code = text.trim(); try { const u = new URL(code); code = u.searchParams.get('eq') || code; } catch {} return eqBy(code); }
 
 /* ================= Navigazione ================= */
-function go(v) { S.view = v; window.scrollTo(0, 0); render();
-  const url = new URL(location.href); if (v.name === 'equip') url.searchParams.set('eq', v.code); else url.searchParams.delete('eq'); history.replaceState(null, '', url); }
-function render() { renderSync(); renderHeader(); if (S.view.name === 'equip') renderEquip(S.view.code); else renderHome(); }
+function go(v) {
+  S.view = v; window.scrollTo(0, 0); render();
+  const url = new URL(location.href); if (v.code) url.searchParams.set('eq', v.code); else url.searchParams.delete('eq');
+  if (v.name !== 'home') url.hash = v.name; else url.hash = ''; history.replaceState(null, '', url);
+}
+$$('nav.tabs [data-nav]').forEach(b => b.onclick = () => go({ name: b.dataset.nav, code: b.dataset.nav === 'home' || b.dataset.nav === 'ano' ? undefined : S.view.code }));
+function render() {
+  renderSync(); renderHeader();
+  const n = S.view.name;
+  $$('nav.tabs [data-nav]').forEach(b => b.toggleAttribute('aria-current', b.dataset.nav === (n === 'equip' ? '' : n === 'anoform' ? 'ano' : n)));
+  $$('nav.tabs [data-nav]').forEach(b => { if (b.hasAttribute('aria-current')) b.setAttribute('aria-current', 'page'); });
+  ({ home: renderHome, equip: renderEquip, sol: renderSol, doc: renderDoc, ano: renderAno, anoform: renderAnoForm }[n] || renderHome)();
+}
 function renderSync() {
   const n = OUTBOX.length; let cls = 'dot', txt;
   if (MOCK) { cls += ' demo'; txt = 'MODALITÀ DEMO · dati solo su questo telefono'; }
@@ -343,6 +511,9 @@ function renderSync() {
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
 }
 function renderHeader() { $('#manbtn').textContent = S.man || '—'; }
+const topline = (title, sub, back) => `<div class="topline"><button class="back" data-back="${esc(back || 'home')}" aria-label="Indietro">${I.back}</button>
+  <div style="flex:1;min-width:0"><div class="ptitle">${esc(title)}</div>${sub ? `<div class="code" style="margin-top:3px">${esc(sub)}</div>` : ''}</div></div>`;
+function bindBack() { $$('[data-back]').forEach(b => b.onclick = () => { const v = b.dataset.back; go(v.startsWith('equip:') ? { name: 'equip', code: v.slice(6) } : { name: v }); }); }
 
 /* ================= Home ================= */
 function renderHome() {
@@ -350,78 +521,265 @@ function renderHome() {
   const open = all.filter(f => f.stato === 'APERTO');
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const today = all.filter(f => f.stato === 'CHIUSO' && f.end >= t0.getTime());
+  const ano = anoAperte(allAnomalie());
   $('#view').innerHTML = `
-    <div style="margin-top:6px"><button class="bigbtn" id="scan">${IQR}Scansiona QR</button>
-    <div class="center"><button class="linkbtn" id="manual">Scegli macchina a mano</button></div></div>
+    <button class="fermocard" id="scan">
+      <div class="row"><div class="qr">${I.qr}</div><div><div class="t1">FERMO MACCHINA</div><div class="t2">Scansiona il QR per aprirlo</div></div></div>
+      <div class="steps"><span>1 · QR</span><span>2 · Lotto</span><span>3 · Apri fermo</span></div>
+    </button>
+    <div class="hint center">Fermo già aperto su quella macchina? Lo stesso QR apre la <b style="color:var(--ok)">chiusura</b>.</div>
+    <div class="tiles3">
+      <button class="tile" data-go="sol"><span style="color:var(--steel)">${I.search}</span>Cerca soluzione</button>
+      <button class="tile" data-go="doc">${I.doc}Documenti</button>
+      <button class="tile" data-go="anoform">${I.ano}Anomalia</button>
+    </div>
     <h2>Fermi aperti · ${open.length}</h2>
-    <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso. Quando una macchina si ferma, scansiona il QR attaccato alla macchina.</div>'}</div>
+    <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>
+    <h2>Anomalie da gestire · ${ano.length}${ano.length > 3 ? '<button class="more" data-go="ano">Tutte</button>' : ''}</h2>
+    <div class="list">${ano.length ? ano.slice(0, 3).map(anoCard).join('') : '<div class="empty">Nessuna anomalia aperta.</div>'}</div>
     <h2>Chiusi oggi · ${today.length}</h2>
-    <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
+    <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>
+    <div class="center"><button class="linkbtn" id="manual">Scegli macchina a mano</button></div>`;
   $('#scan').onclick = openScanner;
-  $('#manual').onclick = pickSheet;
-  bindOpenCards();
+  $('#manual').onclick = () => pickSheet(eq => go({ name: 'equip', code: eq.code }));
+  bindCommon();
 }
 function openCard(f) {
-  return `<div class="ocard"><button class="what" data-eq="${esc(f.code)}"><div class="ln">${esc(f.linea)} · ${esc(f.macchina)}</div>
+  return `<div class="ocard"><span class="bar"></span><button class="what" data-eq="${esc(f.code)}"><div class="ln">${esc(f.linea)} · ${esc(f.macchina)}</div>
     <div class="mc">dal ${fmtDT(f.start)} · ${esc(f.man || '')}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}</div>
     <div class="timer" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</div></button>
     <button class="closebtn" data-close="${esc(f.id)}">Chiudi</button></div>`;
 }
 function histRow(f) {
   const dur = f.end ? fmtDur((f.end - f.start) / 60000) : '';
-  return `<div class="hrow"><div><div class="t1">${esc(f.linea)} · ${esc(f.macchina)}</div>
-    <div class="t2">${fmtDT(f.start)} · ${esc(f.guasto || '')} · ${esc(f.man || '')}</div></div>
-    <div><div class="dur">${dur}</div>${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></div>`;
+  return `<div class="hrow"><div><div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
+    <div class="t2">${fmtDT(f.start)} · ${esc(f.linea)} ${esc(f.macchina)}${f.altro ? ' · ' + esc(f.altro) : ''}</div></div>
+    <div class="dur">${dur}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></div>`;
 }
-function bindOpenCards() {
-  document.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => go({ name: 'equip', code: b.dataset.eq }));
-  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => {
-    const f = allFermi().find(x => x.id === b.dataset.close); if (!f) return;
-    needMan(() => closeSheet(f, null));
-  });
+function anoCard(a) {
+  return `<button class="acard" data-ano="${esc(a.id)}">${urgTag(a.urgenza)}<div><div class="t1">${esc(a.linea)} · ${esc(nice(a.macchina))}</div>
+    <div class="t2">${a.stato === 'IN CORSO' ? 'In corso · ' : ''}${esc(a.descr)}</div></div><span class="age">${a.pending ? 'in coda' : age(a.ts)}</span></button>`;
+}
+function bindCommon() {
+  $$('[data-eq]').forEach(b => b.onclick = () => go({ name: 'equip', code: b.dataset.eq }));
+  $$('[data-close]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.close); if (f) needMan(() => closeSheet(f)); });
+  $$('[data-go]').forEach(b => b.onclick = () => go({ name: b.dataset.go, code: b.dataset.code || undefined }));
+  $$('[data-ano]').forEach(b => b.onclick = () => anoSheet(b.dataset.ano));
+  bindBack();
 }
 
-/* ================= Scheda equipment ================= */
-function renderEquip(code) {
-  const eq = eqBy(code);
-  if (!eq) { $('#view').innerHTML = `<div class="banner">Macchina "${esc(code)}" non trovata nel foglio Equipment.</div><button class="linkbtn" id="home">Torna alla home</button>`; $('#home').onclick = () => go({ name: 'home' }); return; }
+/* ================= Scheda macchina ================= */
+function renderEquip() {
+  const eq = eqBy(S.view.code);
+  if (!eq) { $('#view').innerHTML = `${topline('Macchina', '', 'home')}<div class="banner">Macchina "${esc(S.view.code)}" non trovata nel foglio Equipment.</div>`; bindCommon(); return; }
   const all = allFermi().filter(f => f.code === eq.code);
-  const open = all.filter(f => f.stato === 'APERTO');
+  const open = all.find(f => f.stato === 'APERTO');
   const from = Date.now() - 30 * 864e5;
   const c30 = all.filter(f => f.stato === 'CHIUSO' && f.start >= from && f.end);
   const mttr = c30.length ? c30.reduce((a, f) => a + (f.end - f.start), 0) / c30.length / 60000 : 0;
   const cnt = {}; c30.forEach(f => { if (f.guasto) cnt[f.guasto] = (cnt[f.guasto] || 0) + 1; });
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-  const hist = all.filter(f => f.stato === 'CHIUSO').slice(0, 10);
+  const hist = all.filter(f => f.stato === 'CHIUSO');
+  const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length + soluzioniDaFermi(eq).length;
+  const docs = S.documenti.filter(d => vale(d.dove, eq));
+  const nSch = docs.filter(d => /SCHED/.test(d.tipo)).length, nMan = docs.length - nSch;
+  const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
+  const C = eq.code;
   $('#view').innerHTML = `
-    <div class="eqhead"><button class="back" id="back" aria-label="Indietro">←</button><span class="eqcode">${esc(eq.code)}</span></div>
-    <div class="eqtitle"><h1>${esc(eq.macchina)}</h1><div class="label">${esc(eq.linea)} · ${esc(eq.area)}</div></div>
+    ${topline('', eq.code + ' · ' + eq.linea + ' · ' + eq.area, 'home')}
+    <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
+    ${open ? `<div class="fermobanner"><div style="flex:1"><div style="font-weight:600;font-size:13px">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}</div>
+      <div class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</div></div><button class="closebtn" data-close="${esc(open.id)}">Chiudi fermo</button></div>`
+      : `<button class="bigbtn" id="openf">${I.qr.replace('<svg', '<svg width="26" height="26"')}Apri fermo</button>`}
     <div class="stats">
       <div class="stat"><div class="label">Fermi 30 gg</div><div class="v">${c30.length}</div></div>
       <div class="stat"><div class="label">MTTR 30 gg</div><div class="v">${c30.length ? fmtDur(mttr) : '—'}</div></div>
       <div class="stat"><div class="label">Guasto top</div><div class="v sm" title="${esc(top ? top[0] : '')}">${top ? esc(top[0].split(',')[0]) + ' ×' + top[1] : '—'}</div></div>
     </div>
-    ${open.length ? `<h2>Fermo in corso</h2><div class="list">${open.map(openCard).join('')}</div>` : ''}
-    ${open.length ? '' : `<div style="margin-top:18px"><button class="bigbtn red" id="openf">Apri fermo</button></div>`}
-    <h2>Storico interventi</h2>
-    <div class="list">${hist.length ? hist.map(histRow).join('') : '<div class="empty">Nessun intervento registrato negli ultimi 90 giorni.</div>'}</div>`;
-  $('#back').onclick = () => go({ name: 'home' });
+    <div class="tiles2">
+      <button class="tile2" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b><span>Troubleshooting di questa macchina</span>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
+      <button class="tile2" data-tab="man">${I.doc}<b>MANUALI E SCHEMI</b><span>PDF della macchina</span>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
+      <button class="tile2" data-tab="sch">${I.sch}<b>SCHEDE FORMATO</b><span>Regolazioni per formato</span>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
+      <button class="tile2" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>SEGNALA ANOMALIA</b><span>Problema da sistemare dopo</span></button>
+    </div>
+    ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
+    <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}</h2>
+    <div class="list" id="hist">${hist.length ? hist.slice(0, 5).map(histRow).join('') : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}</div>
+    ${hist.length > 5 ? '<div class="center"><button class="linkbtn" id="morehist">Mostra tutto lo storico</button></div>' : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
-  bindOpenCards();
+  $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
+  const mh = $('#morehist'); if (mh) mh.onclick = () => { $('#hist').innerHTML = hist.map(histRow).join(''); mh.remove(); };
+  bindCommon();
 }
 
-/* ================= Sheets ================= */
+/* ================= Soluzioni ================= */
+function renderSol() {
+  const eq = S.view.code ? eqBy(S.view.code) : null;
+  const q = S.view.q || '', g = S.view.g || '';
+  let items = allSoluzioni().filter(s => vale(s.dove, eq)).map(s => ({ ...s }));
+  items = items.concat(soluzioniDaFermi(eq));
+  const guasti = [...new Set(items.map(s => s.guasto).filter(Boolean))].slice(0, 12);
+  const qq = q.toLowerCase();
+  const shown = items.filter(s => (!g || s.guasto === g) && (!qq || [s.problema, s.soluzione, s.guasto, s.ricambi, s.macchina, s.linea].join(' ').toLowerCase().includes(qq)))
+    .sort((a, b) => (a.fromFermo - b.fromFermo) || (b.ts || 0) - (a.ts || 0));
+  const usi = {}; soluzioniDaFermi(eq).forEach(s => { usi[s.guasto] = (usi[s.guasto] || 0) + 1; });
+  $('#view').innerHTML = `
+    ${topline('Soluzioni', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
+    ${eq ? '' : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona un QR o scegli una macchina per filtrare</div></div><button class="linkbtn" id="pickm">Scegli</button></div>`}
+    <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca: pinze, ventose, prospetto…" value="${esc(q)}" aria-label="Cerca"></div>
+    ${guasti.length ? `<div class="chips filters" id="gf"><button class="chip" data-v="" aria-pressed="${!g}">Tutti</button>${guasti.map(x => `<button class="chip" data-v="${esc(x)}" aria-pressed="${g === x}">${esc(x.split(',')[0])}</button>`).join('')}</div>` : ''}
+    <div class="list" style="margin-top:12px">${shown.length ? shown.slice(0, 80).map(s => solCard(s, eq, usi)).join('') :
+      `<div class="empty">${items.length ? 'Nessuna soluzione con questi filtri.' : 'Ancora nessuna soluzione' + (eq ? ' per questa macchina' : '') + '. Aggiungi la prima: la ritroverà il prossimo collega.'}</div>`}</div>
+    <button class="addbtn" id="addsol">+ Aggiungi soluzione</button>`;
+  const qi = $('#q'); let t; qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.view.q = qi.value; renderSol(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+  const gf = $('#gf'); if (gf) gf.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { S.view.g = b.dataset.v; renderSol(); } };
+  const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'sol', code: e.code }));
+  $('#addsol').onclick = () => needMan(() => eq ? solSheet(eq) : pickSheet(e => solSheet(e)));
+  bindCommon();
+}
+function solCard(s, eq, usi) {
+  const where = !eq ? `${s.linea || lineaDi(s.dove) || ''}${s.macchina ? ' · ' + nice(s.macchina) : (U(s.dove) === 'TUTTE' ? ' · tutte le macchine' : '')}`
+    : (U(s.dove) !== U(eq.code) ? (U(s.dove) === 'TUTTE' || !s.dove ? 'vale per tutte le macchine' : 'vale per tutta la linea ' + s.dove) : '');
+  const meta = s.fromFermo ? `${fmtD(s.ts)}${s.dur ? ' · ' + fmtDur(s.dur) : ''}` : (s.pending ? 'in coda' : (usi[s.guasto] ? `${usi[s.guasto]} fermi con questo guasto` : (s.ts ? fmtD(s.ts) : '')));
+  return `<div class="scard"><div class="tags">${s.guasto ? `<span class="tag g">${esc(s.guasto.split(',')[0])}</span>` : ''}
+    ${s.fromFermo ? '<span class="tag f">DA UN FERMO</span>' : '<span class="tag v">VERIFICATA</span>'}<span class="meta">${esc(meta)}</span></div>
+    ${where ? `<div class="hint" style="margin:0">${esc(where)}</div>` : ''}
+    <div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>
+    ${s.ricambi ? `<div class="ric">${String(s.ricambi).split(/[;,\n]+/).filter(x => x.trim()).map(x => `<span>${esc(x.trim())}</span>`).join('')}</div>` : ''}
+    ${s.link ? `<a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener" style="align-self:flex-start;padding:4px 0">Apri allegato</a>` : ''}
+    ${s.autore && !s.fromFermo ? `<div class="hint" style="margin:0">${esc(s.autore)}</div>` : ''}</div>`;
+}
+function solSheet(eq, pref = {}) {
+  const P = { guasto: pref.guasto || null, file: null };
+  sheet(`<div class="sheet-h"><div><h3>Nuova soluzione</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="sg">${chips(guastiFor(eq), P.guasto)}</div></div>
+    <div class="group"><label class="label" for="sp">Problema</label><textarea class="field" id="sp" placeholder="Cosa succede alla macchina">${esc(pref.problema || '')}</textarea></div>
+    <div class="group"><label class="label" for="ss">Soluzione</label><textarea class="field" id="ss" style="min-height:90px" placeholder="Cosa fare, nell'ordine">${esc(pref.soluzione || '')}</textarea></div>
+    <div class="group"><label class="label" for="sr">Codici ricambio · facoltativo</label><input class="field" id="sr" autocomplete="off" placeholder="9517540 ventosa; 9504617 levetta"></div>
+    <div class="group"><span class="label">Vale per</span><div class="chips" id="sd">${chips(['Questa macchina', 'Tutta la linea ' + eq.linea], 'Questa macchina')}</div></div>
+    <div class="group" id="sf"></div>
+    <div class="err" id="serr" hidden></div>
+    <button class="submit blue" id="go">Salva soluzione</button>`);
+  let dove = eq.code;
+  singleChoice($('#sg'), v => P.guasto = v);
+  singleChoice($('#sd'), v => dove = v === 'Questa macchina' ? eq.code : eq.linea);
+  const drawFile = () => { const el = $('#sf'); el.innerHTML = P.file ? `<div class="ctxbar" style="margin:0"><div><div class="t1">${esc(P.file.name)}</div><div class="hint" style="margin:0">Allegato</div></div><button class="linkbtn" type="button">Togli</button></div>`
+    : `<button class="camtile" type="button">${I.cam}Allega foto o PDF · facoltativo</button>`; el.querySelector('button').onclick = () => { if (P.file) { P.file = null; drawFile(); } else pickFile(f => { P.file = f; drawFile(); }); }; };
+  drawFile();
+  $('#go').onclick = () => {
+    const prob = $('#sp').value.trim(), sol = $('#ss').value.trim();
+    if (!prob || !sol) { const e = $('#serr'); e.textContent = 'Scrivi il problema e la soluzione.'; e.hidden = false; return; }
+    enqueue({ action: 'soluzione', id: uid('S'), code: dove === eq.code ? eq.code : '', linea: eq.linea, guasto: P.guasto || '', problema: prob, soluzione: sol,
+      ricambi: $('#sr').value.trim(), file: P.file ? P.file.data : '', fileName: P.file ? P.file.name : '', mime: P.file ? P.file.mime : '', ts: Date.now(), manutentore: S.man });
+    closeSh(); toast('Soluzione salvata'); go({ name: 'sol', code: eq.code });
+  };
+}
+
+/* ================= Documenti ================= */
+function renderDoc() {
+  const eq = S.view.code ? eqBy(S.view.code) : null;
+  const tab = S.view.tab || 'man', scope = S.view.scope || 'mac', q = (S.view.q || '').toLowerCase();
+  const isSch = d => /SCHED/.test(d.tipo);
+  const linea = eq && eq.linea;
+  const list = S.documenti.filter(d => (tab === 'sch') === isSch(d))
+    .filter(d => !eq || (scope === 'mac' ? vale(d.dove, eq) : (vale(d.dove, eq) || lineaDi(d.dove) === linea)))
+    .filter(d => !q || [d.titolo, d.descr, d.tipo, d.dove].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => String(a.dove).localeCompare(String(b.dove)) || String(a.titolo).localeCompare(String(b.titolo)));
+  $('#view').innerHTML = `
+    ${topline('Documenti', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
+    <div class="seg" id="tabs"><button data-t="man" aria-pressed="${tab === 'man'}">MANUALI E SCHEMI</button><button data-t="sch" aria-pressed="${tab === 'sch'}">SCHEDE FORMATO</button></div>
+    ${eq ? `<div class="chips filters" id="sc"><button class="chip" data-v="mac" aria-pressed="${scope === 'mac'}">Questa macchina</button><button class="chip" data-v="lin" aria-pressed="${scope === 'lin'}">Tutta la linea ${esc(linea)}</button></div>`
+      : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona un QR o scegli una macchina per filtrare</div></div><button class="linkbtn" id="pickm">Scegli</button></div>`}
+    <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca un documento" value="${esc(S.view.q || '')}" aria-label="Cerca"></div>
+    <div class="list" style="margin-top:12px">${list.length ? list.map(docRow).join('') : `<div class="empty">Nessun documento${eq ? ' collegato a questa macchina' : ''}. I documenti si aggiungono nel foglio Documenti del Google Sheet.</div>`}</div>`;
+  $('#tabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { S.view.tab = b.dataset.t; renderDoc(); } };
+  const sc = $('#sc'); if (sc) sc.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { S.view.scope = b.dataset.v; renderDoc(); } };
+  const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'doc', code: e.code, tab }));
+  const qi = $('#q'); let t; qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.view.q = qi.value; renderDoc(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+  bindCommon();
+}
+function docRow(d) {
+  const ext = /\.xlsx?($|\?)/i.test(d.link) ? 'XLS' : /\.(jpe?g|png)($|\?)/i.test(d.link) ? 'IMG' : 'PDF';
+  const e = eqBy(d.dove), where = e ? e.linea + ' · ' + nice(e.macchina) : (U(d.dove) === 'TUTTE' || !d.dove ? 'Tutte le linee' : 'Linea ' + d.dove);
+  const inner = `<span class="ico ${ext === 'PDF' ? '' : 's'}">${ext}</span><div><div class="t1">${esc(d.titolo)}</div><div class="t2">${esc(nice(d.tipo))} · ${esc(where)}${d.descr ? ' · ' + esc(d.descr) : ''}</div></div>`;
+  return d.link ? `<a class="drow" href="${esc(d.link)}" target="_blank" rel="noopener">${inner}${I.open}</a>` : `<div class="drow">${inner}<span class="hint">senza link</span></div>`;
+}
+
+/* ================= Anomalie ================= */
+function renderAno() {
+  const tab = S.view.tab || 'aperte';
+  const all = allAnomalie();
+  const list = tab === 'aperte' ? anoAperte(all) : all.filter(a => a.stato === 'CHIUSA').sort((a, b) => (b.chiusa || b.ts) - (a.chiusa || a.ts));
+  $('#view').innerHTML = `
+    ${topline('Anomalie', 'Da gestire e chiuse negli ultimi 30 giorni', 'home')}
+    <div class="seg" id="tabs"><button data-t="aperte" aria-pressed="${tab === 'aperte'}">DA GESTIRE · ${anoAperte(all).length}</button><button data-t="chiuse" aria-pressed="${tab === 'chiuse'}">CHIUSE</button></div>
+    <div class="list" style="margin-top:12px">${list.length ? list.map(anoCard).join('') : `<div class="empty">${tab === 'aperte' ? 'Nessuna anomalia aperta.' : 'Nessuna anomalia chiusa negli ultimi 30 giorni.'}</div>`}</div>
+    <button class="addbtn" data-go="anoform" style="background:var(--crit);color:#fff">+ Segnala anomalia</button>`;
+  $('#tabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { S.view.tab = b.dataset.t; renderAno(); } };
+  bindCommon();
+}
+const ANO_DRAFT = { urg: 0, img: null, circles: [], descr: '', serve: '' };
+function renderAnoForm() {
+  const eq = S.view.code ? eqBy(S.view.code) : null;
+  const A = ANO_DRAFT;
+  $('#view').innerHTML = `
+    ${topline('Segnala anomalia', '', eq ? 'equip:' + eq.code : 'ano')}
+    <div class="ctxbar">${I.qr.replace('<svg', '<svg width="22" height="22" style="color:var(--steel);flex:none"')}<div>${eq ? `<div class="t1">${esc(eq.linea)} · ${esc(nice(eq.macchina))}</div><div class="code">${esc(eq.code)}</div>` : '<div class="t1">Quale macchina?</div><div class="hint" style="margin:0">Scansiona il QR o sceglila</div>'}</div>
+      <button class="linkbtn" id="chg">${eq ? 'Cambia' : 'Scegli'}</button></div>
+    <div class="group"><span class="label">Urgenza</span><div class="urgpick" id="urg">
+      <button class="u1" data-u="1" aria-pressed="${A.urg === 1}"><b>1</b><span>CRITICO</span></button>
+      <button class="u2" data-u="2" aria-pressed="${A.urg === 2}"><b>2</b><span>URGENTE</span></button>
+      <button class="u3" data-u="3" aria-pressed="${A.urg === 3}"><b>3</b><span>PROGRAMMABILE</span></button></div></div>
+    <div class="group"><label class="label" for="ad">Cosa hai visto</label><textarea class="field" id="ad" placeholder="Es. ventose del magazzino astucci consumate, prese a vuoto">${esc(A.descr)}</textarea></div>
+    <div class="group" id="aph"></div>
+    <div class="group"><label class="label" for="as">Cosa serve · facoltativo</label><textarea class="field" id="as" placeholder="Ricambio, intervento, fermo programmato…">${esc(A.serve)}</textarea></div>
+    <div class="err" id="aerr" hidden></div>
+    <div class="hint center">Segnalata da ${esc(S.man || '—')} · finisce nel foglio Anomalie e nello storico della macchina</div>
+    <button class="submit red" id="go" style="margin-top:10px">Invia segnalazione</button>`;
+  const keep = () => { A.descr = $('#ad').value; A.serve = $('#as').value; };
+  $('#chg').onclick = () => { keep(); openScannerOrPick(e => go({ name: 'anoform', code: e.code })); };
+  $('#urg').onclick = e => { const b = e.target.closest('[data-u]'); if (!b) return; A.urg = +b.dataset.u; $$('#urg [data-u]').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare');
+  $('#go').onclick = () => needMan(() => {
+    keep();
+    const msg = !eq ? 'Scegli la macchina.' : !A.urg ? 'Scegli l\'urgenza (1, 2 o 3).' : !A.descr.trim() ? 'Scrivi cosa hai visto.' : '';
+    if (msg) { const e = $('#aerr'); e.textContent = msg; e.hidden = false; return; }
+    enqueue({ action: 'anomalia', id: uid('A'), code: eq.code, urgenza: A.urg, descr: A.descr.trim(), serve: A.serve.trim(), foto: A.img ? toJpeg(A.img, A.circles) : '', ts: Date.now(), manutentore: S.man });
+    Object.assign(A, { urg: 0, img: null, circles: [], descr: '', serve: '' });
+    toast('Anomalia segnalata'); go({ name: 'equip', code: eq.code });
+  });
+  bindCommon();
+}
+function openScannerOrPick(cb) { pickSheet(cb); }
+function anoSheet(id) {
+  const a = allAnomalie().find(x => x.id === id); if (!a) return;
+  sheet(`<div class="sheet-h"><div>${urgTag(a.urgenza)}<h3 style="margin-top:8px">${esc(a.linea)} · ${esc(nice(a.macchina))}</h3><div class="code">${esc(a.code)} · ${a.ts ? fmtDT(a.ts) : ''} · ${esc(a.da || '')}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="group"><span class="label">Cosa è stato visto</span><div class="scard"><div>${esc(a.descr)}</div></div></div>
+    ${a.serve ? `<div class="group"><span class="label">Cosa serve</span><div class="scard"><div>${esc(a.serve)}</div></div></div>` : ''}
+    ${a.foto ? `<a class="linkbtn" href="${esc(a.foto)}" target="_blank" rel="noopener">Apri foto</a>` : ''}
+    <div class="group"><span class="label">Stato</span><div><b>${esc(a.stato)}</b>${a.gestita ? ' · ' + esc(a.gestita) : ''}${a.note ? '<div class="hint">' + esc(a.note) + '</div>' : ''}</div></div>
+    ${a.stato !== 'CHIUSA' ? `<div class="group"><label class="label" for="an">Nota · facoltativa</label><textarea class="field" id="an" placeholder="Cosa è stato fatto"></textarea></div>
+      ${a.stato === 'APERTA' ? '<button class="submit blue" id="take">Prendo in carico</button>' : ''}
+      <button class="submit" id="done" style="margin-top:10px">Chiudi anomalia</button>` : ''}
+    <button class="linkbtn" data-goeq="${esc(a.code)}" style="margin-top:8px">Vai alla scheda macchina</button>`);
+  const send = st => needMan(() => { enqueue({ action: 'anomaliaStato', id: a.id, stato: st, note: ($('#an') || {}).value || '', ts: Date.now(), manutentore: S.man }); closeSh(); toast(st === 'CHIUSA' ? 'Anomalia chiusa' : 'Presa in carico'); });
+  const tk = $('#take'); if (tk) tk.onclick = () => send('IN CORSO');
+  const dn = $('#done'); if (dn) dn.onclick = () => send('CHIUSA');
+  $('[data-goeq]').onclick = () => { closeSh(); go({ name: 'equip', code: a.code }); };
+}
+
+/* ================= Fogli a comparsa ================= */
 function sheet(html) {
   $('#sheet').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
   $('#scrim').onclick = e => { if (e.target.id === 'scrim') closeSh(); };
-  document.querySelectorAll('#sheet [data-x]').forEach(b => b.onclick = closeSh);
+  $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
 }
 function closeSh() { $('#sheet').innerHTML = ''; }
-function chips(list, sel, cls = '') { return list.map(v => `<button class="chip ${cls}" data-v="${esc(v)}" aria-pressed="${sel === v}">${esc(v)}</button>`).join(''); }
+function chips(list, sel, cls = '') { return list.map(v => `<button class="chip ${cls}" type="button" data-v="${esc(v)}" aria-pressed="${sel === v}">${esc(v)}</button>`).join(''); }
 function singleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); onPick(b.dataset.v); }; }
 
 /* ---- Accesso: nome + cognome verificati sull'elenco Manutentori ---- */
-const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z' ]/g, ' ').replace(/\s+/g, ' ').trim();
 function findTecnico(nome, cognome) {
   const want = (norm(nome) + ' ' + norm(cognome)).split(' ').filter(Boolean).sort().join(' ');
   return (S.liste['Manutentori'] || []).find(m => norm(m).split(' ').sort().join(' ') === want) || null;
@@ -442,7 +800,7 @@ $('#lform').onsubmit = async e => {
   const n = $('#lnome').value, c = $('#lcogn').value, err = $('#lerr'), btn = $('#lgo');
   const fail = msg => { err.textContent = msg; err.hidden = false; btn.disabled = false; btn.textContent = 'Entra'; };
   if (!norm(n) || !norm(c)) return fail('Scrivi sia il nome sia il cognome.');
-  if (!MOCK && !getPin()) { // primo accesso su questo telefono: verifica del codice reparto
+  if (!MOCK && !getPin()) {
     const pin = $('#lpin').value.trim();
     if (!pin) return fail('Inserisci il codice reparto.');
     btn.disabled = true; btn.textContent = 'Verifica…';
@@ -450,7 +808,7 @@ $('#lform').onsubmit = async e => {
     catch (ex) { return fail(isPinErr(ex) ? 'Codice reparto errato.' : 'Per il primo accesso serve la connessione: riprova quando c\'è rete.'); }
   }
   let t = findTecnico(n, c);
-  if (!t && !MOCK) { btn.disabled = true; btn.textContent = 'Verifica…'; await refresh(); t = findTecnico(n, c); } // magari è stato aggiunto ora
+  if (!t && !MOCK) { btn.disabled = true; btn.textContent = 'Verifica…'; await refresh(); t = findTecnico(n, c); }
   btn.disabled = false; btn.textContent = 'Entra';
   if (!t) { err.textContent = 'Non trovo "' + n.trim() + ' ' + c.trim() + '" tra i manutentori abilitati. Controlla come è scritto o chiedi al responsabile di aggiungerti.'; err.hidden = false; return; }
   const sess = { man: t, exp: Date.now() + SESSION_H * 3600e3 };
@@ -464,36 +822,37 @@ function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save(
 function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
-    <p class="hint">Ogni fermo che apri o chiudi viene registrato a tuo nome. Se il telefono passa a un collega, esci.</p>
-    <button class="submit red" id="logout">Esci</button>`);
+    <p class="hint">Fermi, soluzioni e anomalie vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
+    <button class="submit red" id="logout">Esci</button>
+    <div class="center" style="margin-top:12px"><a class="linkbtn" href="../?menu=1">Vecchia Pharma-Fix</a></div>`);
   $('#logout').onclick = logout;
 };
 
-function pickSheet() {
+function pickSheet(cb) {
   const linee = [...new Set(S.equipment.map(e => e.linea))];
   let L = null;
   const draw = () => {
     sheet(`<div class="sheet-h"><h3>Scegli macchina</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
       <div class="group"><span class="label">Linea</span><div class="chips big" id="pl">${chips(linee, L)}</div></div>
       ${L ? `<div class="group"><span class="label">Macchina</span><div class="list" id="pm">${S.equipment.filter(e => e.linea === L).map(e =>
-        `<button class="chip" data-v="${esc(e.code)}"><b>${esc(e.macchina)}</b> <span class="label">· ${esc(e.area)}</span></button>`).join('')}</div></div>` : ''}`);
+        `<button class="chip" data-v="${esc(e.code)}"><b>${esc(e.macchina)}</b> <span class="label">· ${esc(e.code)}</span></button>`).join('')}</div></div>` : ''}`);
     $('#pl').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { L = b.dataset.v; draw(); } };
-    const pm = $('#pm'); if (pm) pm.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { closeSh(); go({ name: 'equip', code: b.dataset.v }); } };
+    const pm = $('#pm'); if (pm) pm.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { closeSh(); cb(eqBy(b.dataset.v)); } };
   };
   draw();
 }
 
+/* ================= Fermi: apertura e chiusura ================= */
 const OFFSETS = [0, 5, 10, 15, 30];
-// Lotto obbligatorio in apertura e chiusura: solo cifre, da 4 a 10 (stessa regola nello script del foglio)
 const LOTTO_OK = v => /^\d{4,10}$/.test(String(v || '').trim());
 const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto il fermo non si può registrare.';
 function openSheet(eq) {
   const O = { offset: 0 };
   const lotto = lastLotto(eq.linea);
   sheet(`<div class="sheet-h"><div><h3>Apri fermo</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
-    <div class="group"><span class="label">Lotto</span><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
+    <div class="group"><label class="label" for="lotto">Lotto</label><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
       ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
-    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
+    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" type="button" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
     <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
     <div class="err" id="oerr" hidden></div>
     <button class="submit red" id="go">Apri fermo</button>`);
@@ -502,51 +861,34 @@ function openSheet(eq) {
     const lv = $('#lotto').value.trim();
     if (!LOTTO_OK(lv)) { const e = $('#oerr'); e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
     const ts = Date.now() - O.offset * 60000;
-    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts),
-      manutentore: S.man, foto: '' });
+    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts), manutentore: S.man, foto: '' });
     closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
   };
 }
-
-// Guasti della macchina: quelli del suo codice, poi quelli della linea, poi TUTTE; ALTRO sempre in fondo.
 function guastiFor(eq) {
   const G = S.guasti || {};
-  if (!Object.keys(G).length) return S.liste[eq.area === 'Sterile' ? 'Guasto Sterile' : 'Guasto Secondario'] || []; // foglio Guasti non ancora creato
-  const all = [...(G[String(eq.code || '').toUpperCase()] || []), ...(G[String(eq.linea || '').toUpperCase()] || []), ...(G['TUTTE'] || [])];
+  if (!Object.keys(G).length) return S.liste[eq.area === 'Sterile' ? 'Guasto Sterile' : 'Guasto Secondario'] || ['ALTRO'];
+  const all = [...(G[U(eq.code)] || []), ...(G[U(eq.linea)] || []), ...(G['TUTTE'] || [])];
   const seen = new Set(), out = [];
-  for (const g of all) { const k = g.toUpperCase(); if (!seen.has(k)) { seen.add(k); out.push(g); } }
-  const i = out.findIndex(g => g.toUpperCase() === 'ALTRO'); if (i >= 0) out.push(out.splice(i, 1)[0]); else out.push('ALTRO');
+  for (const g of all) { const k = U(g); if (!seen.has(k)) { seen.add(k); out.push(g); } }
+  const i = out.findIndex(g => U(g) === 'ALTRO'); if (i >= 0) out.push(out.splice(i, 1)[0]); else out.push('ALTRO');
   return out;
 }
-function closeSheet(f, img) {
-  const eq = eqBy(f.code) || { area: 'Secondario' };
-  const guasti = guastiFor(eq);
-  const C = { img, circles: [], cat: null, int: null, guasto: null };
+function closeSheet(f) {
+  const eq = eqBy(f.code) || { area: 'Secondario', code: f.code, linea: f.linea };
+  const C = { img: null, circles: [], cat: null, int: null, guasto: null };
   sheet(`<div class="sheet-h"><div><h3>Chiudi fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span></div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="group" id="phgrp"></div>
     <div class="group"><span class="label">Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
     <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
-    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guasti)}</div></div>
-    <div class="group"><span class="label" id="altlbl">Altro (descrizione breve)</span><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
-    <div class="group"><span class="label">Lotto</span><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
-    <div class="group"><span class="label">Codice pezzo sostituito</span><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
+    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guastiFor(eq))}</div></div>
+    <div class="group"><label class="label" for="altro">Altro (descrizione breve)</label><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
+    <div class="group"><label class="label" for="clotto">Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
+    <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
     <div class="err" id="err" hidden></div>
     <button class="submit" id="go">Chiudi fermo</button>
     <div class="center" style="margin-top:8px"><button class="linkbtn danger" id="canc">Fermo aperto per errore? Annullalo</button></div>`);
-  const ph = $('#phgrp');
-  const drawPhoto = () => {
-    if (!C.img) { ph.innerHTML = `<button class="camtile" id="addph">${ICAM}Foto zona di intervento</button>`; $('#addph').onclick = () => capture(im => { C.img = im; C.circles = []; drawPhoto(); }); return; }
-    ph.innerHTML = `<span class="label">Foto zona di intervento</span><div class="annot" style="margin-top:8px"><canvas id="cv"></canvas></div>
-      <div class="hint">Tocca la foto per cerchiare la zona. Tocca un cerchio per toglierlo. <button class="linkbtn" id="reph" style="padding:0 0 0 6px">Rifai foto</button></div>`;
-    const cv = $('#cv'), s = Math.min(1, 900 / Math.max(C.img.naturalWidth, C.img.naturalHeight));
-    cv.width = Math.round(C.img.naturalWidth * s); cv.height = Math.round(C.img.naturalHeight * s);
-    const paint = () => { const x = cv.getContext('2d'); x.drawImage(C.img, 0, 0, cv.width, cv.height); drawCircles(x, C.circles, cv.width, cv.height); }; paint();
-    cv.onpointerdown = e => { const r = cv.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height; const m = Math.min(cv.width, cv.height);
-      const hit = C.circles.findIndex(c => Math.hypot((c.x - px) * cv.width, (c.y - py) * cv.height) < c.r * m);
-      if (hit >= 0) C.circles.splice(hit, 1); else C.circles.push({ x: px, y: py, r: .11 }); paint(); };
-    $('#reph').onclick = () => capture(im => { C.img = im; C.circles = []; drawPhoto(); });
-  };
-  drawPhoto();
+  photoBox($('#phgrp'), C, 'Foto zona di intervento');
   singleChoice($('#cat'), v => C.cat = v);
   singleChoice($('#int'), v => C.int = v);
   singleChoice($('#gua'), v => C.guasto = v);
@@ -571,18 +913,20 @@ function closeSheet(f, img) {
 /* ================= Avvio ================= */
 setInterval(() => {
   const n = Date.now();
-  document.querySelectorAll('[data-since]').forEach(e => e.textContent = fmtTimer(n - +e.dataset.since));
+  $$('[data-since]').forEach(e => e.textContent = fmtTimer(n - +e.dataset.since));
   const d = new Date(); $('#clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' · turno ' + turnoOf(n);
 }, 1000);
 (function boot() {
   const c = load('cache', null);
-  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || []; }
-  const eq = new URL(location.href).searchParams.get('eq');
-  if (eq) S.view = { name: 'equip', code: eq };
+  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
+    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; }
+  const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
+  if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
+  else if (eq) S.view = { name: 'equip', code: eq };
   S.man = getSession();
   render();
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
-  const deep = eq && eqBy(eq);
+  const deep = eq && !h && eqBy(eq);
   if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
   sync();
   setInterval(() => { if (!OUTBOX.length && document.visibilityState === 'visible') refresh(); }, 60000);
