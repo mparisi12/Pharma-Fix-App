@@ -66,6 +66,53 @@ const DEF_MACC = {
     ['AST', 'Astucciatrice'], ['BIL', 'Bilancia'], ['CAR', 'Cartonatrice']]
 };
 
+
+/* ---------- Separatore delle formule ----------
+   Un foglio in italiano vuole il punto e virgola tra gli argomenti (=SE(A1="";…)), uno in inglese la virgola.
+   Lo script scrive le formule con la virgola e F_() le converte se serve. */
+function sep_() {
+  const props = PropertiesService.getScriptProperties();
+  let s = props.getProperty('SEP');
+  if (s) return s;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const t = ss.insertSheet('_prova_formule');
+  t.getRange('A1').setFormula('=SUM(1,2)');
+  SpreadsheetApp.flush();
+  s = t.getRange('A1').getValue() === 3 ? ',' : ';';
+  ss.deleteSheet(t);
+  props.setProperty('SEP', s);
+  return s;
+}
+function F_(f) {
+  if (!f || sep_() === ',') return f;
+  let out = '', q = false;
+  for (const ch of String(f)) { if (ch === '"') q = !q; out += (!q && ch === ',') ? ';' : ch; }
+  return out;
+}
+
+// Ripara le formule già scritte con il separatore sbagliato (#ERROR!) e ricrea il foglio KPI.
+function riparaFormule() {
+  PropertiesService.getScriptProperties().deleteProperty('SEP');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SH_FERMI);
+  const last = sh.getLastRow();
+  if (last >= 2) {
+    const k = [], l = [];
+    for (let r = 2; r <= last; r++) {
+      k.push([F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')]);
+      l.push([F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')')]);
+    }
+    sh.getRange(2, C.DUR, last - 1, 1).setFormulas(k).setNumberFormat('[h]:mm');
+    sh.getRange(2, C.IG, last - 1, 1).setFormulas(l);
+    [C.FOTO_A, C.FOTO_C].forEach(col => {
+      const rg = sh.getRange(2, col, last - 1, 1);
+      rg.setFormulas(rg.getFormulas().map(r => [r[0] ? F_(r[0].replace(/;/g, ',')) : '']));
+    });
+  }
+  aggiornaKpi();
+  Logger.log('Formule riparate. Separatore del foglio: "' + sep_() + '"');
+}
+
 /* =================== SETUP (da eseguire una volta) =================== */
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -158,7 +205,7 @@ function sistemaDurate() {
   if (last < 2) return;
   const f = [];
   for (let r = 2; r <= last; r++) f.push(['=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))']);
-  sh.getRange(2, C.DUR, last - 1, 1).setFormulas(f).setNumberFormat('[h]:mm');
+  sh.getRange(2, C.DUR, last - 1, 1).setFormulas(f.map(r => r.map(F_))).setNumberFormat('[h]:mm');
 }
 
 // ---------- KPI con filtri (linea, macchina, periodo) ----------
@@ -179,16 +226,16 @@ function buildKpi_(ss) {
   const dt = ss.getSheetByName(SH_KPI_DATI) || ss.insertSheet(SH_KPI_DATI);
   dt.clear();
   dt.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
-  dt.getRange('A2').setFormula('=IFERROR(FILTER(Fermi!A2:U, Fermi!R2:R="CHIUSO", ' +
+  dt.getRange('A2').setFormula(F_('=IFERROR(FILTER(Fermi!A2:U, Fermi!R2:R="CHIUSO", ' +
     'IF(KPI!$B$3="TUTTE", Fermi!R2:R<>"", Fermi!M2:M=KPI!$B$3), ' +
     'IF(KPI!$B$4="TUTTE", Fermi!R2:R<>"", Fermi!T2:T=REGEXEXTRACT(KPI!$B$4,"^\\S+")), ' +
-    'Fermi!B2:B>=KPI!$B$6, Fermi!B2:B<=KPI!$B$7),)');
+    'Fermi!B2:B>=KPI!$B$6, Fermi!B2:B<=KPI!$B$7),)'));
   // elenchi per i menu a tendina
   dt.getRange('W1').setValue('TUTTE');
-  dt.getRange('W2').setFormula('=SORT(UNIQUE(FILTER(Equipment!B2:B,Equipment!B2:B<>"")))');
+  dt.getRange('W2').setFormula(F_('=SORT(UNIQUE(FILTER(Equipment!B2:B,Equipment!B2:B<>"")))'));
   dt.getRange('X1').setValue('TUTTE');
-  dt.getRange('X2').setFormula('=IFERROR(FILTER(Equipment!A2:A&" · "&Equipment!D2:D, Equipment!A2:A<>"", ' +
-    'IF(KPI!$B$3="TUTTE", Equipment!A2:A<>"", Equipment!B2:B=KPI!$B$3)),)');
+  dt.getRange('X2').setFormula(F_('=IFERROR(FILTER(Equipment!A2:A&" · "&Equipment!D2:D, Equipment!A2:A<>"", ' +
+    'IF(KPI!$B$3="TUTTE", Equipment!A2:A<>"", Equipment!B2:B=KPI!$B$3)),)'));
   PERIODI.forEach((p, i) => dt.getRange(i + 1, 25).setValue(p)); // colonna Y
   dt.hideSheet();
 
@@ -207,27 +254,27 @@ function buildKpi_(ss) {
   sh.getRange('B3').setDataValidation(dv(dt.getRange('W1:W60')));
   sh.getRange('B4').setDataValidation(dv(dt.getRange('X1:X300')));
   sh.getRange('B5').setDataValidation(dv(dt.getRange('Y1:Y8')));
-  sh.getRange('B6').setFormula('=SWITCH(B5,"Ultimi 7 giorni",TODAY()-6,"Ultimi 30 giorni",TODAY()-29,"Ultimi 90 giorni",TODAY()-89,' +
+  sh.getRange('B6').setFormula(F_('=SWITCH(B5,"Ultimi 7 giorni",TODAY()-6,"Ultimi 30 giorni",TODAY()-29,"Ultimi 90 giorni",TODAY()-89,' +
     '"Mese corrente",EOMONTH(TODAY(),-1)+1,"Mese scorso",EOMONTH(TODAY(),-2)+1,"Anno corrente",DATE(YEAR(TODAY()),1,1),' +
-    '"Personalizzato",IF(D6="",TODAY()-29,D6),DATE(2000,1,1))');
-  sh.getRange('B7').setFormula('=SWITCH(B5,"Mese scorso",EOMONTH(TODAY(),-1),"Personalizzato",IF(D7="",TODAY(),D7),TODAY())');
+    '"Personalizzato",IF(D6="",TODAY()-29,D6),DATE(2000,1,1))'));
+  sh.getRange('B7').setFormula(F_('=SWITCH(B5,"Mese scorso",EOMONTH(TODAY(),-1),"Personalizzato",IF(D7="",TODAY(),D7),TODAY())'));
   sh.getRange('B6:B7').setNumberFormat('dd/MM/yyyy');
   sh.getRange('C6:C7').setValues([['Personalizzato: dal →'], ['Personalizzato: al →']]).setFontColor('#5a6873').setHorizontalAlignment('right');
   sh.getRange('D6:D7').setBackground(Y).setNumberFormat('dd/MM/yyyy');
-  sh.getRange('C4').setFormula('=IF(OR(B4="TUTTE",COUNTIF(KPI_dati!X:X,B4)>0),"","⚠ macchina non della linea scelta: rimetti TUTTE")').setFontColor('#c23b2a');
+  sh.getRange('C4').setFormula(F_('=IF(OR(B4="TUTTE",COUNTIF(KPI_dati!X:X,B4)>0),"","⚠ macchina non della linea scelta: rimetti TUTTE")')).setFontColor('#c23b2a');
 
   // Indicatori
   sh.getRange('A9:H9').setValues([['N° fermi', 'Tempo di fermo', 'MTTR', 'N° lotti', 'Occurrancy (fermi/lotti)',
     'Ore funzionamento (inserire)', 'MTBF (h)', 'Guasto più frequente']])
     .setFontWeight('bold').setBackground(H).setWrap(true).setVerticalAlignment('middle');
-  sh.getRange('A10').setFormula('=COUNTIF(KPI_dati!S2:S,"?*")');
-  sh.getRange('B10').setFormula('=SUM(KPI_dati!K2:K)');
-  sh.getRange('C10').setFormula('=IF(A10=0,"",B10/A10)');
-  sh.getRange('D10').setFormula('=IFERROR(COUNTUNIQUE(FILTER(KPI_dati!A2:A,KPI_dati!A2:A<>"")),0)');
-  sh.getRange('E10').setFormula('=IF(D10=0,"",A10/D10)');
+  sh.getRange('A10').setFormula(F_('=COUNTIF(KPI_dati!S2:S,"?*")'));
+  sh.getRange('B10').setFormula(F_('=SUM(KPI_dati!K2:K)'));
+  sh.getRange('C10').setFormula(F_('=IF(A10=0,"",B10/A10)'));
+  sh.getRange('D10').setFormula(F_('=IFERROR(COUNTUNIQUE(FILTER(KPI_dati!A2:A,KPI_dati!A2:A<>"")),0)'));
+  sh.getRange('E10').setFormula(F_('=IF(D10=0,"",A10/D10)'));
   sh.getRange('F10').setBackground(Y);
-  sh.getRange('G10').setFormula('=IF(OR(A10=0,F10=""),"",F10/A10)');
-  sh.getRange('H10').setFormula('=IFERROR(INDEX(A14:A,1),"")');
+  sh.getRange('G10').setFormula(F_('=IF(OR(A10=0,F10=""),"",F10/A10)'));
+  sh.getRange('H10').setFormula(F_('=IFERROR(INDEX(A14:A,1),"")'));
   sh.getRange('A10:H10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange('B10:C10').setNumberFormat('[h]:mm');
   sh.getRange('E10').setNumberFormat('0.00');
@@ -236,21 +283,21 @@ function buildKpi_(ss) {
 
   // Pareto
   sh.getRange('A12').setValue('Pareto guasti — RFR = n° di quel guasto / totale fermi').setFontWeight('bold');
-  sh.getRange('A13').setFormula('=IFERROR(QUERY(KPI_dati!A1:U,"select I, count(S), sum(K) where S is not null group by I order by count(S) desc ' +
-    'label I \'Tipo guasto\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"Nessun fermo chiuso con questi filtri")');
+  sh.getRange('A13').setFormula(F_('=IFERROR(QUERY(KPI_dati!A1:U,"select I, count(S), sum(K) where S is not null group by I order by count(S) desc ' +
+    'label I \'Tipo guasto\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"Nessun fermo chiuso con questi filtri")'));
   sh.getRange('D13:E13').setValues([['% cumulata', 'RFR']]);
-  sh.getRange('D14').setFormula('=ARRAYFORMULA(IF(B14:B200="","",SCAN(0,B14:B200,LAMBDA(a,b,a+N(b)))/SUM(B14:B200)))');
-  sh.getRange('E14').setFormula('=ARRAYFORMULA(IF(B14:B200="","",B14:B200/SUM(B14:B200)))');
+  sh.getRange('D14').setFormula(F_('=ARRAYFORMULA(IF(B14:B200="","",SCAN(0,B14:B200,LAMBDA(a,b,a+N(b)))/SUM(B14:B200)))'));
+  sh.getRange('E14').setFormula(F_('=ARRAYFORMULA(IF(B14:B200="","",B14:B200/SUM(B14:B200)))'));
   sh.getRange('A13:E13').setFontWeight('bold').setBackground(H);
   sh.getRange('C14:C200').setNumberFormat('[h]:mm');
   sh.getRange('D14:E200').setNumberFormat('0%');
 
   // Per macchina
   sh.getRange('G12').setValue('Fermi per macchina').setFontWeight('bold');
-  sh.getRange('G13').setFormula('=IFERROR(QUERY(KPI_dati!A1:U,"select M, F, count(S), sum(K) where S is not null group by M, F order by sum(K) desc ' +
-    'label M \'Linea\', F \'Macchina\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"")');
+  sh.getRange('G13').setFormula(F_('=IFERROR(QUERY(KPI_dati!A1:U,"select M, F, count(S), sum(K) where S is not null group by M, F order by sum(K) desc ' +
+    'label M \'Linea\', F \'Macchina\', count(S) \'N° fermi\', sum(K) \'Tempo\'",1),"")'));
   sh.getRange('K13').setValue('MTTR');
-  sh.getRange('K14').setFormula('=ARRAYFORMULA(IF(I14:I200="","",J14:J200/I14:I200))');
+  sh.getRange('K14').setFormula(F_('=ARRAYFORMULA(IF(I14:I200="","",J14:J200/I14:I200))'));
   sh.getRange('G13:K13').setFontWeight('bold').setBackground(H);
   sh.getRange('J14:K200').setNumberFormat('[h]:mm');
 
@@ -406,9 +453,9 @@ function openFermo_(p) {
   const r = sh.getLastRow();
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
-  sh.getRange(r, C.DUR).setFormula('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))').setNumberFormat('[h]:mm');
-  sh.getRange(r, C.IG).setFormula('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')');
-  if (url) sh.getRange(r, C.FOTO_A).setFormula(linkFormula_(url));
+  sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
+  sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
+  if (url) sh.getRange(r, C.FOTO_A).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, 1, 1, HEAD.length).setBackground('#fff3d6');
   return { row: r };
 }
@@ -433,7 +480,7 @@ function closeFermo_(p) {
   if (p.manutentore) sh.getRange(r, C.MAN).setValue(p.manutentore);
   sh.getRange(r, C.CAT, 1, 4).setValues([[p.categoria || '', p.intervento || '', p.guasto || '', p.altro || '']]);
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
-  if (url) sh.getRange(r, C.FOTO_C).setFormula(linkFormula_(url));
+  if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
   sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
