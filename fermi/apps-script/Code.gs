@@ -158,6 +158,7 @@ function setup() {
 
   if (!ss.getSheetByName(SH_KPI)) buildKpi_(ss); // il foglio KPI non viene più ricostruito se esiste già
   if (!ss.getSheetByName(SH_GUASTI)) buildGuasti_(ss);
+  creaFogliArchivio_(ss);
   sistemaDurate();
 
   // Cartella foto
@@ -403,6 +404,174 @@ function aggiornaValoriKpi() {
   }
 }
 
+/* =================== SOLUZIONI, DOCUMENTI, ANOMALIE =================== */
+// Colonna "Dove": codice macchina (es. ST3-04), nome linea (es. ST3) oppure TUTTE.
+const SH_SOL = 'Soluzioni', SH_DOC = 'Documenti', SH_ANO = 'Anomalie', SH_IMP = 'Import_PharmaFix', SH_MAPPA = 'Mappa_import';
+const SOL_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Linea', 'Macchina', 'Tipo guasto', 'Problema', 'Soluzione', 'Codici ricambio', 'Allegato', 'Autore'];
+const DOC_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Tipo (MANUALE / SCHEMA / SCHEDA FORMATO / ALTRO)', 'Titolo', 'Descrizione', 'Link', 'Autore'];
+const ANO_H = ['ID', 'Data', 'Equipment', 'Linea', 'Macchina', 'Urgenza (1 critico, 2 urgente, 3 programmabile)', 'Descrizione', 'Cosa serve', 'Foto',
+  'Segnalata da', 'Stato (APERTA / IN CORSO / CHIUSA)', 'Gestita da', 'Data chiusura', 'Note'];
+
+function creaFogliArchivio_(ss) {
+  [[SH_SOL, SOL_H, [7, 8]], [SH_DOC, DOC_H, [5, 6]], [SH_ANO, ANO_H, [7, 8]]].forEach(([n, h, wide]) => {
+    if (ss.getSheetByName(n)) return;
+    const sh = ss.insertSheet(n);
+    sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+    sh.setFrozenRows(1);
+    wide.forEach(c => sh.setColumnWidth(c, 320));
+    sh.getRange('B:B').setNumberFormat('dd/MM/yyyy HH:mm');
+  });
+}
+
+function righe_(ss, nome, n) {
+  const sh = ss.getSheetByName(nome);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, n).getValues().filter(r => r[0] !== '' || r[2] !== '');
+}
+const ts_ = v => v instanceof Date ? v.getTime() : (dataOra_(v, null) ? dataOra_(v, null).getTime() : null);
+const linkDi_ = (sh, r, c) => { const rt = sh.getRange(r, c).getRichTextValue(); return (rt && rt.getLinkUrl()) || String(sh.getRange(r, c).getValue() || ''); };
+
+function archivio_(ss) {
+  const sol = righe_(ss, SH_SOL, SOL_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), linea: String(r[3]), macchina: String(r[4]),
+    guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]) }));
+  const doc = righe_(ss, SH_DOC, DOC_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), tipo: String(r[3]).trim().toUpperCase(),
+    titolo: String(r[4]), descr: String(r[5]), link: String(r[6]) }));
+  const from = Date.now() - 30 * 864e5;
+  const ano = righe_(ss, SH_ANO, ANO_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), code: String(r[2]), linea: String(r[3]), macchina: String(r[4]),
+    urgenza: Number(r[5]) || 3, descr: String(r[6]), serve: String(r[7]), foto: String(r[8]), da: String(r[9]), stato: String(r[10] || 'APERTA').toUpperCase(),
+    gestita: String(r[11]), chiusa: ts_(r[12]), note: String(r[13]) }))
+    .filter(a => a.stato !== 'CHIUSA' || (a.chiusa || a.ts || 0) >= from);
+  return { soluzioni: sol, documenti: doc, anomalie: ano };
+}
+
+function saveFile_(b64, name, mime) {
+  if (!b64) return '';
+  const folder = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('FOLDER_ID'));
+  return folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime || 'application/octet-stream', name)).getUrl();
+}
+
+function addSoluzione_(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SH_SOL);
+  if (!sh) throw new Error('Foglio Soluzioni mancante: esegui setup');
+  if (findIn_(sh, p.id)) return { dup: true };
+  if (!String(p.problema || '').trim() || !String(p.soluzione || '').trim()) throw new Error('Problema e soluzione sono obbligatori');
+  const eq = equipment_(ss).find(x => x.code === p.code) || { linea: p.linea || '', macchina: '' };
+  const d = new Date(Number(p.ts) || Date.now());
+  const url = p.file ? saveFile_(p.file, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + (p.code || 'soluzione') + '_' + (p.fileName || 'allegato'), p.mime) : '';
+  sh.appendRow([p.id, d, p.code || p.linea || 'TUTTE', eq.linea, eq.macchina, p.guasto || '', p.problema, p.soluzione, p.ricambi || '', url, p.manutentore || '']);
+  sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd/MM/yyyy HH:mm');
+  return {};
+}
+
+function addAnomalia_(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SH_ANO);
+  if (!sh) throw new Error('Foglio Anomalie mancante: esegui setup');
+  if (findIn_(sh, p.id)) return { dup: true };
+  if (!String(p.descr || '').trim()) throw new Error('Descrizione anomalia obbligatoria');
+  const eq = equipment_(ss).find(x => x.code === p.code) || { linea: '', macchina: '' };
+  const d = new Date(Number(p.ts) || Date.now());
+  const url = saveFile_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + p.code + '_anomalia.jpg', 'image/jpeg');
+  sh.appendRow([p.id, d, p.code, eq.linea, eq.macchina, [1, 2, 3].indexOf(Number(p.urgenza)) >= 0 ? Number(p.urgenza) : 3,
+    p.descr, p.serve || '', url, p.manutentore || '', 'APERTA', '', '', '']);
+  const r = sh.getLastRow();
+  sh.getRange(r, 2).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(r, 6).setBackground({ 1: '#f4c7c0', 2: '#fbeaa0', 3: '#cfe9d9' }[Number(p.urgenza)] || null);
+  return {};
+}
+
+function statoAnomalia_(p) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_ANO);
+  const r = findIn_(sh, p.id);
+  if (!r) throw new Error('Anomalia ' + p.id + ' non trovata');
+  const stato = String(p.stato || '').toUpperCase();
+  if (['APERTA', 'IN CORSO', 'CHIUSA'].indexOf(stato) < 0) throw new Error('Stato non valido');
+  sh.getRange(r, 11, 1, 2).setValues([[stato, p.manutentore || '']]);
+  if (stato === 'CHIUSA') sh.getRange(r, 13).setValue(new Date(Number(p.ts) || Date.now())).setNumberFormat('dd/MM/yyyy HH:mm');
+  if (p.note) sh.getRange(r, 14).setValue(p.note);
+  return {};
+}
+
+function findIn_(sh, id) {
+  const last = sh.getLastRow();
+  if (last < 2 || !id) return 0;
+  const c = sh.getRange(2, 1, last - 1, 1).createTextFinder(String(id)).matchEntireCell(true).findNext();
+  return c ? c.getRow() : 0;
+}
+
+/* ---------- Import dalla vecchia Pharma-Fix ----------
+   1) Nel foglio della vecchia Pharma-Fix seleziona tutto (intestazioni comprese) e copia.
+   2) Qui crea una scheda "Import_PharmaFix" e incolla in A1.
+   3) Esegui importaPharmaFix(): la prima volta crea "Mappa_import" (reparto + macchina → codice QR) con i codici indovinati:
+      controllali/correggili (vuoto = vale per tutta la linea indicata, oppure TUTTE).
+   4) Esegui di nuovo importaPharmaFix(): copia guasti in Soluzioni, manuali/schede in Documenti, anomalie in Anomalie. Rilanciarlo non crea doppioni. */
+function importaPharmaFix() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const src = ss.getSheetByName(SH_IMP);
+  if (!src) throw new Error('Crea la scheda "' + SH_IMP + '" e incolla i dati della vecchia Pharma-Fix (con le intestazioni)');
+  creaFogliArchivio_(ss);
+  const v = src.getDataRange().getValues(), head = v[0].map(h => String(h).trim().toLowerCase());
+  const col = n => head.findIndex(h => h === n || h.indexOf(n) === 0);
+  const ix = { rep: col('reparto'), mac: col('macchina'), prob: col('problema'), sol: col('soluzione'), link: col('link'), cat: col('categoria'), data: col('data') };
+  if (ix.rep < 0 || ix.mac < 0 || ix.prob < 0) throw new Error('Intestazioni non trovate: servono almeno Reparto, Macchina, Problema (e Soluzione, Link, Categoria)');
+  const rows = v.slice(1).filter(r => String(r[ix.prob]).trim());
+  const linkCell = (i, r) => ix.link < 0 ? '' : (function () { const rt = src.getRange(i + 2, ix.link + 1).getRichTextValue(); return (rt && rt.getLinkUrl()) || String(r[ix.link] || ''); })();
+  const eq = equipment_(ss), linee = Array.from(new Set(eq.map(e => e.linea)));
+  const key = r => String(r[ix.rep]).trim() + ' | ' + String(r[ix.mac]).trim();
+
+  let mappa = ss.getSheetByName(SH_MAPPA);
+  if (!mappa) {
+    mappa = ss.insertSheet(SH_MAPPA);
+    const uniq = Array.from(new Set(rows.map(key)));
+    const out = [['Reparto | Macchina (vecchia Pharma-Fix)', 'Codice QR / linea / TUTTE (controlla!)', 'Righe']];
+    uniq.forEach(k => {
+      const [rep, mac] = k.split(' | ');
+      out.push([k, indovinaCodice_(rep, mac, eq, linee), rows.filter(r => key(r) === k).length]);
+    });
+    mappa.getRange(1, 1, out.length, 3).setValues(out);
+    mappa.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#dfe7ec');
+    mappa.getRange(2, 2, Math.max(1, out.length - 1), 1).setBackground('#fff3d6');
+    mappa.setColumnWidth(1, 380); mappa.setColumnWidth(2, 260); mappa.setFrozenRows(1);
+    Logger.log('Creata la scheda ' + SH_MAPPA + ' con ' + (out.length - 1) + ' abbinamenti. Controlla la colonna B, poi esegui di nuovo importaPharmaFix.');
+    return;
+  }
+  const map = {};
+  mappa.getDataRange().getValues().slice(1).forEach(r => { map[String(r[0]).trim()] = String(r[1]).trim(); });
+
+  const sol = ss.getSheetByName(SH_SOL), doc = ss.getSheetByName(SH_DOC), ano = ss.getSheetByName(SH_ANO);
+  const gia = new Set([sol, doc, ano].reduce((a, sh) => a.concat(sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(x => String(x[0])) : []), []));
+  const nSol = [], nDoc = [], nAno = [];
+  rows.forEach((r, i) => {
+    const id = 'PF-' + Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, key(r) + '|' + r[ix.prob] + '|' + (ix.cat >= 0 ? r[ix.cat] : ''))
+      .map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('').slice(0, 12);
+    if (gia.has(id)) return;
+    const dove = map[key(r)] || 'TUTTE';
+    const e = eq.find(x => x.code === dove) || { linea: linee.indexOf(dove) >= 0 ? dove : '', macchina: '' };
+    const cat = ix.cat >= 0 ? String(r[ix.cat]).toUpperCase() : 'GUASTO';
+    const data = ix.data >= 0 && r[ix.data] instanceof Date ? r[ix.data] : '';
+    const link = linkCell(i, r), sol0 = ix.sol >= 0 ? String(r[ix.sol] || '') : '';
+    if (cat.indexOf('MANUAL') >= 0 || cat.indexOf('SCHEMA') >= 0) nDoc.push([id, data, dove, cat.indexOf('SCHEMA') >= 0 ? 'SCHEMA' : 'MANUALE', r[ix.prob], sol0, link, 'import']);
+    else if (cat.indexOf('SCHEDA') >= 0) nDoc.push([id, data, dove, 'SCHEDA FORMATO', r[ix.prob], sol0, link, 'import']);
+    else if (cat.indexOf('ANOMALIA') >= 0) nAno.push([id, data, e.code || dove, e.linea, e.macchina, 3, r[ix.prob], sol0.indexOf('IN ATTESA') >= 0 ? '' : sol0, link, 'import', 'APERTA', '', '', '']);
+    else nSol.push([id, data, dove, e.linea, e.macchina, '', r[ix.prob], sol0, '', link, 'import']);
+  });
+  [[sol, nSol], [doc, nDoc], [ano, nAno]].forEach(([sh, rr]) => { if (rr.length) sh.getRange(sh.getLastRow() + 1, 1, rr.length, rr[0].length).setValues(rr); });
+  Logger.log('Importati: ' + nSol.length + ' soluzioni, ' + nDoc.length + ' documenti, ' + nAno.length + ' anomalie (le righe già importate sono state saltate).');
+}
+
+function indovinaCodice_(rep, mac, eq, linee) {
+  const n = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  const R = n(rep), M = n(mac);
+  const num = (R.match(/(\d+)/) || [])[1];
+  let linea = linee.find(l => n(l) === R) || linee.find(l => R && (n(l).indexOf(R) >= 0 || R.indexOf(n(l)) >= 0));
+  if (!linea && num) linea = linee.find(l => n(l).replace(/\D/g, '') === num && /^ST/.test(n(l)));
+  if (!linea && /SPL\s*(\d)/.test(R)) linea = 'SPL' + R.match(/SPL\s*(\d)/)[1];
+  const cand = eq.filter(e => !linea || e.linea === linea);
+  const SIN = { FILLING: 'RIEMPITRICE', TAPPATRICE: 'RIEMPITRICE', RIEMPIMENTO: 'RIEMPITRICE', ASTUCCIAMENTO: 'ASTUCCIATRICE', CARTONATORE: 'CARTONATRICE', ETICHETTATURA: 'ETICHETTATRICE', PESATRICE: 'BILANCIA' };
+  const w0 = M.split(' ')[0], w = SIN[w0] || w0;
+  const hit = cand.find(e => n(e.macchina) === M) || (w && cand.find(e => n(e.macchina).split(' ')[0] === w)) || (w && cand.find(e => n(e.macchina).indexOf(w) >= 0));
+  return hit ? hit.code : (linea || 'TUTTE');
+}
+
 /* =================== API =================== */
 function doGet(e) {
   try {
@@ -422,11 +591,14 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (p.action === 'open' || p.action === 'close') checkTecnico_(p.manutentore);
+    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato'].indexOf(p.action) >= 0) checkTecnico_(p.manutentore);
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
     else if (p.action === 'cancel') res = cancelFermo_(p);
+    else if (p.action === 'soluzione') res = addSoluzione_(p);
+    else if (p.action === 'anomalia') res = addAnomalia_(p);
+    else if (p.action === 'anomaliaStato') res = statoAnomalia_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
     return json_(Object.assign({ ok: true }, res));
@@ -477,7 +649,7 @@ function init_() {
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1] });
     });
   }
-  return { ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, serverTime: Date.now() };
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {

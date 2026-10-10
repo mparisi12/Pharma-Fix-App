@@ -1,6 +1,6 @@
 // Service worker: l'app si apre anche senza rete (i dati restano in coda e partono appena c'è campo).
 // Rete prima, cache come riserva: così ogni aggiornamento pubblicato su GitHub arriva subito.
-const CACHE = 'pf-fermi-v1';
+const CACHE = 'pf-fermi-v2';
 const SHELL = ['./', './index.html', './config.js', './defaults.js', './manifest.webmanifest', './icon-192.png',
   'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
