@@ -754,8 +754,9 @@ function init_() {
   const fermi = [];
   if (last > 1) {
     const vals = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
+    const fotoC = sh.getRange(2, C.FOTO_C, last - 1, 1).getFormulas(); // link della foto di chiusura
     const from = Date.now() - 90 * 864e5;
-    vals.forEach(r => {
+    vals.forEach((r, i) => {
       const start = r[C.INIZIO - 1] instanceof Date ? r[C.INIZIO - 1].getTime() : null;
       const stato = r[C.STATO - 1];
       if (!r[C.ID - 1] || !start) return;
@@ -763,7 +764,8 @@ function init_() {
       const end = r[C.FINE - 1] instanceof Date ? r[C.FINE - 1].getTime() : null;
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
         start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1],
-        altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1] });
+        altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
+        pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
   return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, serverTime: Date.now() }, archivio_(ss));
