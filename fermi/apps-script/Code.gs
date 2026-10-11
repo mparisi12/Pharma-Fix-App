@@ -733,11 +733,11 @@ function avvisiCfg_() {
 // Invia l'avviso per mail e/o Telegram (quello che è configurato nel foglio Avvisi). true = almeno un canale ok
 function mail_(tipo, oggetto, righe) {
   let c; try { c = avvisiCfg_(); } catch (e) { Logger.log(e); return false; }
-  const url = SpreadsheetApp.getActiveSpreadsheet().getUrl(), canali = [];
+  const canali = [];
   if (c.to) try {
     // mail semplice, come una mail scritta a mano: solo testo e mittente col nome dell'account
     // (nome "Pharma-Fix" e impaginazione HTML facevano scattare i filtri antispam aziendali)
-    const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n') + '\n\nFoglio Pharma-Fix: ' + url;
+    const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n'); // niente link al foglio: il filtro aziendale lo rende illeggibile
     MailApp.sendEmail(c.to, 'Pharma-Fix · ' + oggetto, corpo);
     canali.push('mail');
   } catch (e) { Logger.log('Mail non inviata: ' + e); }
