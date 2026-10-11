@@ -509,13 +509,18 @@ function solColonne_(sh) {
   }
 }
 function coordinatori_() {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE), lv = sh.getDataRange().getValues();
-  let col = lv[0].indexOf('Coordinatori');
-  if (col < 0) { // colonna aggiunta da sola la prima volta
-    col = lv[0].length; sh.getRange(1, col + 1).setValue('Coordinatori').setFontWeight('bold');
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE);
+  const leggi = () => { const lv = sh.getDataRange().getValues(); // tutte le colonne che si chiamano Coordinatori / Coordinatore (anche con spazi)
+    const cols = lv[0].map((h, i) => /^\s*coordinator[ei]\s*$/i.test(String(h)) ? i : -1).filter(i => i >= 0);
+    return { lv: lv, cols: cols }; };
+  let x = leggi();
+  if (!x.cols.length) { // colonna creata da sola la prima volta (con il lucchetto: niente doppioni se più telefoni aprono l'app insieme)
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(10000); x = leggi(); if (!x.cols.length) sh.getRange(1, x.lv[0].length + 1).setValue('Coordinatori').setFontWeight('bold'); }
+    catch (e) { Logger.log(e); } finally { try { lock.releaseLock(); } catch (e) {} }
     return [];
   }
-  return lv.slice(1).map(r => String(r[col]).trim()).filter(Boolean);
+  return [...new Set(x.lv.slice(1).flatMap(r => x.cols.map(c => String(r[c]).trim())).filter(Boolean))];
 }
 const isCoordinatore_ = nome => coordinatori_().some(c => c.toUpperCase() === String(nome || '').trim().toUpperCase());
 const DOC_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Tipo (MANUALE / SCHEMA / SCHEDA FORMATO / ALTRO)', 'Titolo', 'Descrizione', 'Link', 'Autore'];
