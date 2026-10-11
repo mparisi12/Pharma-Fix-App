@@ -161,6 +161,9 @@ In sterile il telefono non entra, quindi il fermo si registra **dopo**, uscendo 
 
 Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle 14:00, T3 dalle 22:00). Nel foglio la riga ha **Orari = DICHIARATI** e l'ora vera di inserimento in **Registrato alle**.
 
+### Durante il fermo: "Cosa provare"
+Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è **Cosa provare**: i tipi di guasto della macchina dal più frequente (il numero = quante volte negli ultimi 90 giorni). Tocca il guasto che vedi: compaiono le **soluzioni verificate** da provare. Il guasto scelto qui è già selezionato quando chiudi il fermo.
+
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
 2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
