@@ -164,7 +164,7 @@ Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
 2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
-3. Scegli **Categoria**, **Tipo intervento**, **Tipo guasto** (uno solo, come nel template).
+3. Scegli **Categoria**, **Tipo intervento**, **Tipo guasto** (uno solo, come nel template). Sotto il guasto compaiono le **soluzioni verificate** più adatte per quella macchina (*Prova prima*): leggile prima di cercare altrove.
 4. **Altro (descrizione breve)**: obbligatoria se hai scelto ALTRO. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio.
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
 6. **Codice pezzo sostituito** se hai cambiato un ricambio.
