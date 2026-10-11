@@ -348,14 +348,52 @@ function soluzioniDaFermi(eq) {
       soluzione: f.altro, dur: f.end ? (f.end - f.start) / 60000 : 0, autore: f.man }));
 }
 function lastLotto(linea) { const f = allFermi().find(x => x.linea === linea && x.lotto && x.lotto !== 'undefined'); return f ? String(f.lotto) : ''; }
+/* Foto e allegati in coda: nell'archivio grande del telefono (IndexedDB), non nella memoria piccola del browser.
+   Nella coda resta solo il segnaposto '@idb'; il contenuto si recupera al momento dell'invio. */
+const MEDIA = ['foto', 'file'], IDB_REF = '@idb';
+let idbP = null;
+function idb() {
+  if (!idbP) idbP = new Promise((res, rej) => {
+    try { const r = indexedDB.open('pharmafix', 1); r.onupgradeneeded = () => r.result.createObjectStore('media'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
+    catch (e) { rej(e); }
+  }).catch(e => { idbP = null; throw e; });
+  return idbP;
+}
+async function media(mode, key, val) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('media', mode === 'get' || mode === 'keys' ? 'readonly' : 'readwrite'), st = tx.objectStore('media');
+    const rq = mode === 'get' ? st.get(key) : mode === 'put' ? st.put(val, key) : mode === 'keys' ? st.getAllKeys() : st.delete(key);
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  });
+}
+const mediaKey = (op, k) => op.id + ':' + op.action + ':' + k;
+function saveOutbox() {
+  if (save('outbox', OUTBOX)) return;
+  // memoria piena anche così: si tengono i dati, si tolgono gli allegati rimasti nella coda
+  for (const o of OUTBOX) { for (const k of MEDIA) if (o[k] && o[k] !== IDB_REF) o[k] = ''; if (save('outbox', OUTBOX)) break; }
+  toast('Memoria del telefono piena: alcune foto o allegati non verranno inviati');
+}
 function enqueue(op) {
   if (!op.reg) op.reg = Date.now(); // ora reale della registrazione (traccia)
-  OUTBOX.push(op);
-  if (!save('outbox', OUTBOX)) { // memoria piena: si tengono i dati, si perdono gli allegati più vecchi
-    for (const o of OUTBOX) { if (o.foto || o.file) { o.foto = ''; o.file = ''; if (save('outbox', OUTBOX)) break; } }
-    toast('Memoria del telefono piena: alcune foto o allegati non verranno inviati');
-  }
-  render(); sync();
+  OUTBOX.push(op); render();
+  const heavy = MEDIA.filter(k => op[k] && op[k] !== IDB_REF);
+  (async () => {
+    for (const k of heavy) {
+      try { await media('put', mediaKey(op, k), op[k]); if (OUTBOX.includes(op)) op[k] = IDB_REF; else media('del', mediaKey(op, k)).catch(() => {}); }
+      catch { /* archivio non disponibile (es. navigazione privata): l'allegato resta nella coda */ }
+    }
+    saveOutbox(); sync();
+  })();
+}
+async function withMedia(op) { // la richiesta da spedire, con le foto riprese dall'archivio
+  const out = { ...op };
+  for (const k of MEDIA) if (op[k] === IDB_REF) { try { out[k] = (await media('get', mediaKey(op, k))) || ''; } catch { out[k] = ''; } }
+  return out;
+}
+function dropMedia(op) { for (const k of MEDIA) if (op[k] === IDB_REF) media('del', mediaKey(op, k)).catch(() => {}); }
+async function cleanMedia() { // archivio: via i file di registrazioni già inviate
+  try { const keep = new Set(OUTBOX.flatMap(o => MEDIA.map(k => mediaKey(o, k)))); for (const k of await media('keys')) if (!keep.has(k)) await media('del', k); } catch {}
 }
 
 /* ================= Backend ================= */
@@ -388,7 +426,7 @@ async function apiPost(op) {
   }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60000);
   try {
-    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...op, key: getPin(), dev: DEV, devName: DEV_NAME }), signal: ctl.signal });
+    const r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ ...(await withMedia(op)), key: getPin(), dev: DEV, devName: DEV_NAME }), signal: ctl.signal });
     const j = await r.json(); if (!j.ok) { const e = new Error(j.error || 'Errore server'); e.server = true; throw e; } return j;
   } finally { clearTimeout(t); }
 }
@@ -405,7 +443,7 @@ async function sync() {
         if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
-      OUTBOX.shift(); save('outbox', OUTBOX);
+      dropMedia(OUTBOX.shift()); save('outbox', OUTBOX);
     }
     await refresh();
   } finally { syncing = false; }
@@ -1063,7 +1101,7 @@ async function checkUpdate() {
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
   const deep = eq && !h && eqBy(eq);
   if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
-  sync();
+  sync(); cleanMedia();
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
   checkUpdate();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { sync(); checkUpdate(); } });
