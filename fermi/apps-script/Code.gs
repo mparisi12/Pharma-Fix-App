@@ -364,9 +364,10 @@ function sistemaDate_() {
 }
 
 // Calcolo puro (testabile): righe del foglio Fermi + filtri → numeri e tabelle
+const kpiChiave_ = (linea, macc) => (String(linea) + '|' + String(macc)).toUpperCase().replace(/\s+/g, ' ').replace(/ ?\| ?/, '|').trim();
 function calcolaKpi_(vals, f) {
   const rows = [];
-  let senzaArea = 0;
+  const senzaArea = [];
   vals.forEach(r => {
     if (r[C.STATO - 1] !== 'CHIUSO') return;
     const g0 = dataOra_(r[C.DATA - 1], null);
@@ -375,8 +376,14 @@ function calcolaKpi_(vals, f) {
     const giorno = g0 || ini;
     if (giorno < f.from || giorno >= f.toEnd) return;
     if (f.area) {
-      const a = f.aree[String(r[C.EQ - 1]).trim()] || f.aree[(String(r[C.LINEA - 1]) + '|' + String(r[C.MACC - 1])).toUpperCase()] || '';
-      if (!a) { senzaArea++; return; }
+      const a = f.aree[String(r[C.EQ - 1]).trim()] || f.aree[kpiChiave_(r[C.LINEA - 1], r[C.MACC - 1])] || '';
+      if (!a) {
+        const g = dataOra_(r[C.DATA - 1], null) || dataOra_(r[C.INIZIO - 1], null);
+        senzaArea.push((g ? ('0' + g.getDate()).slice(-2) + '/' + ('0' + (g.getMonth() + 1)).slice(-2) + '/' + g.getFullYear() + ' ' : '') +
+          [r[C.LINEA - 1], r[C.MACC - 1]].map(x => String(x).trim()).filter(Boolean).join(' · ') +
+          (String(r[C.EQ - 1]).trim() ? ' (codice ' + String(r[C.EQ - 1]).trim() + ')' : ' (senza codice)'));
+        return;
+      }
       if (a !== f.area) return;
     }
     if (f.linea !== 'TUTTE' && String(r[C.LINEA - 1]) !== f.linea) return;
@@ -441,14 +448,20 @@ function aggiornaValoriKpi() {
 
   const fsh = ss.getSheetByName(SH_FERMI), last = fsh.getLastRow();
   const vals = last > 1 ? fsh.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
+  // area di ogni fermo: anche le macchine segnate NO (non più attive) in Equipment
   const aree = {};
-  eqAll.forEach(e => { aree[e.code] = e.area.toUpperCase(); aree[(e.linea + '|' + e.macchina).toUpperCase()] = e.area.toUpperCase(); });
+  ss.getSheetByName(SH_EQ).getDataRange().getValues().slice(1).forEach(r => {
+    const a = String(r[2]).trim().toUpperCase(); if (!r[0] || !a) return;
+    aree[String(r[0]).trim()] = a; aree[kpiChiave_(r[1], r[3])] = a;
+  });
   const k = calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, area: area, aree: aree, code: mSel === 'TUTTE' ? '' : mSel.split(' · ')[0],
     ore: sh.getRange('F10').getValue() });
 
   sh.getRange('A10:E10').setValues([[k.n, k.tot, k.mttr, k.lotti, k.occ]]);
-  sh.getRange('A11').setValue(k.senzaArea ? '⚠ ' + k.senzaArea + ' fermi esclusi: macchina non trovata in Equipment (area sconosciuta)' : '')
-    .setFontColor('#a3402d').setFontSize(9);
+  const ex = k.senzaArea.length;
+  sh.getRange('A11').setValue(ex ? '⚠ ' + (ex === 1 ? '1 fermo escluso' : ex + ' fermi esclusi') + ', macchina non trovata in Equipment: ' +
+    k.senzaArea.slice(0, 5).join('; ') + (ex > 5 ? '; …' : '') + '. Correggi Linea/Macchina nel foglio Fermi oppure aggiungi la macchina in Equipment.' : '')
+    .setFontColor('#a3402d').setFontSize(9).setWrap(false);
   sh.getRange('G10:H10').setValues([[k.mtbf, k.top]]);
   sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
 
