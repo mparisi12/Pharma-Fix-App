@@ -147,6 +147,11 @@ h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:va
 .chip[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
 .chips.big .chip{font:700 18px var(--display);letter-spacing:.04em;min-width:76px;text-align:center;min-height:44px}
 .filters{margin-top:10px}
+.provaprima{margin-top:12px;background:var(--surface);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.pp-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:var(--steel)}.pp-h svg{width:18px;height:18px}.pp-h b{font:700 17px var(--display);letter-spacing:.04em;text-transform:uppercase}.pp-h span{flex-basis:100%;font-size:12px;color:var(--muted)}
+#pg .chip.extra{display:none}#pg.all .chip.extra{display:inline-flex}.chip.ghost{border-style:dashed;color:var(--steel)}
+.chip .cnt{font:500 11px var(--mono);opacity:.75;margin-left:4px}
+.provaprima .sugg{margin-top:0;background:none;border:0;padding:0}.provaprima .sugg-i{border:1px solid var(--line);background:var(--surface2)}
 .sugg{margin-top:10px;background:var(--steel-soft);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .sugg-h{display:flex;align-items:center;gap:8px;color:var(--steel);font-size:14px}.sugg-h svg{width:18px;height:18px}
 .sugg-i{background:var(--surface);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}.sugg-i .prob{font-weight:600;font-size:14px}.sugg-i .sol{font-size:14px}
@@ -674,7 +679,8 @@ function renderEquip() {
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
     ${open ? `<button class="bigbtn ok" data-close="${esc(open.id)}"><span>Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span></button>
-      <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>`
+      <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
+      ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn" id="openf">${qr}${isFill(eq) ? 'Registra fermo' : 'Apri fermo'}</button>
         ${isFill(eq) ? '<div class="hint center">FILLING: registra il fermo all\'uscita dallo sterile, con gli orari del batch record</div>' : ''}`}
     <div class="tiles4">
@@ -697,6 +703,11 @@ function renderEquip() {
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
   const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 20; renderEquip(); window.scrollTo(0, y); };
   $$('[data-int]').forEach(b => b.onclick = () => { const f = hist.find(x => x.id === b.dataset.int); if (f) intSheet(f, eq); });
+  const pg = $('#pg'); if (pg && open) pg.onclick = e => {
+    if (e.target.closest('[data-more]')) { pg.classList.add('all'); e.target.closest('[data-more]').remove(); return; }
+    const b = e.target.closest('[data-v]'); if (!b) return;
+    PRE_G[open.id] = b.dataset.v; save('preg', PRE_G);
+    pg.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); $('#pgsol').innerHTML = sugBox(eq, b.dataset.v, true); };
   bindCommon();
 }
 const GIORNI = ['DOMENICA', 'LUNEDÌ', 'MARTEDÌ', 'MERCOLEDÌ', 'GIOVEDÌ', 'VENERDÌ', 'SABATO'];
@@ -772,11 +783,26 @@ function suggerite(eq, guasto, max = 3) {
     return { s, sc };
   }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc || (b.s.ts || 0) - (a.s.ts || 0)).slice(0, max).map(x => x.s);
 }
+// Fermo in corso: i guasti più frequenti della macchina e le soluzioni da provare SUBITO (non solo in chiusura)
+const PRE_G = load('preg', {}); // guasto scelto durante il fermo → già selezionato nella chiusura
+function provaPrima(eq, open, hist) {
+  const cnt = {}; hist.forEach(f => { if (f.guasto) cnt[U(f.guasto)] = (cnt[U(f.guasto)] || 0) + 1; });
+  const gl = guastiFor(eq).filter(g => U(g) !== 'ALTRO').map((g, i) => ({ g, n: cnt[U(g)] || 0, i })).sort((a, b) => b.n - a.n || a.i - b.i);
+  if (!gl.length) return '';
+  const sel = PRE_G[open.id] || (gl[0].n ? gl[0].g : '');
+  return `<div class="provaprima"><div class="pp-h">${I.sol}<b>Cosa provare</b><span>scegli il guasto: le soluzioni verificate per questa macchina</span></div>
+    <div class="chips" id="pg">${gl.map((x, i) => `<button class="chip${i >= 6 && x.g !== sel ? ' extra' : ''}" type="button" data-v="${esc(x.g)}" aria-pressed="${x.g === sel}">${esc(x.g.split(',')[0])}${x.n ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('')}${gl.length > 6 ? `<button class="chip ghost" type="button" data-more>+ altri ${gl.length - 6}</button>` : ''}</div>
+    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div></div>`;
+}
+function sugBox(eq, guasto, vuoto) {
+  const list = suggerite(eq, guasto);
+  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila: servirà al prossimo collega.</div>' : '';
+  return `<div class="sugg">${vuoto ? '' : `<div class="sugg-h">${I.sol}<b>Prova prima · soluzioni verificate</b></div>`}
+    ${list.map(s => `<div class="sugg-i"><div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>${s.ricambi ? `<div class="hint" style="margin:0">Ricambi: ${esc(s.ricambi)}</div>` : ''}</div>`).join('')}</div>`;
+}
 function showSuggest(eq, guasto) {
   const el = $('#solsug'); if (!el) return;
-  const list = suggerite(eq, guasto);
-  el.innerHTML = list.length ? `<div class="sugg"><div class="sugg-h">${I.sol}<b>Prova prima · soluzioni verificate</b></div>
-    ${list.map(s => `<div class="sugg-i"><div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>${s.ricambi ? `<div class="hint" style="margin:0">Ricambi: ${esc(s.ricambi)}</div>` : ''}</div>`).join('')}</div>` : '';
+  el.innerHTML = sugBox(eq, guasto, false);
 }
 function solCard(s, eq, usi) {
   const where = !eq ? `${s.linea || lineaDi(s.dove) || ''}${s.macchina ? ' · ' + nice(s.macchina) : (U(s.dove) === 'TUTTE' ? ' · tutte le macchine' : '')}`
@@ -1046,7 +1072,7 @@ function fillSheet(eq) {
 }
 function closeSheet(f, opt = {}) {
   const eq = eqBy(f.code) || { area: 'Packaging', code: f.code, linea: f.linea };
-  const C = { img: null, circles: [], cat: null, int: null, guasto: null };
+  const C = { img: null, circles: [], cat: null, int: null, guasto: PRE_G[f.id] || null };
   const REG = !!opt.reg, t0 = inizioTurno();
   const hhmm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
   sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>FILLING</b>' : ` · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span>`}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
@@ -1056,7 +1082,7 @@ function closeSheet(f, opt = {}) {
     <div class="group" id="phgrp"></div>
     <div class="group"><span class="label">Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
     <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
-    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guastiFor(eq))}</div><div id="solsug"></div></div>
+    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guastiFor(eq), C.guasto)}</div><div id="solsug"></div></div>
     <div class="group"><label class="label" for="altro">Altro (descrizione breve)</label><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
     <div class="group"><label class="label" for="clotto">Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
     <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
@@ -1067,6 +1093,7 @@ function closeSheet(f, opt = {}) {
   singleChoice($('#cat'), v => C.cat = v);
   singleChoice($('#int'), v => C.int = v);
   singleChoice($('#gua'), v => { C.guasto = v; showSuggest(eq, v); });
+  if (C.guasto) showSuggest(eq, C.guasto);
   $('#go').onclick = () => {
     const altro = $('#altro').value.trim();
     const miss = [!C.cat && 'categoria', !C.int && 'tipo intervento', !C.guasto && 'tipo guasto'].filter(Boolean);
@@ -1086,6 +1113,7 @@ function closeSheet(f, opt = {}) {
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
     enqueue({ action: 'close', id: f.id, ts: fin, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
       altro, pezzo: $('#pezzo').value.trim(), lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: REG || undefined, reg: now });
+    delete PRE_G[f.id]; save('preg', PRE_G);
     closeSh(); toast((REG ? 'Fermo registrato · ' : 'Fermo chiuso · ') + fmtDur((fin - ini) / 60000));
   };
   const cb = $('#canc');
