@@ -264,6 +264,7 @@ Tutto il foglio si ricalcola sulla scelta. L'area di ogni fermo si prende dal fo
 - **Pareto doppio**, due grafici affiancati (barre + linea rossa della % cumulata; i guasti a sinistra dell'80% sono quelli su cui intervenire):
   - **per frequenza**: quante volte succede ogni guasto, con % cumulata e **RFR**;
   - **per durata**: quante ore di fermo causa ogni guasto. Un guasto raro ma lungo (es. elettrico) qui sale in cima.
+  - Nei grafici ci sono al massimo 20 barre: se i tipi di guasto sono di più, gli ultimi sono raggruppati in **ALTRI**, così la linea arriva sempre al 100%. Le tabelle sotto li elencano tutti.
 - **Fermi per macchina** con n° fermi, tempo totale, MTTR e **guasto n°1 · RFR** di quella macchina.
 
 Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano quando cambi una cella gialla, quando si chiude un fermo, oppure dal menu **Pharma-Fix → Aggiorna KPI** (in alto nel foglio, accanto a Guida). Se il foglio KPI si rovina: **Pharma-Fix → Ricrea foglio KPI**. Dopo un aggiornamento dello script che cambia la scheda KPI, il foglio si ricrea da solo al primo **Aggiorna KPI**, tenendo filtri e ore di funzionamento.
