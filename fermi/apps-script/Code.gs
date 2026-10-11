@@ -293,8 +293,11 @@ function buildKpi_(ss, keep) {
    [13, 70], [14, 280], [15, 80], [16, 80], [17, 80], [18, 220]].forEach(([c, w]) => sh.setColumnWidth(c, w));
   sh.setFrozenRows(10);
 
-  const pareto = (r1, c1, c2, titolo, asse, colore, col, w) => sh.newChart().asComboChart()
-    .addRange(sh.getRange(t, c1, KPI_N + 1, 2)).addRange(sh.getRange(t, c2, KPI_N + 1, 1))
+  // dati dei grafici in colonne nascoste T:Y: al massimo KPI_N barre, il resto raggruppato in "ALTRI" così la linea arriva al 100%
+  sh.getRange(t, 20, 1, 6).setValues([['Grafico: guasto', 'N° fermi', '% cumulata', 'Grafico: guasto', 'Ore di fermo', '% cumulata']]);
+  sh.hideColumns(20, 6);
+  const pareto = (r1, c1, titolo, asse, colore, col, w) => sh.newChart().asComboChart()
+    .addRange(sh.getRange(t, c1, KPI_N + 1, 3))
     .setNumHeaders(1)
     .setOption('title', titolo)
     .setOption('legend', { position: 'bottom' })
@@ -303,8 +306,8 @@ function buildKpi_(ss, keep) {
     .setPosition(r1, col, 0, 0).setOption('width', w).setOption('height', 360)
     .build();
   try {
-    sh.insertChart(pareto(12, 1, 4, 'Pareto per frequenza (n° fermi)', 'N° fermi', '#245a7a', 1, 840));
-    sh.insertChart(pareto(12, 7, 10, 'Pareto per durata (ore di fermo)', 'Ore di fermo', '#b5761b', 7, 800));
+    sh.insertChart(pareto(12, 20, 'Pareto per frequenza (n° fermi)', 'N° fermi', '#245a7a', 1, 840));
+    sh.insertChart(pareto(12, 23, 'Pareto per durata (ore di fermo)', 'Ore di fermo', '#b5761b', 7, 800));
   } catch (e) { Logger.log('Grafici non creati: ' + e); }
 
   if (keep) { if (keep.area) sh.getRange('B2').setValue(keep.area); sh.getRange('B3:B5').setValues(keep.filtri); sh.getRange('D6:D7').setValues(keep.date); sh.getRange('F10').setValue(keep.ore); }
@@ -422,7 +425,7 @@ function aggiornaValoriKpi() {
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
   // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
-  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area') {
+  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico: guasto') {
     const area = KPI_AREE.indexOf(String(sh.getRange('B2').getValue()).toUpperCase()) >= 0 ? String(sh.getRange('B2').getValue()).toUpperCase() : '';
     const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
     ss.deleteSheet(sh);
@@ -466,7 +469,13 @@ function aggiornaValoriKpi() {
   sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
 
   const t = KPI_T + 1;
-  sh.getRange(t, 1, 300, 18).clearContent();
+  sh.getRange(t, 1, 300, 25).clearContent();
+  const grafico = (rows, iv, ic) => {
+    if (rows.length <= KPI_N) return rows.map(r => [r[0], r[iv], r[ic]]);
+    const top = rows.slice(0, KPI_N - 1).map(r => [r[0], r[iv], r[ic]]);
+    const resto = rows.slice(KPI_N - 1);
+    return top.concat([['ALTRI (' + resto.length + ' tipi)', resto.reduce((a, r) => a + r[iv], 0), 1]]);
+  };
   if (k.pareto.length) {
     sh.getRange(t, 1, k.pareto.length, 5).setValues(k.pareto);
     sh.getRange(t, 3, k.pareto.length, 1).setNumberFormat('[h]:mm');
@@ -474,6 +483,9 @@ function aggiornaValoriKpi() {
     sh.getRange(t, 7, k.paretoT.length, 5).setValues(k.paretoT);
     sh.getRange(t, 8, k.paretoT.length, 1).setNumberFormat('0.0');
     sh.getRange(t, 10, k.paretoT.length, 2).setNumberFormat('0%');
+    const gf = grafico(k.pareto, 1, 3), gd = grafico(k.paretoT, 1, 3);
+    sh.getRange(t, 20, gf.length, 3).setValues(gf); sh.getRange(t, 22, gf.length, 1).setNumberFormat('0%');
+    sh.getRange(t, 23, gd.length, 3).setValues(gd); sh.getRange(t, 24, gd.length, 1).setNumberFormat('0.0'); sh.getRange(t, 25, gd.length, 1).setNumberFormat('0%');
   } else sh.getRange(t, 1).setValue('Nessun fermo chiuso con questi filtri');
   if (k.macchine.length) {
     sh.getRange(t, 13, k.macchine.length, 6).setValues(k.macchine);
