@@ -48,7 +48,7 @@ Si possono registrare solo fermi del **turno in corso** (T1 6–14, T2 14–22, 
 | Cosa | A cosa serve |
 |---|---|
 | **Storico** (scorrendo la pagina della macchina) | Gli ultimi interventi: chi, quando, quanto è durato, cosa ha fatto. Tocca un intervento per vedere la foto |
-| **Soluzioni** | Cerca per parola (pinze, ventose…) o per guasto. **+ Aggiungi soluzione** quando hai risolto qualcosa di nuovo: servirà al prossimo collega |
+| **Soluzioni** | Cerca per parola (pinze, ventose…) o per guasto. **+ Aggiungi soluzione** quando hai risolto qualcosa di nuovo: la vedi subito tu (*DA APPROVARE*), la vedranno tutti dopo l'approvazione del coordinatore |
 | **Manuali / Schede formato** | Manuali, schemi elettrici e schede formato della macchina o della linea |
 | **Segnala anomalia** | Qualcosa da sistemare ma che non ferma la macchina adesso: urgenza **1** critico, **2** urgente, **3** programmabile, foto e cosa serve |
 
