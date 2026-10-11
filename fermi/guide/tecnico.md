@@ -8,7 +8,7 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 
 1. Apri **https://mparisi12.github.io/Pharma-Fix-App/fermi/** con **Chrome** (Android) o **Safari** (iPhone).
 2. Chrome: menu ⋮ → **Installa app** / **Aggiungi a schermata Home**. Safari: **Condividi → Aggiungi alla schermata Home**.
-3. Apri l'app dall'icona, scrivi **Nome** e **Cognome** e il **Codice reparto** che ti dà il coordinatore.
+3. Apri l'app dall'icona, scrivi **Nome** e **Cognome** e il **Codice reparto** che ti dà il responsabile della manutenzione.
 4. Alla prima scansione consenti l'uso della **fotocamera**.
 
 **Il tuo nome è legato al tuo telefono personale.** Usa sempre il tuo telefono e il tuo nome. Se cambi telefono, avvisa il coordinatore: il telefono nuovo va approvato prima di poter registrare.
