@@ -212,11 +212,11 @@ Tutto si gestisce dal **Google Sheet**: l'app rilegge liste e macchine a ogni ap
 
 ### 5.1 Tecnici abilitati
 Foglio **Liste**, colonna **Manutentori**: un nome per cella, formato `COGNOME Nome` (es. `ROSSI Mario`).
-- **Nuovo tecnico** → aggiungi una cella. Può entrare subito.
-- **Tecnico che lascia** → cancella la cella. Lo storico resta; non potrà più registrare (lo blocca anche lo script).
+- **Nuovo tecnico** → aggiungi una cella. Poi: gli dai tu il **codice reparto** (a voce, non in chat), lui installa l'app sul **suo telefono personale** ed entra con nome e cognome (il primo telefono si registra da solo come OK), gli dai la **Guida per il tecnico** e il video.
+- **Tecnico che lascia** → cancella la cella. Lo storico resta (fermi e KPI); non potrà più registrare (lo blocca anche lo script). Nel foglio Telefoni metti **BLOCCATO** sulle sue righe. Se conosceva il codice reparto, **cambialo** (vedi 9).
 - Il nome scritto qui è quello che finisce nella colonna **Manutentore** del foglio Fermi.
 
-**Coordinatori**: stesso foglio **Liste**, colonna **Coordinatori** (la crea lo script): i nomi scritti come nella colonna Manutentori (devono esserci anche lì). Il coordinatore approva le soluzioni nuove dei tecnici (vedi sotto) e le sue soluzioni sono già verificate.
+**Coordinatori**: stesso foglio **Liste**, colonna **Coordinatori** (la crea lo script; ne basta una — se ne vedi due, cancella quella vuota): i nomi scritti come nella colonna Manutentori (devono esserci anche lì). Il coordinatore approva le soluzioni nuove dei tecnici (vedi sotto) e le sue soluzioni sono già verificate.
 
 **Soluzioni da approvare**: una soluzione aggiunta da un tecnico entra nel foglio **Soluzioni** con Stato **DA APPROVARE** e arriva un avviso su Telegram (o per mail se Telegram non è attivo). Finché non è approvata la vede solo chi l'ha scritta e i coordinatori. Il coordinatore la approva dall'app (**Soluzioni → Da approvare → Approva / Scarta**; nella home compare *"N soluzioni da approvare"*). Puoi farlo anche tu dal foglio scrivendo **VERIFICATA** o **SCARTATA** nella colonna Stato. Le righe con Stato vuoto (quelle già esistenti) valgono come verificate.
 
