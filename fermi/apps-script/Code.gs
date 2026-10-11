@@ -735,10 +735,10 @@ function mail_(tipo, oggetto, righe) {
   let c; try { c = avvisiCfg_(); } catch (e) { Logger.log(e); return false; }
   const url = SpreadsheetApp.getActiveSpreadsheet().getUrl(), canali = [];
   if (c.to) try {
-    const html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#152028">' +
-      righe.map(([k, v]) => v === undefined ? '<p style="font-size:16px"><b>' + k + '</b></p>' : '<div><span style="color:#4d5b66">' + k + ':</span> ' + v + '</div>').join('') +
-      '<p style="margin-top:16px"><a href="' + url + '">Apri il foglio Pharma-Fix</a></p></div>';
-    MailApp.sendEmail({ to: c.to, subject: 'Pharma-Fix · ' + oggetto, htmlBody: html, name: 'Pharma-Fix' });
+    // mail semplice, come una mail scritta a mano: solo testo e mittente col nome dell'account
+    // (nome "Pharma-Fix" e impaginazione HTML facevano scattare i filtri antispam aziendali)
+    const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n') + '\n\nFoglio Pharma-Fix: ' + url;
+    MailApp.sendEmail(c.to, 'Pharma-Fix · ' + oggetto, corpo);
     canali.push('mail');
   } catch (e) { Logger.log('Mail non inviata: ' + e); }
   if (c.tgToken && c.tgChat) {
@@ -754,9 +754,10 @@ function mail_(tipo, oggetto, righe) {
   return true;
 }
 // Messaggio Telegram in testo semplice (i valori HTML delle mail diventano testo)
+const testo_ = v => String(v).replace(/<br\s*\/?>/gi, '\n   ').replace(/<a [^>]*href="([^"]+)"[^>]*>[^<]*<\/a>/gi, '$1').replace(/<[^>]+>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 function telegram_(token, chat, oggetto, righe) {
-  const txt = v => String(v).replace(/<br\s*\/?>/gi, '\n   ').replace(/<a [^>]*href="([^"]+)"[^>]*>[^<]*<\/a>/gi, '$1').replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const txt = testo_;
   const icona = /CRITICA/.test(oggetto) ? '🔴 ' : /RIPETUTO/.test(oggetto) ? '🔁 ' : /APERTO DA/.test(oggetto) ? '⏱️ ' : '🔔 ';
   const testo = icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter(r => r[1] !== undefined).map(([k, v]) => k + ': ' + txt(v)).join('\n');
   try {

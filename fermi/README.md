@@ -324,7 +324,7 @@ Foglio **Avvisi** (lo crea `setup`): nelle celle gialle
 
 Mail e Telegram funzionano anche insieme: si usa quello che è compilato.
 
-Sotto, il **registro** degli avvisi inviati (con il canale usato). Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*).
+Sotto, il **registro** degli avvisi inviati (con il canale usato). Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google, come una mail scritta da te: solo testo, oggetto che inizia con **"Pharma-Fix ·"** (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*). Se all'indirizzo aziendale non arrivano, controlla la quarantena/spam o usa Telegram.
 Il controllo dei **fermi aperti da troppo tempo** gira insieme alla **sveglia** (5.10): serve che sia attiva.
 
 ---
