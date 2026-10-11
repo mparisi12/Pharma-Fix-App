@@ -327,7 +327,7 @@ function allFermi() {
   return [...m.values()].sort((a, b) => b.start - a.start);
 }
 // Coordinatori (colonna del foglio Liste): approvano le soluzioni nuove dei tecnici
-const isCoord = (nome = S.man) => !!nome && (S.liste.Coordinatori || []).some(c => U(c) === U(nome));
+const isCoord = (nome = S.man) => !!nome && Object.keys(S.liste).filter(k => /^\s*coordinator[ei]\s*$/i.test(k)).some(k => (S.liste[k] || []).some(c => U(c) === U(nome)));
 function allSoluzioni() {
   const out = S.soluzioni.map(s => ({ ...s, stato: s.stato || 'VERIFICATA' }));
   for (const op of OUTBOX) {
