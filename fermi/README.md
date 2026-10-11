@@ -187,7 +187,7 @@ Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
 | 🟢 Sincronizzato | Tutto è arrivato nel foglio. |
 | 🟠 Invio in corso | Ci sono registrazioni in coda, partono da sole. |
 | 🔴 Telefono non autorizzato | Il nome non è legato a questo telefono: le registrazioni restano in coda e partono appena il responsabile approva il telefono nel foglio Telefoni. |
-| 🔴 Non connesso | Niente rete: **continua pure a lavorare**, i fermi restano sul telefono e partono appena torna la connessione. **Non disinstallare l'app** finché ci sono dati in coda. |
+| 🔴 Non connesso | Niente rete: **continua pure a lavorare**, i fermi restano sul telefono e partono appena torna la connessione. **Non disinstallare l'app** finché ci sono dati in coda (le foto in coda stanno nell'archivio del telefono, non si perdono chiudendo l'app). |
 | ⚪ Modalità demo | L'app non è ancora collegata al foglio. |
 
 ---
@@ -302,6 +302,19 @@ Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** co
 ### 5.10 Sveglia dello script
 Google "addormenta" lo script quando nessuno lo usa per un po': al risveglio la prima risposta può metterci 20–40 secondi (l'app scrive *"Il foglio risponde lentamente"* e intanto si lavora lo stesso: i dati restano in coda).
 Per evitarlo: menu **Pharma-Fix → Attiva sveglia dello script** (una volta sola; Google chiede di autorizzare *"collegarsi a un servizio esterno"* e *"eseguire in tua assenza"*: consenti). Da lì lo script si interroga da solo ogni 10 minuti da lunedì 5:00 a sabato 6:00. Per toglierla: **Disattiva sveglia dello script**.
+
+### 5.11 Avvisi via mail
+Foglio **Avvisi** (lo crea `setup`): nelle celle gialle
+| Impostazione | Esempio |
+|---|---|
+| **Email destinatari** (separate da virgola) | `tuo.nome@azienda.it, capoturno@azienda.it` |
+| Anomalia critica (urgenza 1) | `SI`: mail appena viene segnalata |
+| Fermo aperto da più di (ore) | `2`: mail se un fermo resta aperto oltre 2 ore (fermo lungo o dimenticato). `0` = mai |
+| Stesso guasto sulla stessa macchina: quante volte | `3`: mail quando lo stesso guasto si ripete 3 volte (e poi 6, 9…). `0` = mai. ALTRO non conta |
+| …nell'arco di quanti giorni | `7` |
+
+Sotto, il **registro** delle mail inviate. Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*).
+Il controllo dei **fermi aperti da troppo tempo** gira insieme alla **sveglia** (5.10): serve che sia attiva.
 
 ---
 
