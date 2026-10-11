@@ -43,6 +43,10 @@ header.top{display:flex;align-items:center;gap:10px;padding-block:14px 4px}
 .dot.warn{background:var(--amber)}.dot.off{background:var(--crit)}.dot.demo{background:var(--muted)}
 .updbar{display:block;width:100%;border:0;border-radius:var(--r);background:var(--steel);color:var(--steel-ink);font:600 14px var(--body);padding:12px;margin-block:6px;text-align:center}
 .updbar[hidden]{display:none}
+.tag.wait{background:var(--amber-soft);color:var(--amber-ink)}
+.approw{display:flex;gap:8px;margin-top:6px}.appbtn{flex:1;border-radius:10px;padding:11px;font:600 15px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.appbtn.ok{background:var(--ok);border-color:var(--ok);color:#fff}.appbtn.no{color:var(--crit)}.appbtn.no.armed{background:var(--crit);border-color:var(--crit);color:#fff}
+.appban{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;font:inherit}.appban svg{width:20px;height:20px;flex:none}
 .banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px;color:var(--amber-ink)}
 h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:22px 0 10px;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
 h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:var(--steel);background:none;border:0;padding:0}
@@ -289,7 +293,7 @@ function fmtD(t) { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.
 function age(t) { if (!t) return ''; const m = (Date.now() - t) / 60000; if (m < 60) return Math.max(1, Math.round(m)) + ' min fa'; if (m < 1440) return Math.round(m / 60) + ' h fa'; const g = Math.round(m / 1440); return g === 1 ? 'ieri' : g + ' gg fa'; }
 function turnoOf(t) { const h = new Date(t).getHours(); return h >= 6 && h < 14 ? 'T1' : h >= 14 && h < 22 ? 'T2' : 'T3'; }
 function uid(p = 'F') { return p + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
-function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
+function toast(msg, ms = 2800) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), ms); }
 const U = s => String(s || '').trim().toUpperCase();
 // Aree: FILLING (sterile, telefono non ammesso: fermo registrato all'uscita) e PACKAGING
 const isFill = eq => !!eq && /^(FILL|STERIL)/i.test(String(eq.area || '').trim());
@@ -322,14 +326,21 @@ function allFermi() {
   }
   return [...m.values()].sort((a, b) => b.start - a.start);
 }
+// Coordinatori (colonna del foglio Liste): approvano le soluzioni nuove dei tecnici
+const isCoord = (nome = S.man) => !!nome && (S.liste.Coordinatori || []).some(c => U(c) === U(nome));
 function allSoluzioni() {
-  const out = S.soluzioni.slice();
-  for (const op of OUTBOX) if (op.action === 'soluzione' && !out.some(s => s.id === op.id)) {
-    const e = eqBy(op.code) || {};
-    out.push({ id: op.id, ts: op.ts, dove: op.code || op.linea || 'TUTTE', linea: e.linea || op.linea || '', macchina: e.macchina || '', guasto: op.guasto, problema: op.problema, soluzione: op.soluzione, ricambi: op.ricambi, link: '', autore: op.manutentore, pending: true });
+  const out = S.soluzioni.map(s => ({ ...s, stato: s.stato || 'VERIFICATA' }));
+  for (const op of OUTBOX) {
+    if (op.action === 'soluzione' && !out.some(s => s.id === op.id)) {
+      const e = eqBy(op.code) || {};
+      out.push({ id: op.id, ts: op.ts, dove: op.code || op.linea || 'TUTTE', linea: e.linea || op.linea || '', macchina: e.macchina || '', guasto: op.guasto, problema: op.problema, soluzione: op.soluzione, ricambi: op.ricambi, link: '', autore: op.manutentore, pending: true,
+        stato: isCoord(op.manutentore) ? 'VERIFICATA' : 'DA APPROVARE' });
+    } else if (op.action === 'approvaSol') { const s = out.find(x => x.id === op.id); if (s) s.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
   }
-  return out;
+  return out.filter(s => s.stato !== 'SCARTATA');
 }
+const solVerificate = () => allSoluzioni().filter(s => s.stato === 'VERIFICATA');
+const solDaApprovare = () => allSoluzioni().filter(s => s.stato === 'DA APPROVARE');
 function allAnomalie() {
   const m = new Map(S.anomalie.map(a => [a.id, { ...a }]));
   for (const op of OUTBOX) {
@@ -448,9 +459,10 @@ async function sync() {
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
-        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinatori/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
+      if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
       dropMedia(OUTBOX.shift()); save('outbox', OUTBOX);
     }
     await refresh();
@@ -611,7 +623,9 @@ function renderHome() {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const today = all.filter(f => f.stato === 'CHIUSO' && f.end >= t0.getTime());
   const ano = anoAperte(allAnomalie());
+  const nApp = isCoord() ? solDaApprovare().length : 0;
   $('#view').innerHTML = `
+    ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
     <button class="fermocard" id="scan">
       <div class="row"><div class="qr">${I.qr}</div><div><div class="t1">FERMO MACCHINA</div><div class="t2">Scansiona il QR per aprirlo</div></div></div>
       <div class="steps"><span>1 · QR</span><span>2 · Lotto</span><span>3 · Apri fermo</span></div>
@@ -746,7 +760,8 @@ function intSheet(f, eq) {
 function renderSol() {
   const eq = S.view.code ? eqBy(S.view.code) : null;
   const q = S.view.q || '', g = S.view.g || '';
-  let items = allSoluzioni().filter(s => vale(s.dove, eq)).map(s => ({ ...s }));
+  let items = allSoluzioni().filter(s => vale(s.dove, eq) && (s.stato === 'VERIFICATA' || U(s.autore) === U(S.man))).map(s => ({ ...s }));
+  const coord = isCoord(), daApp = coord ? solDaApprovare().filter(s => !eq || vale(s.dove, eq)).sort((a, b) => (a.ts || 0) - (b.ts || 0)) : [];
   const guasti = [...new Set(items.map(s => s.guasto).filter(Boolean))].slice(0, 12);
   const qq = q.toLowerCase();
   const shown = items.filter(s => (!g || s.guasto === g) && (!qq || [s.problema, s.soluzione, s.guasto, s.ricambi, s.macchina, s.linea].join(' ').toLowerCase().includes(qq)))
@@ -755,6 +770,8 @@ function renderSol() {
   $('#view').innerHTML = `
     ${topline('Soluzioni', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
     ${eq ? '' : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona il QR della macchina o sceglila</div></div><button class="qrbtn" id="scanm" aria-label="Scansiona QR">${I.qr}QR</button><button class="linkbtn" id="pickm">Scegli</button></div>`}
+    ${daApp.length ? `<h2>Da approvare · ${daApp.length}</h2><div class="hint" style="margin-top:0">Le vedono solo i coordinatori. Approvata = la vedono tutti in Soluzioni e in "Cosa provare".</div>
+      <div class="list" id="daapp" style="margin-bottom:14px">${daApp.map(s => solCard(s, eq, {}, true)).join('')}</div>` : ''}
     <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca: pinze, ventose, prospetto…" value="${esc(q)}" aria-label="Cerca"></div>
     ${guasti.length ? `<div class="chips filters" id="gf"><button class="chip" data-v="" aria-pressed="${!g}">Tutti</button>${guasti.map(x => `<button class="chip" data-v="${esc(x)}" aria-pressed="${g === x}">${esc(x.split(',')[0])}</button>`).join('')}</div>` : ''}
     <div class="list" style="margin-top:12px">${shown.length ? shown.slice(0, 80).map(s => solCard(s, eq, usi)).join('') :
@@ -765,6 +782,12 @@ function renderSol() {
   const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'sol', code: e.code }));
   const sm = $('#scanm'); if (sm) sm.onclick = () => openScanner(e => go({ name: 'sol', code: e.code }), 'Inquadra il QR: apro le soluzioni della macchina');
   $('#addsol').onclick = () => needMan(() => eq ? solSheet(eq) : pickSheet(e => solSheet(e)));
+  const da = $('#daapp'); if (da) da.onclick = e => {
+    const b = e.target.closest('[data-app]'); if (!b) return;
+    if (b.dataset.app === 'NO' && !b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Tocca di nuovo per scartare'; return; }
+    enqueue({ action: 'approvaSol', id: b.dataset.id, esito: b.dataset.app, ts: Date.now(), manutentore: S.man });
+    toast(b.dataset.app === 'NO' ? 'Soluzione scartata' : 'Soluzione approvata: ora la vedono tutti');
+  };
   bindCommon();
 }
 // Soluzioni verificate più adatte al guasto scelto: stesso tipo guasto, oppure parole del guasto nel testo
@@ -772,7 +795,7 @@ const STOP = new Set(['DELLA', 'DELLE', 'DEGLI', 'ALTRO', 'MACCHINA', 'REGOLAZIO
 function suggerite(eq, guasto, max = 3) {
   const g = U(guasto); if (!g || g === 'ALTRO') return [];
   const words = g.replace(/[^A-Z0-9À-Ù ]/g, ' ').split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w));
-  return allSoluzioni().filter(s => vale(s.dove, eq)).map(s => {
+  return solVerificate().filter(s => vale(s.dove, eq)).map(s => {
     const prob = U(s.problema), resto = U([s.soluzione, s.ricambi].join(' '));
     let sc = U(s.guasto) === g ? 10 : 0;
     for (const w of words) { // inizio di parola: ASTUCCI/ASTUCCIO, ISTRUZIONI/ISTRUZIONE; conta di più se è nel problema
@@ -804,17 +827,18 @@ function showSuggest(eq, guasto) {
   const el = $('#solsug'); if (!el) return;
   el.innerHTML = sugBox(eq, guasto, false);
 }
-function solCard(s, eq, usi) {
+function solCard(s, eq, usi, approva) {
   const where = !eq ? `${s.linea || lineaDi(s.dove) || ''}${s.macchina ? ' · ' + nice(s.macchina) : (U(s.dove) === 'TUTTE' ? ' · tutte le macchine' : '')}`
     : (U(s.dove) !== U(eq.code) ? (U(s.dove) === 'TUTTE' || !s.dove ? 'vale per tutte le macchine' : 'vale per tutta la linea ' + s.dove) : '');
   const meta = s.fromFermo ? `${fmtD(s.ts)}${s.dur ? ' · ' + fmtDur(s.dur) : ''}` : (s.pending ? 'in coda' : (usi[s.guasto] ? `${usi[s.guasto]} fermi con questo guasto` : (s.ts ? fmtD(s.ts) : '')));
   return `<div class="scard"><div class="tags">${s.guasto ? `<span class="tag g">${esc(s.guasto.split(',')[0])}</span>` : ''}
-    <span class="tag v">VERIFICATA</span><span class="meta">${esc(meta)}</span></div>
+    ${s.stato === 'DA APPROVARE' ? '<span class="tag wait">DA APPROVARE</span>' : '<span class="tag v">VERIFICATA</span>'}<span class="meta">${esc(meta)}</span></div>
     ${where ? `<div class="hint" style="margin:0">${esc(where)}</div>` : ''}
     <div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>
     ${s.ricambi ? `<div class="ric">${String(s.ricambi).split(/[;,\n]+/).filter(x => x.trim()).map(x => `<span>${esc(x.trim())}</span>`).join('')}</div>` : ''}
     ${s.link ? `<a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener" style="align-self:flex-start;padding:4px 0">Apri allegato</a>` : ''}
-    ${s.autore && !s.fromFermo ? `<div class="hint" style="margin:0">${esc(s.autore)}</div>` : ''}</div>`;
+    ${s.autore && !s.fromFermo ? `<div class="hint" style="margin:0">${esc(s.autore)}${s.stato === 'DA APPROVARE' && !approva ? ' · in attesa del coordinatore' : ''}</div>` : ''}
+    ${approva ? `<div class="approw"><button class="appbtn ok" data-app="OK" data-id="${esc(s.id)}">Approva</button><button class="appbtn no" data-app="NO" data-id="${esc(s.id)}">Scarta</button></div>` : ''}</div>`;
 }
 function solSheet(eq, pref = {}) {
   const P = { guasto: pref.guasto || null, file: null };
@@ -838,7 +862,7 @@ function solSheet(eq, pref = {}) {
     if (!prob || !sol) { const e = $('#serr'); e.textContent = 'Scrivi il problema e la soluzione.'; e.hidden = false; return; }
     enqueue({ action: 'soluzione', id: uid('S'), code: dove === eq.code ? eq.code : '', linea: eq.linea, guasto: P.guasto || '', problema: prob, soluzione: sol,
       ricambi: $('#sr').value.trim(), file: P.file ? P.file.data : '', fileName: P.file ? P.file.name : '', mime: P.file ? P.file.mime : '', ts: Date.now(), manutentore: S.man });
-    closeSh(); toast('Soluzione salvata'); go({ name: 'sol', code: eq.code });
+    closeSh(); toast(isCoord() ? 'Soluzione salvata: la vedono tutti' : 'Soluzione inviata: la vedranno tutti dopo l\'approvazione del coordinatore', 4500); go({ name: 'sol', code: eq.code });
   };
 }
 

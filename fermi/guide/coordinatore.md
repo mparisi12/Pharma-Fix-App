@@ -29,10 +29,17 @@ Obiettivo: **nessuna anomalia critica aperta a fine turno** senza che qualcuno l
 - **Filling**: i fermi si registrano all'uscita dallo sterile **entro fine turno**, con gli orari del batch record. Se nel batch record c'è un fermo che non compare nel passaggio di turno, va registrato.
 - **Descrizioni**: una descrizione corta ma vera serve a tutti (e alle soluzioni future). Le righe "(senza descrizione)" nel passaggio di turno sono quelle da far completare.
 
-## 4. Soluzioni
+## 4. Soluzioni: sei tu ad approvarle
 
-Quando un tecnico risolve qualcosa di nuovo, chiedigli di aggiungerlo in **Soluzioni → + Aggiungi soluzione**. Le soluzioni compaiono a tutti in **Cosa provare** e **Prova prima** durante i fermi: più sono buone, meno tempo si perde.
-Se una soluzione è sbagliata o superata, segnalalo al responsabile, che la corregge nel foglio.
+Quando un tecnico risolve qualcosa di nuovo, chiedigli di aggiungerlo in **Soluzioni → + Aggiungi soluzione**. Le soluzioni nuove **non le vede nessuno finché non le approvi tu**: solo dopo compaiono a tutti in **Soluzioni**, **Cosa provare** e **Prova prima**.
+
+- Ti arriva un messaggio Telegram **SOLUZIONE DA APPROVARE**, e nella home dell'app compare *"N soluzioni da approvare"*.
+- Apri **Soluzioni**: in alto c'è **Da approvare**. Leggi problema e soluzione:
+  - **Approva** se è giusta, chiara e ripetibile da un collega;
+  - **Scarta** (tocca due volte) se è sbagliata, troppo vaga o un doppione. Se è buona ma scritta male, scartala e chiedi al tecnico di riscriverla.
+- Le soluzioni che aggiungi tu sono già approvate.
+
+Se una soluzione già approvata è sbagliata o superata, segnalalo al responsabile, che la corregge nel foglio.
 
 ## 5. Telefoni dei tecnici
 
@@ -45,5 +52,5 @@ Il **codice reparto** per i tecnici nuovi lo dà solo il responsabile: non passa
 | Quando | Cosa |
 |---|---|
 | **A ogni passaggio di turno** | Leggi il messaggio, controlla fermi aperti e "(senza descrizione)", anomalie critiche |
-| **Ogni giorno** | Anomalie da gestire: chi le ha in carico? Ci sono critiche ferme? |
+| **Ogni giorno** | Anomalie da gestire: chi le ha in carico? Ci sono critiche ferme? Soluzioni da approvare |
 | **Lunedì mattina** | Riepilogo settimanale: guasti che si ripetono e fermi lunghi da discutere con il responsabile |
