@@ -313,7 +313,18 @@ Foglio **Avvisi** (lo crea `setup`): nelle celle gialle
 | Stesso guasto sulla stessa macchina: quante volte | `3`: mail quando lo stesso guasto si ripete 3 volte (e poi 6, 9…). `0` = mai. ALTRO non conta |
 | …nell'arco di quanti giorni | `7` |
 
-Sotto, il **registro** delle mail inviate. Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*).
+| Telegram: token del bot | vedi sotto |
+| Telegram: ID chat o gruppo | lo scrive lo script |
+
+**Avvisi su Telegram** (consigliato: arrivano subito, anche in un gruppo con i capiturno, e non passano dai filtri della posta aziendale):
+1. In Telegram cerca **@BotFather** → scrivi `/newbot` → dai un nome (es. *Pharma-Fix Manutenzione*) e un nome utente che finisce con `bot` (es. `pharmafix_reparto_bot`). BotFather risponde con il **token** (una riga tipo `123456789:AA…`): copialo nella cella **B7** del foglio Avvisi. Il token è come una password: non condividerlo (se esce, in BotFather `/revoke`).
+2. Crea un **gruppo** Telegram (es. *Manutenzione Pharma-Fix*) con te e i capiturno, **aggiungi il bot** al gruppo e scrivi `/start` nel gruppo. (Solo per te: apri la chat del bot e premi **Avvia**.)
+3. Menu **Pharma-Fix → Telegram: trova ID chat**: scrive da solo l'ID nella cella **B8**.
+4. **Pharma-Fix → Prova avvisi**: il messaggio arriva nel gruppo.
+
+Mail e Telegram funzionano anche insieme: si usa quello che è compilato.
+
+Sotto, il **registro** degli avvisi inviati (con il canale usato). Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*).
 Il controllo dei **fermi aperti da troppo tempo** gira insieme alla **sveglia** (5.10): serve che sia attiva.
 
 ---
