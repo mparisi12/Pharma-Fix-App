@@ -241,7 +241,7 @@ function onOpen() {
 function onEdit(e) {
   try {
     if (e.range.getSheet().getName() !== SH_KPI) return;
-    if (['B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
+    if (['B2', 'B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
   } catch (x) { Logger.log(x); }
 }
 
@@ -252,6 +252,7 @@ function aggiornaKpi() {
   buildKpi_(ss);
 }
 
+const KPI_AREE = ['PACKAGING', 'FILLING'];
 const KPI_T = 31, KPI_N = 20; // riga intestazioni tabelle, righe mostrate nei grafici
 function buildKpi_(ss, keep) {
   const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI, 1);
@@ -260,6 +261,10 @@ function buildKpi_(ss, keep) {
   const H = '#dfe7ec', Y = '#fff3d6', G = '#5a6873';
   sh.getRange('A1').setValue('KPI manutenzione — fermi chiusi').setFontWeight('bold').setFontSize(14);
   sh.getRange('C1').setValue('Cambia le celle gialle: i valori si ricalcolano da soli (oppure menu Pharma-Fix → Aggiorna KPI)').setFontColor(G);
+  sh.getRange('A2').setValue('Area').setFontWeight('bold');
+  sh.getRange('B2').setValue('PACKAGING').setBackground(Y).setFontWeight('bold')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(KPI_AREE, true).setAllowInvalid(false).build());
+  sh.getRange('C2').setValue('Filling e Packaging sono sempre separati: scegli quale guardare').setFontColor(G);
   sh.getRange('A3:A7').setValues([['Linea'], ['Macchina'], ['Periodo'], ['Dal'], ['Al']]).setFontWeight('bold');
   sh.getRange('B3:B5').setValues([['TUTTE'], ['TUTTE'], ['Ultimi 30 giorni']]).setBackground(Y);
   sh.getRange('B5').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(PERIODI, true).setAllowInvalid(false).build());
@@ -302,7 +307,7 @@ function buildKpi_(ss, keep) {
     sh.insertChart(pareto(12, 7, 10, 'Pareto per durata (ore di fermo)', 'Ore di fermo', '#b5761b', 7, 800));
   } catch (e) { Logger.log('Grafici non creati: ' + e); }
 
-  if (keep) { sh.getRange('B3:B5').setValues(keep.filtri); sh.getRange('D6:D7').setValues(keep.date); sh.getRange('F10').setValue(keep.ore); }
+  if (keep) { if (keep.area) sh.getRange('B2').setValue(keep.area); sh.getRange('B3:B5').setValues(keep.filtri); sh.getRange('D6:D7').setValues(keep.date); sh.getRange('F10').setValue(keep.ore); }
   aggiornaValoriKpi();
 }
 
@@ -361,6 +366,7 @@ function sistemaDate_() {
 // Calcolo puro (testabile): righe del foglio Fermi + filtri → numeri e tabelle
 function calcolaKpi_(vals, f) {
   const rows = [];
+  let senzaArea = 0;
   vals.forEach(r => {
     if (r[C.STATO - 1] !== 'CHIUSO') return;
     const g0 = dataOra_(r[C.DATA - 1], null);
@@ -368,6 +374,11 @@ function calcolaKpi_(vals, f) {
     if (!ini || !fin) return;
     const giorno = g0 || ini;
     if (giorno < f.from || giorno >= f.toEnd) return;
+    if (f.area) {
+      const a = f.aree[String(r[C.EQ - 1]).trim()] || f.aree[(String(r[C.LINEA - 1]) + '|' + String(r[C.MACC - 1])).toUpperCase()] || '';
+      if (!a) { senzaArea++; return; }
+      if (a !== f.area) return;
+    }
     if (f.linea !== 'TUTTE' && String(r[C.LINEA - 1]) !== f.linea) return;
     if (f.code && String(r[C.EQ - 1]) !== f.code) return;
     let dur = (fin - ini) / 864e5; if (dur < 0) dur = ((dur % 1) + 1) % 1; // ore scritte senza data
@@ -396,7 +407,7 @@ function calcolaKpi_(vals, f) {
   return { n: n, tot: tot, mttr: n ? tot / n : '', lotti: lotti, occ: lotti ? n / lotti : '',
     mtbf: (n && f.ore !== '' && !isNaN(Number(f.ore))) ? Number(f.ore) / n : '',
     top: pareto.length ? pareto[0][0] + ' · ' + Math.round(pareto[0][4] * 100) + '%' : '',
-    pareto: pareto, paretoT: paretoT, macchine: macchine };
+    pareto: pareto, paretoT: paretoT, macchine: macchine, senzaArea: senzaArea };
 }
 
 function aggiornaValoriKpi() {
@@ -404,14 +415,18 @@ function aggiornaValoriKpi() {
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
   // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
-  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto') {
+  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area') {
+    const area = KPI_AREE.indexOf(String(sh.getRange('B2').getValue()).toUpperCase()) >= 0 ? String(sh.getRange('B2').getValue()).toUpperCase() : '';
     const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
     ss.deleteSheet(sh);
-    buildKpi_(ss, { filtri: filtri, date: date, ore: ore });
+    buildKpi_(ss, { area: area, filtri: filtri, date: date, ore: ore });
     return;
   }
   // menu Linea e Macchina dal foglio Equipment
-  const eq = equipment_(ss);
+  const eqAll = equipment_(ss);
+  let area = String(sh.getRange('B2').getValue()).toUpperCase();
+  if (KPI_AREE.indexOf(area) < 0) { area = 'PACKAGING'; sh.getRange('B2').setValue(area); }
+  const eq = eqAll.filter(e => e.area.toUpperCase() === area);
   const linee = ['TUTTE'].concat(Array.from(new Set(eq.map(e => e.linea))).sort());
   let linea = String(sh.getRange('B3').getValue() || 'TUTTE');
   if (linee.indexOf(linea) < 0) { linea = 'TUTTE'; sh.getRange('B3').setValue(linea); }
@@ -426,10 +441,14 @@ function aggiornaValoriKpi() {
 
   const fsh = ss.getSheetByName(SH_FERMI), last = fsh.getLastRow();
   const vals = last > 1 ? fsh.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
-  const k = calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, code: mSel === 'TUTTE' ? '' : mSel.split(' · ')[0],
+  const aree = {};
+  eqAll.forEach(e => { aree[e.code] = e.area.toUpperCase(); aree[(e.linea + '|' + e.macchina).toUpperCase()] = e.area.toUpperCase(); });
+  const k = calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, area: area, aree: aree, code: mSel === 'TUTTE' ? '' : mSel.split(' · ')[0],
     ore: sh.getRange('F10').getValue() });
 
   sh.getRange('A10:E10').setValues([[k.n, k.tot, k.mttr, k.lotti, k.occ]]);
+  sh.getRange('A11').setValue(k.senzaArea ? '⚠ ' + k.senzaArea + ' fermi esclusi: macchina non trovata in Equipment (area sconosciuta)' : '')
+    .setFontColor('#a3402d').setFontSize(9);
   sh.getRange('G10:H10').setValues([[k.mtbf, k.top]]);
   sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
 
