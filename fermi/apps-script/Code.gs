@@ -228,7 +228,8 @@ function onOpen() {
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
     .addSeparator()
-    .addItem('Prova avvisi (mail di test)', 'provaAvvisi')
+    .addItem('Prova avvisi (mail / Telegram)', 'provaAvvisi')
+    .addItem('Telegram: trova ID chat', 'trovaChatTelegram')
     .addToUi();
 }
 
@@ -701,11 +702,19 @@ const AVV_RIGHE = [
   ['Avvisa per anomalia critica (urgenza 1): SI / NO', 'SI'],
   ['Avvisa per fermo aperto da più di (ore, 0 = mai)', 2],
   ['Avvisa per stesso guasto sulla stessa macchina: quante volte (0 = mai)', 3],
-  ['…nell\'arco di quanti giorni', 7]
+  ['…nell\'arco di quanti giorni', 7],
+  ['Telegram: token del bot (da @BotFather)', ''],
+  ['Telegram: ID della chat o del gruppo (menu Pharma-Fix → Telegram: trova ID chat)', '']
 ];
 function avvisiSheet_(ss) {
   let sh = ss.getSheetByName(SH_AVV);
-  if (sh) return sh;
+  if (sh) { // foglio già esistente: aggiunge le righe nuove (Telegram) senza toccare i valori
+    if (String(sh.getRange(2 + AVV_RIGHE.length - 1, 1).getValue()) !== AVV_RIGHE[AVV_RIGHE.length - 1][0]) {
+      sh.getRange(2, 1, AVV_RIGHE.length, 1).setValues(AVV_RIGHE.map(r => [r[0]]));
+      sh.getRange(2, 2, AVV_RIGHE.length, 1).setBackground('#fff3d6');
+    }
+    return sh;
+  }
   sh = ss.insertSheet(SH_AVV);
   sh.getRange(1, 1, 1, 2).setValues([['Impostazione', 'Valore']]).setFontWeight('bold').setBackground('#dfe7ec');
   sh.getRange(2, 1, AVV_RIGHE.length, 2).setValues(AVV_RIGHE);
@@ -718,22 +727,60 @@ function avvisiCfg_() {
   const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
   const v = sh.getRange(2, 2, AVV_RIGHE.length, 1).getValues().map(r => r[0]);
   return { to: String(v[0] || '').split(/[,;\s]+/).filter(x => /@/.test(x)).join(','), critica: !/^no$/i.test(String(v[1]).trim()),
-    ore: Number(v[2]) || 0, volte: Number(v[3]) || 0, giorni: Number(v[4]) || 7, sh: sh };
+    ore: Number(v[2]) || 0, volte: Number(v[3]) || 0, giorni: Number(v[4]) || 7,
+    tgToken: String(v[5] || '').trim(), tgChat: String(v[6] || '').trim(), sh: sh };
 }
+// Invia l'avviso per mail e/o Telegram (quello che è configurato nel foglio Avvisi). true = almeno un canale ok
 function mail_(tipo, oggetto, righe) {
-  try {
-    const c = avvisiCfg_();
-    if (!c.to) return false;
-    const url = SpreadsheetApp.getActiveSpreadsheet().getUrl();
+  let c; try { c = avvisiCfg_(); } catch (e) { Logger.log(e); return false; }
+  const url = SpreadsheetApp.getActiveSpreadsheet().getUrl(), canali = [];
+  if (c.to) try {
     const html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#152028">' +
       righe.map(([k, v]) => v === undefined ? '<p style="font-size:16px"><b>' + k + '</b></p>' : '<div><span style="color:#4d5b66">' + k + ':</span> ' + v + '</div>').join('') +
       '<p style="margin-top:16px"><a href="' + url + '">Apri il foglio Pharma-Fix</a></p></div>';
     MailApp.sendEmail({ to: c.to, subject: 'Pharma-Fix · ' + oggetto, htmlBody: html, name: 'Pharma-Fix' });
+    canali.push('mail');
+  } catch (e) { Logger.log('Mail non inviata: ' + e); }
+  if (c.tgToken && c.tgChat) {
+    const r = telegram_(c.tgToken, c.tgChat, oggetto, righe);
+    if (r === true) canali.push('Telegram'); else Logger.log('Telegram non inviato: ' + r);
+  }
+  if (!canali.length) return false;
+  try {
     c.sh.insertRowAfter(9);
-    c.sh.getRange(10, 1, 1, 3).setValues([[new Date(), tipo, oggetto]]);
+    c.sh.getRange(10, 1, 1, 3).setValues([[new Date(), tipo + ' (' + canali.join(' + ') + ')', oggetto]]);
     c.sh.getRange(10, 1).setNumberFormat('dd/MM/yyyy HH:mm');
-    return true;
-  } catch (e) { Logger.log('Avviso non inviato: ' + e); return false; }
+  } catch (e) { Logger.log(e); }
+  return true;
+}
+// Messaggio Telegram in testo semplice (i valori HTML delle mail diventano testo)
+function telegram_(token, chat, oggetto, righe) {
+  const txt = v => String(v).replace(/<br\s*\/?>/gi, '\n   ').replace(/<a [^>]*href="([^"]+)"[^>]*>[^<]*<\/a>/gi, '$1').replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const icona = /CRITICA/.test(oggetto) ? '🔴 ' : /RIPETUTO/.test(oggetto) ? '🔁 ' : /APERTO DA/.test(oggetto) ? '⏱️ ' : '🔔 ';
+  const testo = icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter(r => r[1] !== undefined).map(([k, v]) => k + ': ' + txt(v)).join('\n');
+  try {
+    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ chat_id: chat, text: testo.slice(0, 4000), disable_web_page_preview: true }), muteHttpExceptions: true });
+    const j = JSON.parse(r.getContentText());
+    return j.ok ? true : (j.description || 'errore ' + r.getResponseCode());
+  } catch (e) { return String(e); }
+}
+// Menu: trova l'ID della chat. Prima scrivi /start al bot (o nel gruppo dove l'hai aggiunto), poi esegui.
+function trovaChatTelegram() {
+  const c = avvisiCfg_(), ui = (() => { try { return SpreadsheetApp.getUi(); } catch (e) { return null; } })();
+  const say = m => ui ? ui.alert(m) : Logger.log(m);
+  if (!c.tgToken) return say('Scrivi prima il token del bot nel foglio Avvisi (cella B7).');
+  let j;
+  try { j = JSON.parse(UrlFetchApp.fetch('https://api.telegram.org/bot' + c.tgToken + '/getUpdates', { muteHttpExceptions: true }).getContentText()); }
+  catch (e) { return say('Telegram non raggiungibile: ' + e); }
+  if (!j.ok) return say('Token non valido: ricopialo da @BotFather. (' + (j.description || '') + ')');
+  const chats = [];
+  (j.result || []).forEach(u => { const m = u.message || u.channel_post || u.my_chat_member; const ch = m && m.chat; if (ch && !chats.some(x => x.id === ch.id)) chats.push(ch); });
+  if (!chats.length) return say('Nessun messaggio trovato. Apri la chat con il bot (o il gruppo dove l\'hai aggiunto), scrivi /start e riprova.');
+  const ch = chats.find(x => x.type !== 'private') || chats[chats.length - 1]; // se c'è un gruppo, preferisce il gruppo
+  c.sh.getRange(8, 2).setValue(String(ch.id));
+  say('Trovata: ' + (ch.title || [ch.first_name, ch.last_name].filter(Boolean).join(' ')) + ' (' + (ch.type === 'private' ? 'chat privata' : 'gruppo') + ').\nID scritto nella cella B8. Ora prova: Pharma-Fix → Prova avvisi.');
 }
 const fmtOra_ = d => Utilities.formatDate(d, TZ, 'dd/MM HH:mm');
 const h_ = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -765,7 +812,7 @@ function avvisoRipetuto_(sh, code, guasto) {
 function avvisoFermiLunghi_() {
   try {
     const c = avvisiCfg_();
-    if (!c.ore || !c.to) return;
+    if (!c.ore || !(c.to || (c.tgToken && c.tgChat))) return;
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
     if (last < 2) return;
     const props = PropertiesService.getScriptProperties();
@@ -785,10 +832,11 @@ function avvisoFermiLunghi_() {
 }
 function provaAvvisi() {
   const c = avvisiCfg_();
-  const ok = mail_('Prova', 'mail di prova', [['Gli avvisi funzionano'], ['Destinatari', c.to || '—'],
+  const ok = mail_('Prova', 'avviso di prova', [['Gli avvisi funzionano'], ['Mail a', c.to || '—'], ['Telegram', c.tgToken && c.tgChat ? 'attivo' : 'non configurato'],
     ['Anomalia critica', c.critica ? 'SI' : 'NO'], ['Fermo aperto oltre', c.ore ? c.ore + ' ore' : 'mai'],
     ['Guasto ripetuto', c.volte ? c.volte + ' volte in ' + c.giorni + ' giorni' : 'mai']]);
-  const msg = ok ? 'Mail di prova inviata a: ' + c.to : (c.to ? 'Invio non riuscito: guarda Esecuzioni in Apps Script.' : 'Scrivi prima le email nel foglio Avvisi (cella B2).');
+  const msg = ok ? 'Avviso di prova inviato (' + [c.to ? 'mail' : '', c.tgToken && c.tgChat ? 'Telegram' : ''].filter(Boolean).join(' + ') + '). Controlla il registro nel foglio Avvisi.'
+    : (c.to || (c.tgToken && c.tgChat) ? 'Invio non riuscito: apri Apps Script → Esecuzioni per vedere il motivo.' : 'Compila prima il foglio Avvisi: email (B2) e/o Telegram (B7, B8).');
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
 }
 
