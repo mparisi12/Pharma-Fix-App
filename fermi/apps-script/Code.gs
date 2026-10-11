@@ -497,7 +497,27 @@ function aggiornaValoriKpi() {
 /* =================== SOLUZIONI, DOCUMENTI, ANOMALIE =================== */
 // Colonna "Dove": codice macchina (es. ST3-04), nome linea (es. ST3) oppure TUTTE.
 const SH_SOL = 'Soluzioni', SH_DOC = 'Documenti', SH_ANO = 'Anomalie', SH_IMP = 'Import_PharmaFix', SH_MAPPA = 'Mappa_import';
-const SOL_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Linea', 'Macchina', 'Tipo guasto', 'Problema', 'Soluzione', 'Codici ricambio', 'Allegato', 'Autore'];
+const SOL_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Linea', 'Macchina', 'Tipo guasto', 'Problema', 'Soluzione', 'Codici ricambio', 'Allegato', 'Autore',
+  'Stato (VERIFICATA / DA APPROVARE / SCARTATA)', 'Approvata da'];
+// Soluzioni: le nuove dei tecnici restano DA APPROVARE finché un coordinatore non le approva (vuoto = VERIFICATA, per le righe già esistenti)
+function solColonne_(sh) {
+  if (sh.getMaxColumns() < SOL_H.length) sh.insertColumnsAfter(sh.getMaxColumns(), SOL_H.length - sh.getMaxColumns());
+  if (String(sh.getRange(1, SOL_H.length).getValue()) !== SOL_H[SOL_H.length - 1]) {
+    sh.getRange(1, SOL_H.length - 1, 1, 2).setValues([SOL_H.slice(-2)]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+    sh.getRange(2, SOL_H.length - 1, Math.max(1, sh.getMaxRows() - 1), 1).setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(['VERIFICATA', 'DA APPROVARE', 'SCARTATA'], true).setAllowInvalid(true).build());
+  }
+}
+function coordinatori_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE), lv = sh.getDataRange().getValues();
+  let col = lv[0].indexOf('Coordinatori');
+  if (col < 0) { // colonna aggiunta da sola la prima volta
+    col = lv[0].length; sh.getRange(1, col + 1).setValue('Coordinatori').setFontWeight('bold');
+    return [];
+  }
+  return lv.slice(1).map(r => String(r[col]).trim()).filter(Boolean);
+}
+const isCoordinatore_ = nome => coordinatori_().some(c => c.toUpperCase() === String(nome || '').trim().toUpperCase());
 const DOC_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Tipo (MANUALE / SCHEMA / SCHEDA FORMATO / ALTRO)', 'Titolo', 'Descrizione', 'Link', 'Autore'];
 const ANO_H = ['ID', 'Data', 'Equipment', 'Linea', 'Macchina', 'Urgenza (1 critico, 2 urgente, 3 programmabile)', 'Descrizione', 'Cosa serve', 'Foto',
   'Segnalata da', 'Stato (APERTA / IN CORSO / CHIUSA)', 'Gestita da', 'Data chiusura', 'Note'];
@@ -522,8 +542,11 @@ const ts_ = v => v instanceof Date ? v.getTime() : (dataOra_(v, null) ? dataOra_
 const linkDi_ = (sh, r, c) => { const rt = sh.getRange(r, c).getRichTextValue(); return (rt && rt.getLinkUrl()) || String(sh.getRange(r, c).getValue() || ''); };
 
 function archivio_(ss) {
+  const solSh = ss.getSheetByName(SH_SOL); if (solSh) solColonne_(solSh);
+  coordinatori_(); // crea la colonna Coordinatori nel foglio Liste se manca
   const sol = righe_(ss, SH_SOL, SOL_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), linea: String(r[3]), macchina: String(r[4]),
-    guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]) }));
+    guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]),
+    stato: String(r[11] || '').trim().toUpperCase() || 'VERIFICATA' })).filter(x => x.stato !== 'SCARTATA');
   const doc = righe_(ss, SH_DOC, DOC_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), tipo: String(r[3]).trim().toUpperCase(),
     titolo: String(r[4]), descr: String(r[5]), link: String(r[6]) }));
   const from = Date.now() - 30 * 864e5;
@@ -548,8 +571,31 @@ function addSoluzione_(p) {
   const eq = equipment_(ss).find(x => x.code === p.code) || { linea: p.linea || '', macchina: '' };
   const d = new Date(Number(p.ts) || Date.now());
   const url = p.file ? saveFile_(p.file, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + (p.code || 'soluzione') + '_' + (p.fileName || 'allegato'), p.mime) : '';
-  sh.appendRow([p.id, d, p.code || p.linea || 'TUTTE', eq.linea, eq.macchina, p.guasto || '', p.problema, p.soluzione, p.ricambi || '', url, p.manutentore || '']);
+  solColonne_(sh);
+  const coord = isCoordinatore_(p.manutentore);
+  sh.appendRow([p.id, d, p.code || p.linea || 'TUTTE', eq.linea, eq.macchina, p.guasto || '', p.problema, p.soluzione, p.ricambi || '', url, p.manutentore || '',
+    coord ? 'VERIFICATA' : 'DA APPROVARE', coord ? p.manutentore : '']);
   sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd/MM/yyyy HH:mm');
+  if (!coord) try {
+    mail_('Soluzione da approvare', 'SOLUZIONE DA APPROVARE · ' + (p.code || p.linea || 'TUTTE') + (eq.macchina ? ' ' + nice_(eq.macchina) : ''), [
+      ['Nuova soluzione di ' + (p.manutentore || '?')],
+      ['Macchina', (p.code || ('linea ' + (p.linea || 'TUTTE'))) + (eq.macchina ? ' · ' + nice_(eq.macchina) : '')],
+      ['Guasto', p.guasto || '—'],
+      ['Problema', h_(String(p.problema).slice(0, 200))],
+      ['Soluzione', h_(String(p.soluzione).slice(0, 400))],
+      ['Cosa fare', 'il coordinatore la approva dall\'app: Soluzioni → Da approvare']], { noMail: (c => !!(c.tgToken && c.tgChat))(avvisiCfg_()) });
+  } catch (e) { Logger.log(e); }
+  return { stato: coord ? 'VERIFICATA' : 'DA APPROVARE' };
+}
+
+function approvaSoluzione_(p) {
+  if (!isCoordinatore_(p.manutentore)) throw new Error('Solo i coordinatori possono approvare le soluzioni');
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_SOL);
+  solColonne_(sh);
+  const r = findIn_(sh, p.id);
+  if (!r) throw new Error('Soluzione non trovata');
+  sh.getRange(r, SOL_H.length - 1, 1, 2).setValues([[p.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA',
+    p.manutentore + ' · ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm')]]);
   return {};
 }
 
@@ -1129,7 +1175,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1137,6 +1183,7 @@ function doPost(e) {
     else if (p.action === 'soluzione') res = addSoluzione_(p);
     else if (p.action === 'anomalia') res = addAnomalia_(p);
     else if (p.action === 'anomaliaStato') res = statoAnomalia_(p);
+    else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
     return json_(Object.assign({ ok: true }, res));
