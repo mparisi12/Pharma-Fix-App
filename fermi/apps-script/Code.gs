@@ -294,20 +294,21 @@ function buildKpi_(ss, keep) {
   sh.setFrozenRows(10);
 
   // dati dei grafici in colonne nascoste T:Y: al massimo KPI_N barre, il resto raggruppato in "ALTRI" così la linea arriva al 100%
-  sh.getRange(t, 20, 1, 6).setValues([['Grafico: guasto', 'N° fermi', '% cumulata', 'Grafico: guasto', 'Ore di fermo', '% cumulata']]);
+  // un solo asse 0-100%: barre = quota di ogni guasto, linea = % cumulata (Google non tiene il secondo asse e la linea restava schiacciata in basso)
+  sh.getRange(t, 20, 1, 6).setValues([['Grafico %: guasto', '% dei fermi (RFR)', '% cumulata', 'Grafico %: guasto', '% del tempo di fermo', '% cumulata']]);
   sh.hideColumns(20, 6);
   const pareto = (r1, c1, titolo, asse, colore, col, w) => sh.newChart().asComboChart()
     .addRange(sh.getRange(t, c1, KPI_N + 1, 3))
     .setNumHeaders(1)
     .setOption('title', titolo)
     .setOption('legend', { position: 'bottom' })
-    .setOption('series', { 0: { type: 'bars', targetAxisIndex: 0, color: colore }, 1: { type: 'line', targetAxisIndex: 1, color: '#c23b2a', pointSize: 5 } })
-    .setOption('vAxes', { 0: { title: asse, minValue: 0 }, 1: { title: '% cumulata', format: 'percent', minValue: 0, maxValue: 1 } })
+    .setOption('series', { 0: { type: 'bars', color: colore }, 1: { type: 'line', color: '#c23b2a', pointSize: 5, lineWidth: 2 } })
+    .setOption('vAxis', { title: asse, format: 'percent', minValue: 0, maxValue: 1, viewWindow: { min: 0, max: 1 }, gridlines: { count: 6 } })
     .setPosition(r1, col, 0, 0).setOption('width', w).setOption('height', 360)
     .build();
   try {
-    sh.insertChart(pareto(12, 20, 'Pareto per frequenza (n° fermi)', 'N° fermi', '#245a7a', 1, 840));
-    sh.insertChart(pareto(12, 23, 'Pareto per durata (ore di fermo)', 'Ore di fermo', '#b5761b', 7, 800));
+    sh.insertChart(pareto(12, 20, 'Pareto per frequenza (% dei fermi)', '% dei fermi', '#245a7a', 1, 840));
+    sh.insertChart(pareto(12, 23, 'Pareto per durata (% del tempo di fermo)', '% del tempo', '#b5761b', 7, 800));
   } catch (e) { Logger.log('Grafici non creati: ' + e); }
 
   if (keep) { if (keep.area) sh.getRange('B2').setValue(keep.area); sh.getRange('B3:B5').setValues(keep.filtri); sh.getRange('D6:D7').setValues(keep.date); sh.getRange('F10').setValue(keep.ore); }
@@ -425,7 +426,7 @@ function aggiornaValoriKpi() {
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
   // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
-  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico: guasto') {
+  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico %: guasto') {
     const area = KPI_AREE.indexOf(String(sh.getRange('B2').getValue()).toUpperCase()) >= 0 ? String(sh.getRange('B2').getValue()).toUpperCase() : '';
     const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
     ss.deleteSheet(sh);
@@ -483,9 +484,9 @@ function aggiornaValoriKpi() {
     sh.getRange(t, 7, k.paretoT.length, 5).setValues(k.paretoT);
     sh.getRange(t, 8, k.paretoT.length, 1).setNumberFormat('0.0');
     sh.getRange(t, 10, k.paretoT.length, 2).setNumberFormat('0%');
-    const gf = grafico(k.pareto, 1, 3), gd = grafico(k.paretoT, 1, 3);
-    sh.getRange(t, 20, gf.length, 3).setValues(gf); sh.getRange(t, 22, gf.length, 1).setNumberFormat('0%');
-    sh.getRange(t, 23, gd.length, 3).setValues(gd); sh.getRange(t, 24, gd.length, 1).setNumberFormat('0.0'); sh.getRange(t, 25, gd.length, 1).setNumberFormat('0%');
+    const gf = grafico(k.pareto, 4, 3), gd = grafico(k.paretoT, 4, 3);
+    sh.getRange(t, 20, gf.length, 3).setValues(gf).setNumberFormat('0%');
+    sh.getRange(t, 23, gd.length, 3).setValues(gd).setNumberFormat('0%');
   } else sh.getRange(t, 1).setValue('Nessun fermo chiuso con questi filtri');
   if (k.macchine.length) {
     sh.getRange(t, 13, k.macchine.length, 6).setValues(k.macchine);

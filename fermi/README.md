@@ -261,7 +261,7 @@ Foglio **KPI**. In alto le celle gialle sono i **filtri**:
 Tutto il foglio si ricalcola sulla scelta. L'area di ogni fermo si prende dal foglio Equipment (dal codice macchina, o da linea + nome macchina per i fermi importati): se una macchina non si trova, il fermo viene escluso e sotto gli indicatori compare quanti sono.
 - **Indicatori**: n° fermi, tempo di fermo, **MTTR** (tempo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti), **guasto n°1 con il suo RFR** (n° fermi di quel guasto ÷ totale fermi).
 - **MTBF**: scrivi nella cella gialla le **ore di funzionamento** della linea/macchina nel periodo scelto (dai dati di produzione); l'MTBF (ore ÷ n° fermi) si calcola da solo.
-- **Pareto doppio**, due grafici affiancati (barre + linea rossa della % cumulata; i guasti a sinistra dell'80% sono quelli su cui intervenire):
+- **Pareto doppio**, due grafici affiancati su una scala unica 0–100% (barre = quota di ogni guasto, linea rossa = % cumulata; i guasti a sinistra dell'80% sono quelli su cui intervenire). I numeri assoluti (n° fermi, ore) sono nelle tabelle sotto:
   - **per frequenza**: quante volte succede ogni guasto, con % cumulata e **RFR**;
   - **per durata**: quante ore di fermo causa ogni guasto. Un guasto raro ma lungo (es. elettrico) qui sale in cima.
   - Nei grafici ci sono al massimo 20 barre: se i tipi di guasto sono di più, gli ultimi sono raggruppati in **ALTRI**, così la linea arriva sempre al 100%. Le tabelle sotto li elencano tutti.
