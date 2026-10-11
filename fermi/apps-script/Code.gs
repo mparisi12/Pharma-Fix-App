@@ -840,7 +840,7 @@ const testo_ = v => String(v).replace(/<br\s*\/?>/gi, '\n   ').replace(/<a [^>]*
 function telegram_(token, chat, oggetto, righe) {
   const txt = testo_;
   const icona = /CRITICA/.test(oggetto) ? '🔴 ' : /RIPETUTO/.test(oggetto) ? '🔁 ' : /APERTO DA/.test(oggetto) ? '⏱️ ' : '🔔 ';
-  const testo = icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter(r => r[1] !== undefined).map(([k, v]) => k + ': ' + txt(v)).join('\n');
+  const testo = icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter((r, i) => r[1] !== undefined || i > 0).map(([k, v]) => v === undefined ? '\n' + k : k + ': ' + txt(v)).join('\n'); // righe senza valore dopo la prima = titoli di sezione
   try {
     const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', contentType: 'application/json',
       payload: JSON.stringify({ chat_id: chat, text: testo.slice(0, 4000), disable_web_page_preview: true }), muteHttpExceptions: true });
@@ -970,7 +970,16 @@ function fermiTutti_() {
   return sh.getRange(2, 1, last - 1, HEAD.length).getValues().filter(r => r[C.INIZIO - 1] instanceof Date).map(r => ({
     a: r[C.INIZIO - 1], b: r[C.FINE - 1] instanceof Date ? r[C.FINE - 1] : null, stato: r[C.STATO - 1], linea: String(r[C.LINEA - 1] || ''),
     macc: String(r[C.MACC - 1] || ''), guasto: String(r[C.GUASTO - 1] || ''), man: String(r[C.MAN - 1] || r[C.APERTO_DA - 1] || ''),
-    altro: String(r[C.ALTRO - 1] || ''), lotto: r[C.LOTTO - 1], orari: r[C.ORARI - 1] }));
+    altro: String(r[C.ALTRO - 1] || ''), lotto: r[C.LOTTO - 1], orari: r[C.ORARI - 1], eq: String(r[C.EQ - 1] || '').trim() }));
+}
+// Area (FILLING / PACKAGING) di un fermo: dal codice macchina, oppure da linea + nome macchina (fermi importati)
+function areaDi_() {
+  const aree = {};
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_EQ).getDataRange().getValues().slice(1).forEach(r => {
+    const a = String(r[2]).trim().toUpperCase(); if (!r[0] || !a) return;
+    aree[String(r[0]).trim()] = a; aree[kpiChiave_(r[1], r[3])] = a;
+  });
+  return f => aree[f.eq] || aree[kpiChiave_(f.linea, f.macc)] || '';
 }
 const minDi_ = f => f.b ? (f.b - f.a) / 60000 : 0;
 function anomalieTutte_() {
@@ -984,24 +993,39 @@ function riepilogoSettimanale_() { if (repCfg_().settimanale) riepilogoSettimana
 function riepilogoSettimanale() {
   const oggi = dateOnly_(new Date()), dow = Number(Utilities.formatDate(oggi, TZ, 'u'));
   const fine = new Date(oggi.getTime() - (dow - 1) * 864e5), inizio = new Date(fine.getTime() - 7 * 864e5), prima = new Date(inizio.getTime() - 7 * 864e5);
+  const areaDi = areaDi_();
   const tutti = fermiTutti_().filter(f => f.stato === 'CHIUSO' && f.b);
-  const sett = tutti.filter(f => f.a >= inizio && f.a < fine), prec = tutti.filter(f => f.a >= prima && f.a < inizio);
-  const tot = sett.reduce((x, f) => x + minDi_(f), 0), totP = prec.reduce((x, f) => x + minDi_(f), 0);
-  const perLinea = {}; sett.forEach(f => { const l = perLinea[f.linea] = perLinea[f.linea] || { n: 0, m: 0 }; l.n++; l.m += minDi_(f); });
-  const perGuasto = {}; sett.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' (' + f.linea + ' ' + nice_(f.macc) + ')'; const g = perGuasto[k] = perGuasto[k] || { n: 0, m: 0 }; g.n++; g.m += minDi_(f); });
+  tutti.forEach(f => { f.area = areaDi(f); });
+  const freccia = (a, b) => b ? (a > b ? ' ▲ ' : a < b ? ' ▼ ' : ' = ') + 'sett. prima ' + b : '';
+  // Filling e Packaging sempre separati: un blocco per area
+  const blocco = (nome, filtro) => {
+    const sett = tutti.filter(f => filtro(f) && f.a >= inizio && f.a < fine), prec = tutti.filter(f => filtro(f) && f.a >= prima && f.a < inizio);
+    if (!sett.length && !prec.length && nome === 'AREA NON TROVATA') return [];
+    const tot = sett.reduce((x, f) => x + minDi_(f), 0), totP = prec.reduce((x, f) => x + minDi_(f), 0);
+    const perLinea = {}; sett.forEach(f => { const l = perLinea[f.linea] = perLinea[f.linea] || { n: 0, m: 0 }; l.n++; l.m += minDi_(f); });
+    const perGuasto = {}; sett.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' (' + f.linea + ' ' + nice_(f.macc) + ')'; const g = perGuasto[k] = perGuasto[k] || { n: 0, m: 0 }; g.n++; g.m += minDi_(f); });
+    const righe = [['━━ ' + nome + ' ━━'],
+      ['Fermi', sett.length + freccia(sett.length, prec.length)],
+      ['Tempo di fermo', durTxt_(tot) + (totP ? ' (sett. prima ' + durTxt_(totP) + ')' : '')],
+      ['MTTR', sett.length ? durTxt_(tot / sett.length) : '—']];
+    if (sett.length) righe.push(
+      ['Per linea', Object.keys(perLinea).sort((a, b) => perLinea[b].m - perLinea[a].m).map(l => l + ': ' + perLinea[l].n + (perLinea[l].n === 1 ? ' fermo · ' : ' fermi · ') + durTxt_(perLinea[l].m) + ' · MTTR ' + durTxt_(perLinea[l].m / perLinea[l].n)).join('<br>')],
+      ['Guasti più frequenti', Object.keys(perGuasto).sort((a, b) => perGuasto[b].n - perGuasto[a].n || perGuasto[b].m - perGuasto[a].m).slice(0, 5).map(k => k + ' ×' + perGuasto[k].n + ' · ' + durTxt_(perGuasto[k].m)).join('<br>') || '—'],
+      ['Fermi più lunghi', sett.slice().sort((a, b) => minDi_(b) - minDi_(a)).slice(0, 3).map(f => gm_(f.a) + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + durTxt_(minDi_(f)) + (f.guasto ? ' · ' + f.guasto : '')).join('<br>')]);
+    return righe;
+  };
   const an = anomalieTutte_(), aperte = an.filter(a => a.stato !== 'CHIUSA');
   const aperti = fermiTutti_().filter(f => f.stato === 'APERTO');
-  const freccia = (a, b) => b ? (a > b ? ' ▲ ' : a < b ? ' ▼ ' : ' = ') + 'sett. prima ' + b : '';
+  aperti.forEach(f => { f.area = areaDi(f); });
+  const tag = f => f.area === 'FILLING' ? '[F] ' : f.area === 'PACKAGING' ? '[P] ' : '';
   mail_('Riepilogo settimanale', 'RIEPILOGO SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5)), [
-    ['Settimana dal ' + gm_(inizio) + ' al ' + gm_(new Date(fine.getTime() - 864e5))],
-    ['Fermi', sett.length + freccia(sett.length, prec.length)],
-    ['Tempo di fermo', durTxt_(tot) + (totP ? ' (sett. prima ' + durTxt_(totP) + ')' : '')],
-    ['MTTR', sett.length ? durTxt_(tot / sett.length) : '—'],
-    ['Per linea', Object.keys(perLinea).sort((a, b) => perLinea[b].m - perLinea[a].m).map(l => l + ': ' + perLinea[l].n + (perLinea[l].n === 1 ? ' fermo · ' : ' fermi · ') + durTxt_(perLinea[l].m) + ' · MTTR ' + durTxt_(perLinea[l].m / perLinea[l].n)).join('<br>') || '—'],
-    ['Guasti più frequenti', Object.keys(perGuasto).sort((a, b) => perGuasto[b].n - perGuasto[a].n || perGuasto[b].m - perGuasto[a].m).slice(0, 5).map(k => k + ' ×' + perGuasto[k].n + ' · ' + durTxt_(perGuasto[k].m)).join('<br>') || '—'],
-    ['Fermi più lunghi', sett.slice().sort((a, b) => minDi_(b) - minDi_(a)).slice(0, 3).map(f => gm_(f.a) + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + durTxt_(minDi_(f)) + (f.guasto ? ' · ' + f.guasto : '')).join('<br>') || '—'],
+    ['Settimana dal ' + gm_(inizio) + ' al ' + gm_(new Date(fine.getTime() - 864e5))]]
+    .concat(blocco('PACKAGING', f => f.area === 'PACKAGING'))
+    .concat(blocco('FILLING', f => f.area === 'FILLING'))
+    .concat(blocco('AREA NON TROVATA', f => !f.area))
+    .concat([['━━ GENERALE ━━'],
     ['Anomalie', 'da gestire ' + aperte.length + ' (critiche ' + aperte.filter(a => a.urg === 1).length + ', urgenti ' + aperte.filter(a => a.urg === 2).length + ') · nuove ' + an.filter(a => a.ts && a.ts >= inizio && a.ts < fine).length + ' · chiuse ' + an.filter(a => a.chiusa && a.chiusa >= inizio && a.chiusa < fine).length],
-    ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']]);
+    ['Fermi ancora aperti', aperti.length ? aperti.map(f => tag(f) + f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']]));
 }
 
 /* Passaggio di turno: cosa è successo nel turno appena finito, solo dai dati registrati */
