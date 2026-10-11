@@ -60,7 +60,7 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Anomalie** | Segnalazioni: macchina, urgenza (cella colorata), descrizione, cosa serve, foto, stato APERTA / IN CORSO / CHIUSA, chi l'ha gestita, nota. | L'app; tu puoi cambiare stato e note. |
 | **Telefoni** | Il telefono di ogni tecnico. Il primo si registra da solo; un telefono nuovo, o il telefono di un collega, resta **DA APPROVARE** (vedi 5.9). | Tu (colonna Stato). |
 | **Controlli** | Casi da guardare (telefoni da approvare, stesso telefono per più tecnici, fermi sovrapposti, orari dichiarati inseriti tardi): menu **Pharma-Fix → Controlla registrazioni**. | Lo script. |
-| **KPI** | Indicatori con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, Pareto guasti con grafico e RFR, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
+| **KPI** | Indicatori con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, RFR, Pareto doppio (frequenza e durata) con grafici, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
 
@@ -258,12 +258,14 @@ Foglio **KPI**. In alto le celle gialle sono i **filtri**:
 | **Periodo** | Ultimi 7 / 30 / 90 giorni, Mese corrente, Mese scorso, Anno corrente, Tutto, Personalizzato (date nelle celle gialle a destra) |
 
 Tutto il foglio si ricalcola sulla scelta:
-- **Indicatori**: n° fermi, tempo di fermo, **MTTR** (tempo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti), guasto più frequente.
-- **MTBF**: scrivi nella cella gialla le **ore di funzionamento** della linea/macchina nel periodo scelto; l'MTBF (ore ÷ n° fermi) si calcola da solo.
-- **Pareto guasti** con **% cumulata** e **RFR** (n° di quel guasto ÷ totale fermi) + **grafico di Pareto** (barre = n° fermi, linea rossa = % cumulata: i guasti a sinistra dell'80% sono quelli su cui intervenire).
-- **Fermi per macchina** con tempo totale e MTTR.
+- **Indicatori**: n° fermi, tempo di fermo, **MTTR** (tempo ÷ n° fermi), n° lotti, **Occurrancy** (fermi ÷ lotti), **guasto n°1 con il suo RFR** (n° fermi di quel guasto ÷ totale fermi).
+- **MTBF**: scrivi nella cella gialla le **ore di funzionamento** della linea/macchina nel periodo scelto (dai dati di produzione); l'MTBF (ore ÷ n° fermi) si calcola da solo.
+- **Pareto doppio**, due grafici affiancati (barre + linea rossa della % cumulata; i guasti a sinistra dell'80% sono quelli su cui intervenire):
+  - **per frequenza**: quante volte succede ogni guasto, con % cumulata e **RFR**;
+  - **per durata**: quante ore di fermo causa ogni guasto. Un guasto raro ma lungo (es. elettrico) qui sale in cima.
+- **Fermi per macchina** con n° fermi, tempo totale, MTTR e **guasto n°1 · RFR** di quella macchina.
 
-Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano quando cambi una cella gialla, quando si chiude un fermo, oppure dal menu **Pharma-Fix → Aggiorna KPI** (in alto nel foglio, accanto a Guida). Se il foglio KPI si rovina: **Pharma-Fix → Ricrea foglio KPI**.
+Contano solo i fermi **chiusi**. I valori li calcola lo script: si aggiornano quando cambi una cella gialla, quando si chiude un fermo, oppure dal menu **Pharma-Fix → Aggiorna KPI** (in alto nel foglio, accanto a Guida). Se il foglio KPI si rovina: **Pharma-Fix → Ricrea foglio KPI**. Dopo un aggiornamento dello script che cambia la scheda KPI, il foglio si ricrea da solo al primo **Aggiorna KPI**, tenendo filtri e ore di funzionamento.
 
 ### 5.6 Documenti (foglio Documenti)
 Una riga per documento:

@@ -252,7 +252,8 @@ function aggiornaKpi() {
   buildKpi_(ss);
 }
 
-function buildKpi_(ss) {
+const KPI_T = 31, KPI_N = 20; // riga intestazioni tabelle, righe mostrate nei grafici
+function buildKpi_(ss, keep) {
   const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI, 1);
   sh.clear(); sh.clearConditionalFormatRules();
   sh.getCharts().forEach(c => sh.removeChart(c));
@@ -267,33 +268,41 @@ function buildKpi_(ss) {
   sh.getRange('D6:D7').setBackground(Y).setNumberFormat('dd/MM/yyyy');
 
   sh.getRange('A9:H9').setValues([['N° fermi', 'Tempo di fermo', 'MTTR', 'N° lotti', 'Occurrancy (fermi/lotti)',
-    'Ore funzionamento (inserire)', 'MTBF (h)', 'Guasto più frequente']])
+    'Ore funzionamento (inserire)', 'MTBF (h)', 'Guasto n°1 · RFR']])
     .setFontWeight('bold').setBackground(H).setWrap(true).setVerticalAlignment('middle');
   sh.getRange('A10:H10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange('F10').setBackground(Y);
-  sh.getRange('F11').setValue('ore della linea/macchina nel periodo scelto').setFontColor(G).setFontSize(9);
+  sh.getRange('F11').setValue('ore della linea/macchina nel periodo scelto (dai dati di produzione)').setFontColor(G).setFontSize(9).setWrap(true);
+  sh.getRange('H11').setValue('RFR = n° fermi di quel guasto / totale fermi').setFontColor(G).setFontSize(9);
 
-  sh.getRange('A12').setValue('Pareto guasti — RFR = n° di quel guasto / totale fermi').setFontWeight('bold');
-  sh.getRange('A13:E13').setValues([['Tipo guasto', 'N° fermi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
-  sh.getRange('G12').setValue('Fermi per macchina').setFontWeight('bold');
-  sh.getRange('G13:K13').setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR']]).setFontWeight('bold').setBackground(H);
+  // grafici in alto (righe 12-29), tabelle sotto (da riga KPI_T)
+  const t = KPI_T;
+  sh.getRange(t - 1, 1).setValue('Pareto per FREQUENZA — quante volte succede').setFontWeight('bold');
+  sh.getRange(t, 1, 1, 5).setValues([['Tipo guasto', 'N° fermi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t - 1, 7).setValue('Pareto per DURATA — quanto ferma la linea').setFontWeight('bold');
+  sh.getRange(t, 7, 1, 5).setValues([['Tipo guasto', 'Ore di fermo', 'N° fermi', '% cumulata', '% del tempo']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t - 1, 13).setValue('Fermi per macchina').setFontWeight('bold');
+  sh.getRange(t, 13, 1, 6).setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR', 'Guasto n°1 · RFR']]).setFontWeight('bold').setBackground(H);
 
-  sh.setColumnWidth(1, 300); sh.setColumnWidth(2, 230); sh.setColumnWidth(3, 170); sh.setColumnWidth(8, 300);
+  [[1, 260], [2, 260], [3, 110], [4, 110], [5, 110], [6, 150], [7, 230], [8, 200], [9, 90], [10, 90], [11, 90], [12, 30],
+   [13, 70], [14, 280], [15, 80], [16, 80], [17, 80], [18, 220]].forEach(([c, w]) => sh.setColumnWidth(c, w));
   sh.setFrozenRows(10);
 
+  const pareto = (r1, c1, c2, titolo, asse, colore, col, w) => sh.newChart().asComboChart()
+    .addRange(sh.getRange(t, c1, KPI_N + 1, 2)).addRange(sh.getRange(t, c2, KPI_N + 1, 1))
+    .setNumHeaders(1)
+    .setOption('title', titolo)
+    .setOption('legend', { position: 'bottom' })
+    .setOption('series', { 0: { type: 'bars', targetAxisIndex: 0, color: colore }, 1: { type: 'line', targetAxisIndex: 1, color: '#c23b2a', pointSize: 5 } })
+    .setOption('vAxes', { 0: { title: asse, minValue: 0 }, 1: { title: '% cumulata', format: 'percent', minValue: 0, maxValue: 1 } })
+    .setPosition(r1, col, 0, 0).setOption('width', w).setOption('height', 360)
+    .build();
   try {
-    const chart = sh.newChart().asComboChart()
-      .addRange(sh.getRange('A13:B33')).addRange(sh.getRange('D13:D33'))
-      .setNumHeaders(1)
-      .setOption('title', 'Pareto guasti')
-      .setOption('legend', { position: 'bottom' })
-      .setOption('series', { 0: { type: 'bars', targetAxisIndex: 0, color: '#245a7a' }, 1: { type: 'line', targetAxisIndex: 1, color: '#c23b2a', pointSize: 5 } })
-      .setOption('vAxes', { 0: { title: 'N° fermi', minValue: 0 }, 1: { title: '% cumulata', format: 'percent', minValue: 0, maxValue: 1 } })
-      .setPosition(2, 13, 0, 0).setOption('width', 720).setOption('height', 380)
-      .build();
-    sh.insertChart(chart);
-  } catch (e) { Logger.log('Grafico non creato: ' + e); }
+    sh.insertChart(pareto(12, 1, 4, 'Pareto per frequenza (n° fermi)', 'N° fermi', '#245a7a', 1, 840));
+    sh.insertChart(pareto(12, 7, 10, 'Pareto per durata (ore di fermo)', 'Ore di fermo', '#b5761b', 7, 800));
+  } catch (e) { Logger.log('Grafici non creati: ' + e); }
 
+  if (keep) { sh.getRange('B3:B5').setValues(keep.filtri); sh.getRange('D6:D7').setValues(keep.date); sh.getRange('F10').setValue(keep.ore); }
   aggiornaValoriKpi();
 }
 
@@ -372,18 +381,35 @@ function calcolaKpi_(vals, f) {
   let cum = 0;
   const pareto = Object.keys(g).map(k => [k, g[k].n, g[k].t]).sort((a, b) => b[1] - a[1] || b[2] - a[2])
     .map(r => { cum += r[1]; return [r[0], r[1], r[2], cum / n, r[1] / n]; });
-  const mm = grp(x => x.linea + '\u0001' + x.macc);
-  const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'); return [p[0], p[1], mm[k].n, mm[k].t, mm[k].t / mm[k].n]; })
+  let cumT = 0;
+  const paretoT = Object.keys(g).map(k => [k, g[k].t * 24, g[k].n]).sort((a, b) => b[1] - a[1] || b[2] - a[2])
+    .map(r => { cumT += r[1]; return [r[0], r[1], r[2], tot ? cumT / (tot * 24) : 0, tot ? r[1] / (tot * 24) : 0]; });
+  const mm = {};
+  rows.forEach(x => {
+    const k = x.linea + '\u0001' + x.macc;
+    const m = mm[k] = mm[k] || { n: 0, t: 0, g: {} };
+    m.n++; m.t += x.dur; m.g[x.guasto] = (m.g[x.guasto] || 0) + 1;
+  });
+  const top1 = (gg, tn) => { const k = Object.keys(gg).sort((a, b) => gg[b] - gg[a])[0]; return k ? k + ' · ' + Math.round(gg[k] / tn * 100) + '%' : ''; };
+  const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'), m = mm[k]; return [p[0], p[1], m.n, m.t, m.t / m.n, top1(m.g, m.n)]; })
     .sort((a, b) => b[3] - a[3]);
   return { n: n, tot: tot, mttr: n ? tot / n : '', lotti: lotti, occ: lotti ? n / lotti : '',
-    mtbf: (n && f.ore !== '' && !isNaN(Number(f.ore))) ? Number(f.ore) / n : '', top: pareto.length ? pareto[0][0] : '',
-    pareto: pareto, macchine: macchine };
+    mtbf: (n && f.ore !== '' && !isNaN(Number(f.ore))) ? Number(f.ore) / n : '',
+    top: pareto.length ? pareto[0][0] + ' · ' + Math.round(pareto[0][4] * 100) + '%' : '',
+    pareto: pareto, paretoT: paretoT, macchine: macchine };
 }
 
 function aggiornaValoriKpi() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
+  // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
+  if (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto') {
+    const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
+    ss.deleteSheet(sh);
+    buildKpi_(ss, { filtri: filtri, date: date, ore: ore });
+    return;
+  }
   // menu Linea e Macchina dal foglio Equipment
   const eq = equipment_(ss);
   const linee = ['TUTTE'].concat(Array.from(new Set(eq.map(e => e.linea))).sort());
@@ -407,15 +433,19 @@ function aggiornaValoriKpi() {
   sh.getRange('G10:H10').setValues([[k.mtbf, k.top]]);
   sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
 
-  sh.getRange('A14:E300').clearContent(); sh.getRange('G14:K300').clearContent();
+  const t = KPI_T + 1;
+  sh.getRange(t, 1, 300, 18).clearContent();
   if (k.pareto.length) {
-    sh.getRange(14, 1, k.pareto.length, 5).setValues(k.pareto);
-    sh.getRange(14, 3, k.pareto.length, 1).setNumberFormat('[h]:mm');
-    sh.getRange(14, 4, k.pareto.length, 2).setNumberFormat('0%');
-  } else sh.getRange('A14').setValue('Nessun fermo chiuso con questi filtri');
+    sh.getRange(t, 1, k.pareto.length, 5).setValues(k.pareto);
+    sh.getRange(t, 3, k.pareto.length, 1).setNumberFormat('[h]:mm');
+    sh.getRange(t, 4, k.pareto.length, 2).setNumberFormat('0%');
+    sh.getRange(t, 7, k.paretoT.length, 5).setValues(k.paretoT);
+    sh.getRange(t, 8, k.paretoT.length, 1).setNumberFormat('0.0');
+    sh.getRange(t, 10, k.paretoT.length, 2).setNumberFormat('0%');
+  } else sh.getRange(t, 1).setValue('Nessun fermo chiuso con questi filtri');
   if (k.macchine.length) {
-    sh.getRange(14, 7, k.macchine.length, 5).setValues(k.macchine);
-    sh.getRange(14, 10, k.macchine.length, 2).setNumberFormat('[h]:mm');
+    sh.getRange(t, 13, k.macchine.length, 6).setValues(k.macchine);
+    sh.getRange(t, 16, k.macchine.length, 2).setNumberFormat('[h]:mm');
   }
 }
 
