@@ -188,7 +188,7 @@ Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca du
 
 ### Scheda macchina, soluzioni, documenti, anomalie
 - **Pagina della macchina** (si apre dopo il QR o scegliendo la macchina): in alto il pulsante **Apri fermo** (Packaging), **Registra fermo** (Filling) o **Chiudi fermo** verde con il cronometro se un fermo è in corso; poi Soluzioni, Manuali, Schede, Anomalia e i numeri degli ultimi 30 giorni. **Scorrendo**: gli interventi degli ultimi 90 giorni dal più recente, divisi per giorno, con orari, durata (arancione oltre l'ora), guasto, descrizione, tecnico e lotto; 20 alla volta (**Mostra altri interventi**). Tocca un intervento per il dettaglio completo e la foto.
-- **Soluzioni**: cerca per parola (pinze, ventose…) o per tipo guasto. Compaiono solo le soluzioni **verificate** del foglio Soluzioni (lo storico dei fermi è nella pagina della macchina). **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo.
+- **Soluzioni**: cerca per parola (pinze, ventose…) o per tipo guasto. Compaiono solo le soluzioni **verificate** del foglio Soluzioni (lo storico dei fermi è nella pagina della macchina). **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo. La soluzione nuova la vede subito solo chi l'ha scritta (*DA APPROVARE*): diventa visibile a tutti quando il coordinatore la approva.
 - **Documenti**: due schede, *Manuali e schemi* e *Schede formato*; filtro *Questa macchina* / *Tutta la linea*. Si aprono con un tocco.
 - **Segnala anomalia**: macchina (dal QR o *Cambia*), **urgenza 1 / 2 / 3**, cosa hai visto, foto con cerchio, cosa serve → **Invia segnalazione**.
 - **Anomalie** (barra in basso): *Da gestire* e *Chiuse* (ultimi 30 giorni). Tocca una anomalia → **Prendo in carico** oppure **Chiudi anomalia** con una nota.
@@ -215,6 +215,10 @@ Foglio **Liste**, colonna **Manutentori**: un nome per cella, formato `COGNOME N
 - **Nuovo tecnico** → aggiungi una cella. Può entrare subito.
 - **Tecnico che lascia** → cancella la cella. Lo storico resta; non potrà più registrare (lo blocca anche lo script).
 - Il nome scritto qui è quello che finisce nella colonna **Manutentore** del foglio Fermi.
+
+**Coordinatori**: stesso foglio **Liste**, colonna **Coordinatori** (la crea lo script): i nomi scritti come nella colonna Manutentori (devono esserci anche lì). Il coordinatore approva le soluzioni nuove dei tecnici (vedi sotto) e le sue soluzioni sono già verificate.
+
+**Soluzioni da approvare**: una soluzione aggiunta da un tecnico entra nel foglio **Soluzioni** con Stato **DA APPROVARE** e arriva un avviso su Telegram (o per mail se Telegram non è attivo). Finché non è approvata la vede solo chi l'ha scritta e i coordinatori. Il coordinatore la approva dall'app (**Soluzioni → Da approvare → Approva / Scarta**; nella home compare *"N soluzioni da approvare"*). Puoi farlo anche tu dal foglio scrivendo **VERIFICATA** o **SCARTATA** nella colonna Stato. Le righe con Stato vuoto (quelle già esistenti) valgono come verificate.
 
 ### 5.2 Lista macchine (foglio Equipment)
 
