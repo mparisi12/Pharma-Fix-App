@@ -858,19 +858,25 @@ const REP_RIGHE = [
   ['Passaggio di turno a fine turno su Telegram: SI / NO', 'SI'],
   ['Passaggio di turno anche per mail: SI / NO', 'NO'],
   ['Backup settimanale del foglio (domenica sera): SI / NO', 'SI'],
-  ['Backup da conservare (quanti)', 8]
+  ['Backup da conservare (quanti)', 8],
+  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3']
 ];
 function repCfg_() {
   const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
-  if (String(sh.getRange(1, 5).getValue()) !== REP_RIGHE[0][0]) {
-    sh.getRange(1, 5, REP_RIGHE.length, 2).setValues(REP_RIGHE);
+  let nuovo = false;
+  if (String(sh.getRange(1, 5).getValue()) !== REP_RIGHE[0][0]) { sh.getRange(1, 5, REP_RIGHE.length, 2).setValues(REP_RIGHE); nuovo = true; }
+  else if (String(sh.getRange(REP_RIGHE.length, 5).getValue()) !== REP_RIGHE[REP_RIGHE.length - 1][0]) { // righe aggiunte in seguito
+    sh.getRange(REP_RIGHE.length, 5, 1, 2).setValues([REP_RIGHE[REP_RIGHE.length - 1]]); nuovo = true;
+  }
+  if (nuovo) {
     sh.getRange(1, 5, 1, 2).setFontWeight('bold').setBackground('#dfe7ec');
     sh.getRange(2, 6, REP_RIGHE.length - 1, 1).setBackground('#fff3d6');
-    sh.setColumnWidth(5, 380);
+    sh.setColumnWidth(5, 420);
   }
   const v = sh.getRange(2, 6, REP_RIGHE.length - 1, 1).getValues().map(r => r[0]);
   const si = x => !/^no$/i.test(String(x).trim());
-  return { settimanale: si(v[0]), turno: si(v[1]), turnoMail: /^si$/i.test(String(v[2]).trim()), backup: si(v[3]), tieni: Number(v[4]) || 8 };
+  return { settimanale: si(v[0]), turno: si(v[1]), turnoMail: /^si$/i.test(String(v[2]).trim()), backup: si(v[3]), tieni: Number(v[4]) || 8,
+    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean) };
 }
 function attivaReport() {
   repCfg_();
@@ -929,22 +935,26 @@ function passaggioTurno_() {
   // turni lun 6:00 → sab 6:00: fine turno valida lun 14 e 22, mar–ven 6/14/22, sab 6
   const ok = (g === 1 && h >= 13) || (g >= 2 && g <= 5) || (g === 6 && h < 12);
   const c = repCfg_();
-  if (ok && c.turno) passaggioTurno(c.turnoMail);
+  if (!c.turno) return;
+  if (ok) passaggioTurno(c.turnoMail);
+  else if (c.continuo.length) passaggioTurno(c.turnoMail, c.continuo); // weekend: solo le linee a ciclo continuo
 }
 function provaPassaggioTurno() { passaggioTurno(true); }
-function passaggioTurno(conMail) {
+function passaggioTurno(conMail, soloLinee) {
   const ref = new Date(Date.now() - 30 * 60000), a = inizioTurno_(ref), b = new Date(a.getTime() + 8 * 3600e3);
+  const linea = x => !soloLinee || soloLinee.indexOf(String(x.linea || '').trim().toUpperCase()) >= 0;
   const t = turno_(a), giorno = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'][Number(Utilities.formatDate(a, TZ, 'u'))] + ' ' + gm_(a);
-  const tutti = fermiTutti_();
+  const tutti = fermiTutti_().filter(linea);
   const nel = tutti.filter(f => f.a >= a && f.a < b).sort((x, y) => x.a - y.a);
   const aperti = tutti.filter(f => f.stato === 'APERTO');
-  const an = anomalieTutte_(), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), chiuse = an.filter(x => x.chiusa && x.chiusa >= a && x.chiusa < b);
+  const an = anomalieTutte_().filter(linea), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), chiuse = an.filter(x => x.chiusa && x.chiusa >= a && x.chiusa < b);
   const aperte = an.filter(x => x.stato !== 'CHIUSA');
   const tot = nel.reduce((x, f) => x + minDi_(f), 0);
   const riga = f => hm_(f.a) + (f.b ? '–' + hm_(f.b) : '') + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + (f.guasto || 'guasto non indicato') + ' · ' + (f.b ? durTxt_(minDi_(f)) : 'APERTO') +
     ' · ' + (f.man || '?') + (f.altro ? ' · ' + h_(f.altro.slice(0, 70)) : ' · (senza descrizione)') + (f.orari === 'DICHIARATI' ? ' [dichiarato]' : '');
-  mail_('Passaggio di turno', 'PASSAGGIO TURNO ' + t + ' · ' + giorno, [
-    ['Turno ' + t + ' di ' + giorno + ' (' + hm_(a) + '–' + hm_(b) + ')'],
+  const solo = soloLinee ? ' · solo ' + soloLinee.join(', ') : '';
+  mail_('Passaggio di turno', 'PASSAGGIO TURNO ' + t + ' · ' + giorno + solo, [
+    ['Turno ' + t + ' di ' + giorno + ' (' + hm_(a) + '–' + hm_(b) + ')' + (soloLinee ? ' · ciclo continuo: ' + soloLinee.join(', ') : '')],
     ['Fermi nel turno', nel.length ? nel.length + ' · tempo di fermo ' + durTxt_(tot) : 'nessun fermo registrato'],
     ['Dettaglio', nel.length ? nel.slice(0, 20).map(riga).join('<br>') + (nel.length > 20 ? '<br>… e altri ' + (nel.length - 20) : '') : '—'],
     ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dalle ' + hm_(f.a) + ' (' + durTxt_((Date.now() - f.a) / 60000) + ') · ' + (f.man || '?')).join('<br>') : 'nessuno'],
@@ -986,7 +996,8 @@ function disattivaSveglia() {
 function tieniSveglio(forza) {
   const now = new Date(), g = Number(Utilities.formatDate(now, TZ, 'u')), h = Number(Utilities.formatDate(now, TZ, 'H'));
   const turni = (g >= 1 && g <= 5) && !(g === 1 && h < 5) || (g === 6 && h < 6); // da lunedì 5:00 (pronta per il T1) a sabato 6:00
-  if (!turni && forza !== true) return;
+  let continuo = false; try { continuo = repCfg_().continuo.length > 0; } catch (e) {}
+  if (!turni && !continuo && forza !== true) return;
   avvisoFermiLunghi_();
   const url = ScriptApp.getService().getUrl(), key = PropertiesService.getScriptProperties().getProperty('KEY');
   if (!url || !key) return;
