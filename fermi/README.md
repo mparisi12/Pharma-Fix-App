@@ -304,7 +304,7 @@ Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** co
 
 ### 5.10 Sveglia dello script
 Google "addormenta" lo script quando nessuno lo usa per un po': al risveglio la prima risposta può metterci 20–40 secondi (l'app scrive *"Il foglio risponde lentamente"* e intanto si lavora lo stesso: i dati restano in coda).
-Per evitarlo: menu **Pharma-Fix → Attiva sveglia dello script** (una volta sola; Google chiede di autorizzare *"collegarsi a un servizio esterno"* e *"eseguire in tua assenza"*: consenti). Da lì lo script si interroga da solo ogni 10 minuti da lunedì 5:00 a sabato 6:00. Per toglierla: **Disattiva sveglia dello script**.
+Per evitarlo: menu **Pharma-Fix → Attiva sveglia dello script** (una volta sola; Google chiede di autorizzare *"collegarsi a un servizio esterno"* e *"eseguire in tua assenza"*: consenti). Da lì lo script si interroga da solo ogni 10 minuti da lunedì 5:00 a sabato 6:00 (sempre, se nel foglio Avvisi c'è una linea a ciclo continuo, vedi 5.12). Per toglierla: **Disattiva sveglia dello script**.
 
 ### 5.11 Avvisi via mail
 Foglio **Avvisi** (lo crea `setup`): nelle celle gialle
@@ -329,6 +329,15 @@ Mail e Telegram funzionano anche insieme: si usa quello che è compilato.
 
 Sotto, il **registro** degli avvisi inviati (con il canale usato). Prova: menu **Pharma-Fix → Prova avvisi (mail di test)**. Le mail partono dal tuo account Google, come una mail scritta da te: solo testo, oggetto che inizia con **"Pharma-Fix ·"** (la prima volta Google chiede di autorizzare *"inviare email a tuo nome"*). Se all'indirizzo aziendale non arrivano, controlla la quarantena/spam o usa Telegram.
 Il controllo dei **fermi aperti da troppo tempo** gira insieme alla **sveglia** (5.10): serve che sia attiva.
+
+### 5.12 Report automatici e backup
+Nel foglio **Avvisi**, colonne **E–F** (celle gialle), si accendono e spengono con SI / NO:
+- **Riepilogo settimanale**: ogni **lunedì alle 7**, mail + Telegram con la settimana precedente: n° fermi e tempo di fermo (con confronto sulla settimana prima), MTTR, fermi per linea, i 5 guasti più frequenti, i 3 fermi più lunghi, anomalie da gestire / nuove / chiuse, fermi ancora aperti.
+- **Passaggio di turno**: a **fine di ogni turno** (6, 14, 22, solo da lunedì 14:00 a sabato 6:00), su Telegram (e per mail se lo attivi): fermi del turno con orari, durata, guasto, tecnico e descrizione, fermi ancora aperti, anomalie nuove/chiuse/da gestire. È **costruito dai dati registrati nell'app**, non scritto dai tecnici: compare tutto, anche "(senza descrizione)" e i fermi lasciati aperti.
+- **Linee a ciclo continuo** (es. `ST3`, separate da virgola): per queste linee il passaggio di turno arriva anche nel weekend (solo con i loro dati) e la sveglia / l'avviso dei fermi lunghi restano attivi 7 giorni su 7. Quando la linea torna sui 3 turni, svuota la cella **F7** del foglio Avvisi: tutto torna lunedì–sabato da solo, senza toccare lo script.
+- **Backup**: ogni **domenica sera** una copia Excel del foglio nella cartella Drive **Pharma-Fix Backup**; si tengono le ultime N (8 = due mesi).
+
+Per partire: menu **Pharma-Fix → Attiva report e backup automatici** (una volta sola; Google può chiedere di nuovo le autorizzazioni). Prove subito: **Prova riepilogo settimanale**, **Prova passaggio di turno**, **Fai un backup adesso**.
 
 ---
 

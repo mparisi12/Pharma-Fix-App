@@ -230,6 +230,11 @@ function onOpen() {
     .addSeparator()
     .addItem('Prova avvisi (mail / Telegram)', 'provaAvvisi')
     .addItem('Telegram: trova ID chat', 'trovaChatTelegram')
+    .addSeparator()
+    .addItem('Attiva report e backup automatici', 'attivaReport')
+    .addItem('Prova riepilogo settimanale', 'riepilogoSettimanale')
+    .addItem('Prova passaggio di turno', 'provaPassaggioTurno')
+    .addItem('Fai un backup adesso', 'backupFoglio')
     .addToUi();
 }
 
@@ -731,10 +736,11 @@ function avvisiCfg_() {
     tgToken: String(v[5] || '').trim(), tgChat: String(v[6] || '').trim(), sh: sh };
 }
 // Invia l'avviso per mail e/o Telegram (quello che è configurato nel foglio Avvisi). true = almeno un canale ok
-function mail_(tipo, oggetto, righe) {
+function mail_(tipo, oggetto, righe, opt) {
+  opt = opt || {};
   let c; try { c = avvisiCfg_(); } catch (e) { Logger.log(e); return false; }
   const canali = [];
-  if (c.to) try {
+  if (c.to && !opt.noMail) try {
     // mail semplice, come una mail scritta a mano: solo testo e mittente col nome dell'account
     // (nome "Pharma-Fix" e impaginazione HTML facevano scattare i filtri antispam aziendali)
     const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n'); // niente link al foglio: il filtro aziendale lo rende illeggibile
@@ -841,6 +847,139 @@ function provaAvvisi() {
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
 }
 
+/* ---------- Report automatici e backup ----------
+   Impostazioni nel foglio Avvisi, colonne E–F (celle gialle). attivaReport() crea i timer (una volta sola):
+   - backup: domenica sera, copia .xlsx del foglio nella cartella Drive "Pharma-Fix Backup", tiene le ultime N
+   - riepilogo settimanale: lunedì alle 7, settimana precedente (mail + Telegram)
+   - passaggio di turno: a fine turno (6, 14, 22) solo nei giorni lavorativi, costruito dai dati registrati (Telegram) */
+const REP_RIGHE = [
+  ['Report automatici', 'Valore'],
+  ['Riepilogo settimanale il lunedì alle 7: SI / NO', 'SI'],
+  ['Passaggio di turno a fine turno su Telegram: SI / NO', 'SI'],
+  ['Passaggio di turno anche per mail: SI / NO', 'NO'],
+  ['Backup settimanale del foglio (domenica sera): SI / NO', 'SI'],
+  ['Backup da conservare (quanti)', 8],
+  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3']
+];
+function repCfg_() {
+  const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
+  let nuovo = false;
+  if (String(sh.getRange(1, 5).getValue()) !== REP_RIGHE[0][0]) { sh.getRange(1, 5, REP_RIGHE.length, 2).setValues(REP_RIGHE); nuovo = true; }
+  else if (String(sh.getRange(REP_RIGHE.length, 5).getValue()) !== REP_RIGHE[REP_RIGHE.length - 1][0]) { // righe aggiunte in seguito
+    sh.getRange(REP_RIGHE.length, 5, 1, 2).setValues([REP_RIGHE[REP_RIGHE.length - 1]]); nuovo = true;
+  }
+  if (nuovo) {
+    sh.getRange(1, 5, 1, 2).setFontWeight('bold').setBackground('#dfe7ec');
+    sh.getRange(2, 6, REP_RIGHE.length - 1, 1).setBackground('#fff3d6');
+    sh.setColumnWidth(5, 420);
+  }
+  const v = sh.getRange(2, 6, REP_RIGHE.length - 1, 1).getValues().map(r => r[0]);
+  const si = x => !/^no$/i.test(String(x).trim());
+  return { settimanale: si(v[0]), turno: si(v[1]), turnoMail: /^si$/i.test(String(v[2]).trim()), backup: si(v[3]), tieni: Number(v[4]) || 8,
+    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean) };
+}
+function attivaReport() {
+  repCfg_();
+  ScriptApp.getProjectTriggers().filter(t => ['backupSettimanale_', 'riepilogoSettimanale_', 'passaggioTurno_'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('backupSettimanale_').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(23).create();
+  ScriptApp.newTrigger('riepilogoSettimanale_').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+  [6, 14, 22].forEach(h => ScriptApp.newTrigger('passaggioTurno_').timeBased().atHour(h).nearMinute(10).everyDays(1).create());
+  try { SpreadsheetApp.getUi().alert('Attivati: backup (domenica sera), riepilogo settimanale (lunedì 7:00), passaggio di turno (fine di ogni turno).\nSi accendono e spengono dalle celle gialle E–F del foglio Avvisi.'); } catch (e) {}
+}
+const durTxt_ = m => { m = Math.round(m); return m < 60 ? m + '′' : Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + '′' : ''); };
+const hm_ = d => Utilities.formatDate(d, TZ, 'HH:mm'), gm_ = d => Utilities.formatDate(d, TZ, 'dd/MM');
+const nice_ = s => String(s || '').split(' ').map(w => /\d/.test(w) || w.length <= 3 ? w : w.charAt(0) + w.slice(1).toLowerCase()).join(' '); // sigle e modelli (PC4400, M&H) restano maiuscoli
+function fermiTutti_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, HEAD.length).getValues().filter(r => r[C.INIZIO - 1] instanceof Date).map(r => ({
+    a: r[C.INIZIO - 1], b: r[C.FINE - 1] instanceof Date ? r[C.FINE - 1] : null, stato: r[C.STATO - 1], linea: String(r[C.LINEA - 1] || ''),
+    macc: String(r[C.MACC - 1] || ''), guasto: String(r[C.GUASTO - 1] || ''), man: String(r[C.MAN - 1] || r[C.APERTO_DA - 1] || ''),
+    altro: String(r[C.ALTRO - 1] || ''), lotto: r[C.LOTTO - 1], orari: r[C.ORARI - 1] }));
+}
+const minDi_ = f => f.b ? (f.b - f.a) / 60000 : 0;
+function anomalieTutte_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return righe_(ss, SH_ANO, ANO_H.length).map(r => ({ ts: r[1] instanceof Date ? r[1] : null, linea: r[3], macc: r[4], urg: Number(r[5]) || 3,
+    descr: String(r[6] || ''), da: r[9], stato: String(r[10] || 'APERTA').toUpperCase(), chiusa: r[12] instanceof Date ? r[12] : null }));
+}
+
+/* Riepilogo della settimana precedente (lun–dom) */
+function riepilogoSettimanale_() { if (repCfg_().settimanale) riepilogoSettimanale(); }
+function riepilogoSettimanale() {
+  const oggi = dateOnly_(new Date()), dow = Number(Utilities.formatDate(oggi, TZ, 'u'));
+  const fine = new Date(oggi.getTime() - (dow - 1) * 864e5), inizio = new Date(fine.getTime() - 7 * 864e5), prima = new Date(inizio.getTime() - 7 * 864e5);
+  const tutti = fermiTutti_().filter(f => f.stato === 'CHIUSO' && f.b);
+  const sett = tutti.filter(f => f.a >= inizio && f.a < fine), prec = tutti.filter(f => f.a >= prima && f.a < inizio);
+  const tot = sett.reduce((x, f) => x + minDi_(f), 0), totP = prec.reduce((x, f) => x + minDi_(f), 0);
+  const perLinea = {}; sett.forEach(f => { const l = perLinea[f.linea] = perLinea[f.linea] || { n: 0, m: 0 }; l.n++; l.m += minDi_(f); });
+  const perGuasto = {}; sett.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' (' + f.linea + ' ' + nice_(f.macc) + ')'; const g = perGuasto[k] = perGuasto[k] || { n: 0, m: 0 }; g.n++; g.m += minDi_(f); });
+  const an = anomalieTutte_(), aperte = an.filter(a => a.stato !== 'CHIUSA');
+  const aperti = fermiTutti_().filter(f => f.stato === 'APERTO');
+  const freccia = (a, b) => b ? (a > b ? ' ▲ ' : a < b ? ' ▼ ' : ' = ') + 'sett. prima ' + b : '';
+  mail_('Riepilogo settimanale', 'RIEPILOGO SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5)), [
+    ['Settimana dal ' + gm_(inizio) + ' al ' + gm_(new Date(fine.getTime() - 864e5))],
+    ['Fermi', sett.length + freccia(sett.length, prec.length)],
+    ['Tempo di fermo', durTxt_(tot) + (totP ? ' (sett. prima ' + durTxt_(totP) + ')' : '')],
+    ['MTTR', sett.length ? durTxt_(tot / sett.length) : '—'],
+    ['Per linea', Object.keys(perLinea).sort((a, b) => perLinea[b].m - perLinea[a].m).map(l => l + ': ' + perLinea[l].n + (perLinea[l].n === 1 ? ' fermo · ' : ' fermi · ') + durTxt_(perLinea[l].m) + ' · MTTR ' + durTxt_(perLinea[l].m / perLinea[l].n)).join('<br>') || '—'],
+    ['Guasti più frequenti', Object.keys(perGuasto).sort((a, b) => perGuasto[b].n - perGuasto[a].n || perGuasto[b].m - perGuasto[a].m).slice(0, 5).map(k => k + ' ×' + perGuasto[k].n + ' · ' + durTxt_(perGuasto[k].m)).join('<br>') || '—'],
+    ['Fermi più lunghi', sett.slice().sort((a, b) => minDi_(b) - minDi_(a)).slice(0, 3).map(f => gm_(f.a) + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + durTxt_(minDi_(f)) + (f.guasto ? ' · ' + f.guasto : '')).join('<br>') || '—'],
+    ['Anomalie', 'da gestire ' + aperte.length + ' (critiche ' + aperte.filter(a => a.urg === 1).length + ', urgenti ' + aperte.filter(a => a.urg === 2).length + ') · nuove ' + an.filter(a => a.ts && a.ts >= inizio && a.ts < fine).length + ' · chiuse ' + an.filter(a => a.chiusa && a.chiusa >= inizio && a.chiusa < fine).length],
+    ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']]);
+}
+
+/* Passaggio di turno: cosa è successo nel turno appena finito, solo dai dati registrati */
+function passaggioTurno_() {
+  const now = new Date(), g = Number(Utilities.formatDate(now, TZ, 'u')), h = Number(Utilities.formatDate(now, TZ, 'H'));
+  // turni lun 6:00 → sab 6:00: fine turno valida lun 14 e 22, mar–ven 6/14/22, sab 6
+  const ok = (g === 1 && h >= 13) || (g >= 2 && g <= 5) || (g === 6 && h < 12);
+  const c = repCfg_();
+  if (!c.turno) return;
+  if (ok) passaggioTurno(c.turnoMail);
+  else if (c.continuo.length) passaggioTurno(c.turnoMail, c.continuo); // weekend: solo le linee a ciclo continuo
+}
+function provaPassaggioTurno() { passaggioTurno(true); }
+function passaggioTurno(conMail, soloLinee) {
+  const ref = new Date(Date.now() - 30 * 60000), a = inizioTurno_(ref), b = new Date(a.getTime() + 8 * 3600e3);
+  const linea = x => !soloLinee || soloLinee.indexOf(String(x.linea || '').trim().toUpperCase()) >= 0;
+  const t = turno_(a), giorno = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'][Number(Utilities.formatDate(a, TZ, 'u'))] + ' ' + gm_(a);
+  const tutti = fermiTutti_().filter(linea);
+  const nel = tutti.filter(f => f.a >= a && f.a < b).sort((x, y) => x.a - y.a);
+  const aperti = tutti.filter(f => f.stato === 'APERTO');
+  const an = anomalieTutte_().filter(linea), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), chiuse = an.filter(x => x.chiusa && x.chiusa >= a && x.chiusa < b);
+  const aperte = an.filter(x => x.stato !== 'CHIUSA');
+  const tot = nel.reduce((x, f) => x + minDi_(f), 0);
+  const riga = f => hm_(f.a) + (f.b ? '–' + hm_(f.b) : '') + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + (f.guasto || 'guasto non indicato') + ' · ' + (f.b ? durTxt_(minDi_(f)) : 'APERTO') +
+    ' · ' + (f.man || '?') + (f.altro ? ' · ' + h_(f.altro.slice(0, 70)) : ' · (senza descrizione)') + (f.orari === 'DICHIARATI' ? ' [dichiarato]' : '');
+  const solo = soloLinee ? ' · solo ' + soloLinee.join(', ') : '';
+  mail_('Passaggio di turno', 'PASSAGGIO TURNO ' + t + ' · ' + giorno + solo, [
+    ['Turno ' + t + ' di ' + giorno + ' (' + hm_(a) + '–' + hm_(b) + ')' + (soloLinee ? ' · ciclo continuo: ' + soloLinee.join(', ') : '')],
+    ['Fermi nel turno', nel.length ? nel.length + ' · tempo di fermo ' + durTxt_(tot) : 'nessun fermo registrato'],
+    ['Dettaglio', nel.length ? nel.slice(0, 20).map(riga).join('<br>') + (nel.length > 20 ? '<br>… e altri ' + (nel.length - 20) : '') : '—'],
+    ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dalle ' + hm_(f.a) + ' (' + durTxt_((Date.now() - f.a) / 60000) + ') · ' + (f.man || '?')).join('<br>') : 'nessuno'],
+    ['Anomalie nuove', nuove.length ? nuove.map(x => 'urg. ' + x.urg + ' · ' + x.linea + ' ' + nice_(x.macc) + ' · ' + h_(x.descr.slice(0, 70)) + ' · ' + (x.da || '')).join('<br>') : 'nessuna'],
+    ['Anomalie chiuse', chiuse.length || 'nessuna'],
+    ['Anomalie da gestire', aperte.length + (aperte.length ? ' (critiche ' + aperte.filter(x => x.urg === 1).length + ', urgenti ' + aperte.filter(x => x.urg === 2).length + ')' : '')],
+    ['Nota', 'riepilogo automatico dai dati registrati nell\'app']], { noMail: !conMail });
+}
+
+/* Backup: copia .xlsx del foglio in "Pharma-Fix Backup" (Drive), tiene le ultime N */
+function backupSettimanale_() { if (repCfg_().backup) backupFoglio(); }
+function backupFoglio() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), props = PropertiesService.getScriptProperties();
+  let folder = null;
+  try { folder = DriveApp.getFolderById(props.getProperty('BACKUP_ID')); } catch (e) {}
+  if (!folder) { folder = DriveApp.createFolder('Pharma-Fix Backup'); props.setProperty('BACKUP_ID', folder.getId()); }
+  const blob = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=xlsx',
+    { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }).getBlob()
+    .setName('Pharma-Fix Fermi - backup ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HHmm') + '.xlsx');
+  folder.createFile(blob);
+  const files = []; const it = folder.getFiles(); while (it.hasNext()) files.push(it.next());
+  files.sort((x, y) => y.getDateCreated() - x.getDateCreated()).slice(repCfg_().tieni).forEach(f => f.setTrashed(true));
+  try { SpreadsheetApp.getUi().alert('Backup fatto nella cartella Drive "Pharma-Fix Backup" (' + Math.min(files.length, repCfg_().tieni) + ' copie conservate).'); } catch (e) { Logger.log('Backup fatto'); }
+}
+
 /* ---------- Sveglia ----------
    Google "addormenta" l'app web quando nessuno la usa: la prima risposta può superare i 20 secondi.
    attivaSveglia() crea un timer che ogni 10 minuti, durante i turni (lun 6:00 – sab 6:00), interroga l'app
@@ -857,7 +996,8 @@ function disattivaSveglia() {
 function tieniSveglio(forza) {
   const now = new Date(), g = Number(Utilities.formatDate(now, TZ, 'u')), h = Number(Utilities.formatDate(now, TZ, 'H'));
   const turni = (g >= 1 && g <= 5) && !(g === 1 && h < 5) || (g === 6 && h < 6); // da lunedì 5:00 (pronta per il T1) a sabato 6:00
-  if (!turni && forza !== true) return;
+  let continuo = false; try { continuo = repCfg_().continuo.length > 0; } catch (e) {}
+  if (!turni && !continuo && forza !== true) return;
   avvisoFermiLunghi_();
   const url = ScriptApp.getService().getUrl(), key = PropertiesService.getScriptProperties().getProperty('KEY');
   if (!url || !key) return;
