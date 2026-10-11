@@ -227,6 +227,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
+    .addSeparator()
+    .addItem('Prova avvisi (mail di test)', 'provaAvvisi')
     .addToUi();
 }
 
@@ -483,6 +485,7 @@ function addAnomalia_(p) {
   const r = sh.getLastRow();
   sh.getRange(r, 2).setNumberFormat('dd/MM/yyyy HH:mm');
   sh.getRange(r, 6).setBackground({ 1: '#f4c7c0', 2: '#fbeaa0', 3: '#cfe9d9' }[Number(p.urgenza)] || null);
+  if (Number(p.urgenza) === 1) avvisoAnomalia_(p, eq, url);
   return {};
 }
 
@@ -684,6 +687,109 @@ function aggiornaV3_(ss) {
     if (!String(h.getValues()[0][0])) h.setValues([['Orari', 'Registrato alle', 'Telefono']]).setFontWeight('bold').setBackground('#fff3d6');
   }
   telSheet_(ss);
+  avvisiSheet_(ss);
+}
+
+/* ---------- Avvisi via mail ----------
+   Foglio "Avvisi": destinatari e soglie (celle gialle), sotto il registro delle mail inviate.
+   - anomalia con urgenza 1 → mail subito
+   - fermo aperto da più di N ore → mail (controllo ogni 10 minuti insieme alla sveglia)
+   - stesso guasto sulla stessa macchina N volte in G giorni → mail alla chiusura del fermo */
+const SH_AVV = 'Avvisi';
+const AVV_RIGHE = [
+  ['Email destinatari (separate da virgola)', ''],
+  ['Avvisa per anomalia critica (urgenza 1): SI / NO', 'SI'],
+  ['Avvisa per fermo aperto da più di (ore, 0 = mai)', 2],
+  ['Avvisa per stesso guasto sulla stessa macchina: quante volte (0 = mai)', 3],
+  ['…nell\'arco di quanti giorni', 7]
+];
+function avvisiSheet_(ss) {
+  let sh = ss.getSheetByName(SH_AVV);
+  if (sh) return sh;
+  sh = ss.insertSheet(SH_AVV);
+  sh.getRange(1, 1, 1, 2).setValues([['Impostazione', 'Valore']]).setFontWeight('bold').setBackground('#dfe7ec');
+  sh.getRange(2, 1, AVV_RIGHE.length, 2).setValues(AVV_RIGHE);
+  sh.getRange(2, 2, AVV_RIGHE.length, 1).setBackground('#fff3d6');
+  sh.getRange(9, 1, 1, 3).setValues([['Registro avvisi inviati', 'Tipo', 'Messaggio']]).setFontWeight('bold').setBackground('#dfe7ec');
+  sh.setColumnWidth(1, 430); sh.setColumnWidth(2, 260); sh.setColumnWidth(3, 520); sh.setFrozenRows(1);
+  return sh;
+}
+function avvisiCfg_() {
+  const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
+  const v = sh.getRange(2, 2, AVV_RIGHE.length, 1).getValues().map(r => r[0]);
+  return { to: String(v[0] || '').split(/[,;\s]+/).filter(x => /@/.test(x)).join(','), critica: !/^no$/i.test(String(v[1]).trim()),
+    ore: Number(v[2]) || 0, volte: Number(v[3]) || 0, giorni: Number(v[4]) || 7, sh: sh };
+}
+function mail_(tipo, oggetto, righe) {
+  try {
+    const c = avvisiCfg_();
+    if (!c.to) return false;
+    const url = SpreadsheetApp.getActiveSpreadsheet().getUrl();
+    const html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#152028">' +
+      righe.map(([k, v]) => v === undefined ? '<p style="font-size:16px"><b>' + k + '</b></p>' : '<div><span style="color:#4d5b66">' + k + ':</span> ' + v + '</div>').join('') +
+      '<p style="margin-top:16px"><a href="' + url + '">Apri il foglio Pharma-Fix</a></p></div>';
+    MailApp.sendEmail({ to: c.to, subject: 'Pharma-Fix · ' + oggetto, htmlBody: html, name: 'Pharma-Fix' });
+    c.sh.insertRowAfter(9);
+    c.sh.getRange(10, 1, 1, 3).setValues([[new Date(), tipo, oggetto]]);
+    c.sh.getRange(10, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    return true;
+  } catch (e) { Logger.log('Avviso non inviato: ' + e); return false; }
+}
+const fmtOra_ = d => Utilities.formatDate(d, TZ, 'dd/MM HH:mm');
+const h_ = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function avvisoAnomalia_(p, eq, foto) {
+  if (!avvisiCfg_().critica) return;
+  mail_('Anomalia critica', 'ANOMALIA CRITICA · ' + eq.linea + ' · ' + eq.macchina, [
+    ['Anomalia critica (urgenza 1)'], ['Macchina', eq.linea + ' · ' + eq.macchina + ' (' + p.code + ')'],
+    ['Cosa è stato visto', h_(p.descr)], ['Cosa serve', h_(p.serve || '—')], ['Segnalata da', h_(p.manutentore || '—')],
+    ['Quando', fmtOra_(new Date(Number(p.ts) || Date.now()))], ['Foto', foto ? '<a href="' + foto + '">apri</a>' : '—']]);
+}
+function avvisoRipetuto_(sh, code, guasto) {
+  try {
+    const c = avvisiCfg_();
+    if (!c.volte || !guasto || /^ALTRO$/i.test(String(guasto).trim())) return;
+    const from = Date.now() - c.giorni * 864e5, last = sh.getLastRow();
+    const v = sh.getRange(2, 1, last - 1, HEAD.length).getValues()
+      .filter(r => r[C.EQ - 1] === code && r[C.GUASTO - 1] === guasto && r[C.STATO - 1] === 'CHIUSO' && r[C.INIZIO - 1] instanceof Date && r[C.INIZIO - 1].getTime() >= from);
+    const n = v.length;
+    if (n < c.volte || (n - c.volte) % c.volte !== 0) return; // avvisa alla soglia e ai multipli (3, 6, 9…)
+    const min = v.reduce((a, r) => a + (r[C.FINE - 1] instanceof Date ? (r[C.FINE - 1] - r[C.INIZIO - 1]) / 60000 : 0), 0);
+    const r0 = v[v.length - 1];
+    mail_('Guasto ripetuto', 'GUASTO RIPETUTO ' + n + ' volte · ' + r0[C.LINEA - 1] + ' · ' + r0[C.MACC - 1], [
+      ['Lo stesso guasto si è ripetuto ' + n + ' volte in ' + c.giorni + ' giorni'], ['Macchina', r0[C.LINEA - 1] + ' · ' + r0[C.MACC - 1] + ' (' + code + ')'],
+      ['Tipo guasto', guasto], ['Tempo di fermo totale', Math.round(min) + ' minuti'],
+      ['Interventi', v.map(r => fmtOra_(r[C.INIZIO - 1]) + ' · ' + (r[C.MAN - 1] || '') + (r[C.ALTRO - 1] ? ' · ' + h_(r[C.ALTRO - 1]) : '')).join('<br>')],
+      ['Suggerimento', 'valutare un intervento correttivo invece della sola regolazione']]);
+  } catch (e) { Logger.log(e); }
+}
+function avvisoFermiLunghi_() {
+  try {
+    const c = avvisiCfg_();
+    if (!c.ore || !c.to) return;
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
+    if (last < 2) return;
+    const props = PropertiesService.getScriptProperties();
+    let fatti = []; try { fatti = JSON.parse(props.getProperty('AVV_APERTI') || '[]'); } catch (e) {}
+    const lim = Date.now() - c.ore * 3600e3;
+    sh.getRange(2, 1, last - 1, HEAD.length).getValues()
+      .filter(r => r[C.STATO - 1] === 'APERTO' && r[C.INIZIO - 1] instanceof Date && r[C.INIZIO - 1].getTime() < lim && fatti.indexOf(String(r[C.ID - 1])) < 0)
+      .forEach(r => {
+        const ore = Math.round((Date.now() - r[C.INIZIO - 1].getTime()) / 36e5 * 10) / 10;
+        if (mail_('Fermo lungo', 'FERMO APERTO DA ' + ore + ' ORE · ' + r[C.LINEA - 1] + ' · ' + r[C.MACC - 1], [
+          ['Fermo aperto da ' + ore + ' ore'], ['Macchina', r[C.LINEA - 1] + ' · ' + r[C.MACC - 1] + ' (' + r[C.EQ - 1] + ')'],
+          ['Aperto alle', fmtOra_(r[C.INIZIO - 1])], ['Aperto da', r[C.APERTO_DA - 1] || '—'], ['Lotto', r[C.LOTTO - 1] || '—'],
+          ['Nota', 'se il fermo è già finito, qualcuno ha dimenticato di chiuderlo nell\'app']])) fatti.push(String(r[C.ID - 1]));
+      });
+    props.setProperty('AVV_APERTI', JSON.stringify(fatti.slice(-300)));
+  } catch (e) { Logger.log(e); }
+}
+function provaAvvisi() {
+  const c = avvisiCfg_();
+  const ok = mail_('Prova', 'mail di prova', [['Gli avvisi funzionano'], ['Destinatari', c.to || '—'],
+    ['Anomalia critica', c.critica ? 'SI' : 'NO'], ['Fermo aperto oltre', c.ore ? c.ore + ' ore' : 'mai'],
+    ['Guasto ripetuto', c.volte ? c.volte + ' volte in ' + c.giorni + ' giorni' : 'mai']]);
+  const msg = ok ? 'Mail di prova inviata a: ' + c.to : (c.to ? 'Invio non riuscito: guarda Esecuzioni in Apps Script.' : 'Scrivi prima le email nel foglio Avvisi (cella B2).');
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
 }
 
 /* ---------- Sveglia ----------
@@ -703,6 +809,7 @@ function tieniSveglio(forza) {
   const now = new Date(), g = Number(Utilities.formatDate(now, TZ, 'u')), h = Number(Utilities.formatDate(now, TZ, 'H'));
   const turni = (g >= 1 && g <= 5) && !(g === 1 && h < 5) || (g === 6 && h < 6); // da lunedì 5:00 (pronta per il T1) a sabato 6:00
   if (!turni && forza !== true) return;
+  avvisoFermiLunghi_();
   const url = ScriptApp.getService().getUrl(), key = PropertiesService.getScriptProperties().getProperty('KEY');
   if (!url || !key) return;
   try { UrlFetchApp.fetch(url + '?action=init&key=' + encodeURIComponent(key), { muteHttpExceptions: true, followRedirects: true }); }
@@ -895,6 +1002,7 @@ function closeFermo_(p) {
   sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
   try { SpreadsheetApp.flush(); aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
+  avvisoRipetuto_(sh, code, p.guasto);
   return { row: r };
 }
 
