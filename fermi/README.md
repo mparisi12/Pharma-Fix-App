@@ -10,6 +10,15 @@ App di reparto costruita attorno al **QR della macchina**:
 
 Tutto finisce in un foglio Google che si aggiorna da solo e si può aprire anche in Excel.
 
+**Istruzioni per ruolo** (cartella `guide/`):
+
+| Chi | Documento |
+|---|---|
+| Tecnico manutentore | [Guida per il tecnico](guide/tecnico.md): app, QR, fermi Packaging e Filling, soluzioni, anomalie |
+| Coordinatore | [Guida per il coordinatore](guide/coordinatore.md): avvisi Telegram, anomalie, controllo dei fermi, routine |
+| Direzione | [Scheda per la direzione](guide/direzione.md): cosa si riceve e come leggere i KPI |
+| Responsabile e amministratore | Questo documento: installazione, fogli, KPI, avvisi, report, aggiornamenti, problemi |
+
 Indirizzo dell'app: **https://mparisi12.github.io/Pharma-Fix-App/fermi/**
 (Anche il vecchio indirizzo https://mparisi12.github.io/Pharma-Fix-App/ porta qui.)
 
@@ -141,6 +150,8 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 ---
 
 ## 4. Uso quotidiano — per i tecnici
+
+Riferimento completo. Per i tecnici c'è la versione corta: *Guida per il tecnico*.
 
 ### Accesso
 All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
