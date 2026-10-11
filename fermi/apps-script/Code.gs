@@ -737,7 +737,9 @@ function mail_(tipo, oggetto, righe) {
   if (c.to) try {
     // mail semplice, come una mail scritta a mano: solo testo e mittente col nome dell'account
     // (nome "Pharma-Fix" e impaginazione HTML facevano scattare i filtri antispam aziendali)
-    const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n'); // niente link al foglio: il filtro aziendale lo rende illeggibile
+    // niente link nelle mail (foglio, foto Drive): i filtri aziendali li riscrivono o bloccano la mail. I link restano su Telegram
+    const corpo = righe.filter(([k]) => k !== 'Foto').map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n')
+      + (righe.some(([k, v]) => k === 'Foto' && /https?:/.test(String(v))) ? '\nFoto: allegata alla segnalazione (vedi foglio Anomalie o Telegram)' : '');
     MailApp.sendEmail(c.to, 'Pharma-Fix · ' + oggetto, corpo);
     canali.push('mail');
   } catch (e) { Logger.log('Mail non inviata: ' + e); }
