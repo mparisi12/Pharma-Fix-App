@@ -38,6 +38,7 @@ Se una soluzione è sbagliata o superata, segnalalo al responsabile, che la corr
 
 Ogni tecnico è legato al suo telefono. Se un tecnico vede **"Telefono non autorizzato"** (telefono nuovo o cambiato), avvisa il responsabile: lo approva nel foglio Telefoni. Intanto il tecnico può continuare a lavorare: i dati restano in coda e partono dopo l'approvazione.
 Se un telefono viene perso, avvisa subito il responsabile per bloccarlo.
+Il **codice reparto** per i tecnici nuovi lo dà solo il responsabile: non passarlo tu e non scriverlo in chat o sui gruppi.
 
 ## 6. La tua routine
 
