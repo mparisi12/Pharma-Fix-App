@@ -26,7 +26,7 @@ Obiettivo: **nessuna anomalia critica aperta a fine turno** senza che qualcuno l
 ## 3. Fermi: controllare che siano registrati bene
 
 - **Fermi aperti**: li vedi nella home dell'app. A fine turno non ce ne devono essere di dimenticati.
-- **Filling**: i fermi si registrano all'uscita dallo sterile **entro fine turno**, con gli orari del batch record. Se nel batch record c'è un fermo che non compare nel passaggio di turno, va registrato.
+- **Filling**: il fermo si apre prima di entrare in sterile (così lo vedi tra i fermi aperti) e si chiude all'uscita con gli orari del batch record. Se nel batch record c'è un fermo che non compare nel passaggio di turno, va registrato (al massimo entro 2 ore dal cambio turno).
 - **Descrizioni**: una descrizione corta ma vera serve a tutti (e alle soluzioni future). Le righe "(senza descrizione)" nel passaggio di turno sono quelle da far completare.
 
 ## 4. Soluzioni: sei tu ad approvarle
