@@ -164,13 +164,15 @@ L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo
 2. Tocca **Apri fermo** (il pulsante rosso in alto): controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
 
-### Macchine FILLING (sterile): registrare il fermo all'uscita
-In sterile il telefono non entra, quindi il fermo si registra **dopo**, uscendo dal reparto:
-1. Scansiona o **fotografa il QR** della macchina (nella scheda macchina il pulsante si chiama **Registra fermo**).
-2. Scrivi **Inizio** e **Fine** del fermo, **gli stessi orari del batch record**.
-3. Compila come una chiusura: foto (facoltativa), categoria, tipo intervento, guasto, descrizione, lotto, pezzo → **Registra fermo**.
+### Macchine FILLING (sterile): aprire prima di entrare, chiudere con gli orari del batch record
+In sterile il telefono non entra. Il fermo si gestisce così, ed è visibile a tutti come **fermo in corso** mentre il tecnico è dentro:
+1. **Prima di entrare**: apri la macchina (QR, **Fotografa QR** o **Scegli macchina a mano**) → **Apri fermo**, come in Packaging (lotto, −5/−10/−15/−30 min se è iniziato prima).
+2. **All'uscita**: QR o fermo nella home → **Chiudi fermo**. In alto ci sono **Inizio** e **Fine** già scritti (apertura e adesso): **correggili con gli orari del batch record**, poi compila come sempre.
+3. Se gli orari vengono corretti, la riga ha **Orari = DICHIARATI**; l'ora vera di apertura nell'app resta come **nota** sulla cella Ora Inizio. Se non vengono toccati restano *tempo reale*.
 
-Si possono registrare solo fermi **del turno in corso** (T1 dalle 6:00, T2 dalle 14:00, T3 dalle 22:00). Nel foglio la riga ha **Orari = DICHIARATI** e l'ora vera di inserimento in **Registrato alle**.
+**Fermo già finito senza averlo aperto** (es. urgenza): nella pagina della macchina, link **Fermo già finito? Registralo con gli orari del batch record** → inizio, fine e dati di chiusura in un colpo solo (Orari = DICHIARATI).
+
+Regole sugli orari scritti a mano: la fine deve essere nel **turno in corso**, oppure nel **turno appena finito se si registra entro 2 ore dal cambio turno** (es. fermo del T1 registrato alle 15:00); niente orari nel futuro; durata massima 12 ore. Le registrazioni tardive (oltre 4 ore dopo la fine) finiscono comunque nel foglio Controlli.
 
 ### Durante il fermo: "Cosa provare"
 Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è **Cosa provare**: i tipi di guasto della macchina dal più frequente (il numero = quante volte negli ultimi 90 giorni). Tocca il guasto che vedi: compaiono le **soluzioni verificate** da provare. Il guasto scelto qui è già selezionato quando chiudi il fermo.
