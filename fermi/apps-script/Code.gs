@@ -757,12 +757,21 @@ function checkTelefono_(man, dev, devName) {
 }
 
 /* Orari dichiarati (fermi FILLING registrati all'uscita dallo sterile): solo dentro il turno in cui si registra */
+// Orari scritti a mano (FILLING, dal batch record): fine nel turno in corso, oppure nel turno appena finito
+// se si registra entro TOLL_DICH minuti dal cambio turno; durata massima 12 ore.
+const TOLL_DICH = 120;
+function limiteDichiarati_(reg) {
+  let avvio = inizioTurno_(new Date(reg)).getTime();
+  if (reg - avvio < TOLL_DICH * 60000) avvio = inizioTurno_(new Date(avvio - 60000)).getTime(); // tolleranza dopo il cambio turno
+  return avvio;
+}
 function controllaDichiarati_(p, inizio) {
   const reg = Number(p.reg) || Date.now(), ts = Number(p.ts);
-  const avvio = inizioTurno_(new Date(reg)).getTime();
   if (ts > reg + 120000) throw new Error('Orario non valido: nel futuro');
-  if (ts < avvio - 60000) throw new Error('Orario non valido: fuori dal turno in corso');
-  if (inizio instanceof Date && ts <= inizio.getTime()) throw new Error('Orario non valido: la fine è prima dell\'inizio');
+  if (ts < limiteDichiarati_(reg) - 60000) throw new Error('Orario non valido: fuori dal turno in corso');
+  const ini = inizio instanceof Date ? inizio.getTime() : Number(inizio) || null;
+  if (ini != null && ts <= ini) throw new Error('Orario non valido: la fine è prima dell\'inizio');
+  if (ini != null && ts - ini > 12 * 3600e3) throw new Error('Orario non valido: fermo più lungo di 12 ore');
 }
 function inizioTurno_(d) {
   const h = Number(Utilities.formatDate(d, TZ, 'H'));
@@ -1327,7 +1336,18 @@ function closeFermo_(p) {
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
   lotto_(p.lotto);
   const d = new Date(Number(p.ts));
-  if (p.dichiarato) controllaDichiarati_(p, sh.getRange(r, C.INIZIO).getValue());
+  // FILLING: fermo aperto prima di entrare in sterile, chiuso con gli orari del batch record (p.inizio = inizio corretto)
+  const nuovoInizio = p.inizio ? new Date(Number(p.inizio)) : null;
+  if (p.dichiarato) controllaDichiarati_(p, nuovoInizio || sh.getRange(r, C.INIZIO).getValue());
+  if (nuovoInizio) {
+    const prima = sh.getRange(r, C.INIZIO).getValue();
+    if (prima instanceof Date && Math.abs(prima - nuovoInizio) > 60000) // traccia: l'ora vera di apertura nell'app resta come nota
+      sh.getRange(r, C.INIZIO).setNote('Aperto nell\'app alle ' + Utilities.formatDate(prima, TZ, 'HH:mm dd/MM') + '; inizio corretto dal batch record');
+    sh.getRange(r, C.INIZIO).setValue(nuovoInizio).setNumberFormat('HH:mm');
+    sh.getRange(r, C.DATA).setValue(dateOnly_(nuovoInizio)).setNumberFormat('dd/MM/yyyy');
+    sh.getRange(r, C.TURNO).setValue(turno_(nuovoInizio));
+  }
+  if (p.dichiarato) sh.getRange(r, C.ORARI).setValue('DICHIARATI');
   const code = sh.getRange(r, C.EQ).getValue();
   const url = savePhoto_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura');
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
