@@ -33,5 +33,5 @@ La linea rossa è la percentuale cumulata: i guasti a sinistra dell'80% sono le 
 
 - Ogni registrazione è legata al **telefono personale** del tecnico, con l'ora vera di inserimento.
 - Il **passaggio di turno** è generato dai dati registrati, non scritto a mano: compaiono anche i fermi senza descrizione o lasciati aperti.
-- In **Filling** gli orari sono quelli del **batch record**, registrati entro fine turno.
+- In **Filling** il fermo si apre prima di entrare in sterile e gli orari finali sono quelli del **batch record**, registrati al massimo entro 2 ore dal cambio turno.
 - Il foglio viene salvato in **backup** ogni settimana.
