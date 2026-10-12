@@ -34,14 +34,15 @@ Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
-## 3. Macchine FILLING: registrare il fermo all'uscita dallo sterile
+## 3. Macchine FILLING: apri prima di entrare, chiudi all'uscita
 
-In sterile il telefono non entra, quindi il fermo si registra **uscendo dal reparto, entro fine turno**:
-1. Scansiona o **fotografa il QR** della macchina → **Registra fermo**.
-2. Scrivi **Inizio** e **Fine** con **gli stessi orari del batch record**.
-3. Compila come una chiusura (guasto, descrizione, lotto, pezzo) → **Registra fermo**.
+In sterile il telefono non entra, ma il fermo si apre lo stesso: così tutti sanno che c'è un fermo in corso.
+1. **Prima di entrare**: apri la macchina (QR, **Fotografa QR** o **Scegli macchina a mano**) → **Apri fermo**.
+2. **All'uscita**: QR o fermo nella home → **Chiudi fermo**. Inizio e Fine sono già scritti: **correggili con gli orari del batch record**, poi compila come sempre.
 
-Si possono registrare solo fermi del **turno in corso** (T1 6–14, T2 14–22, T3 22–6).
+Fermo già finito e non l'avevi aperto? Nella pagina della macchina tocca **Fermo già finito? Registralo con gli orari del batch record**.
+
+Gli orari scritti a mano valgono per il **turno in corso**, o per quello appena finito se registri **entro 2 ore dal cambio turno**.
 
 ## 4. Le altre cose che trovi sulla macchina
 
