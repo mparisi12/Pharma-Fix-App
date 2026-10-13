@@ -758,8 +758,24 @@ function intSheet(f, eq) {
     <div class="ctxbar"><div><div class="hint" style="margin:0">${dayLabel(f.start).toLowerCase().replace(/^./, c => c.toUpperCase())} · turno ${turnoOf(f.start)}</div><div class="ore big">${hhmm(f.start)} → ${hhmm(f.end)}</div></div><span class="dur big${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
     ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
     <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? 'Dichiarati (batch record)' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}</div>
-    ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}`);
+    ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}
+    ${puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
+      : `<div id="corrbox" style="margin-top:12px"><button class="linkbtn" id="corr" style="width:100%">Hai sbagliato qualcosa? Chiedi una correzione</button></div>`) : ''}`);
+  const cb = $('#corr'); if (cb) cb.onclick = () => {
+    $('#corrbox').innerHTML = `<div class="group"><label class="label" for="corrt">Cosa va corretto?</label><textarea class="field" id="corrt" placeholder="Es. il lotto giusto è 601096; il guasto era SENSORE, non FORMATO"></textarea></div>
+      <div class="err" id="corre" hidden></div><button class="submit blue" id="corrgo">Invia richiesta</button>`;
+    $('#corrt').focus();
+    $('#corrgo').onclick = () => needMan(() => {
+      const t = $('#corrt').value.trim();
+      if (t.length < 5) { const e = $('#corre'); e.textContent = 'Scrivi cosa va corretto.'; e.hidden = false; return; }
+      enqueue({ action: 'correzione', id: uid('C'), fermo: f.id, testo: t, ts: Date.now(), manutentore: S.man });
+      CORR[f.id] = Date.now(); save('corr', CORR); closeSh(); toast('Richiesta inviata: il responsabile correggerà il fermo', 3500);
+    });
+  };
 }
+// Correzioni: chi ha registrato il fermo (o un coordinatore) chiede la modifica, il responsabile la fa nel foglio
+const CORR = load('corr', {});
+const puoCorreggere = f => !!S.man && (U(f.man) === U(S.man) || U(apertoDa(f)) === U(S.man) || isCoord());
 
 /* ================= Soluzioni ================= */
 function renderSol() {
