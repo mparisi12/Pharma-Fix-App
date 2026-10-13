@@ -77,6 +77,6 @@ Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook
 
 - **Un fermo per volta per macchina**, aperto e chiuso con il QR.
 - **Mai lasciare un fermo aperto** a fine turno: arriva un avviso al coordinatore.
-- **Descrizione sempre**: il passaggio di turno si scrive da solo con quello che registri, e "(senza descrizione)" si vede.
+- **Descrizione sempre**: il passaggio di turno si scrive da solo con quello che registri, e i fermi senza descrizione compaiono con il tuo nome in "Da sistemare".
 - Il **lotto** è obbligatorio.
 - Problemi con l'app? Chiudila del tutto e riaprila con la rete. Se continua, avvisa il coordinatore.

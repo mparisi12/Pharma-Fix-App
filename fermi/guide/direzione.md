@@ -8,7 +8,7 @@
 
 | Cosa | Quando | Contenuto |
 |---|---|---|
-| **Riepilogo settimanale** | Lunedì alle 7 (mail o Telegram) | Per Packaging e per Filling: n° fermi e tempo di fermo con confronto sulla settimana prima, MTTR, fermi per linea, guasti più frequenti, fermi più lunghi. In fondo: anomalie aperte e fermi ancora in corso |
+| **Riepilogo settimanale** | Lunedì alle 7 (mail o Telegram) | Per Packaging e per Filling: n° fermi e ore di fermo con la differenza sulla settimana prima, MTTR, ore di ogni linea, guasti che si ripetono. Poi i fermi più lunghi, le anomalie e i compiti |
 | **Scheda KPI** (nel foglio, su richiesta) | Quando serve | Indicatori per area, linea, macchina e periodo, con i grafici di Pareto |
 
 ## Come leggere gli indicatori
