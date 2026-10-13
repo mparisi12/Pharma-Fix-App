@@ -34,9 +34,12 @@ button,input,textarea{font:inherit;color:inherit}
 button,a{cursor:pointer}
 :focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 .app{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:0 calc(96px + env(safe-area-inset-bottom,0px))}
-header.top{display:flex;align-items:center;gap:10px;padding-block:14px 4px}
-.brand{font:700 26px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;flex:1}
-.brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:4px;text-transform:none}
+header.top{display:flex;align-items:center;gap:10px;padding-block:26px 6px} /* più spazio sotto la barra di stato (iOS sfuma il bordo alto) */
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand img{width:42px;height:42px;border-radius:10px;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.brand .wm{font:700 30px/1 var(--display);letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+.brand .wm b{color:var(--crit);font-weight:700}
+.brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:3px;text-transform:none}
 .manbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:7px 12px;font-size:13px;font-weight:500;max-width:48%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:8px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
@@ -238,7 +241,7 @@ textarea.field{min-height:64px;resize:vertical}
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">Pharma-Fix<small id="clock">—</small></div>
+    <div class="brand"><img src="icon-192.png" alt=""><div><div class="wm">Pharma-<b>Fix</b></div><small id="clock">—</small></div></div>
     <button class="manbtn" id="manbtn">—</button>
   </header>
   <div class="sync" id="sync"><span class="dot demo"></span><span>…</span></div>
