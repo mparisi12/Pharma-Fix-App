@@ -1190,7 +1190,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1199,6 +1199,7 @@ function doPost(e) {
     else if (p.action === 'anomalia') res = addAnomalia_(p);
     else if (p.action === 'anomaliaStato') res = statoAnomalia_(p);
     else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
+    else if (p.action === 'correzione') res = correzione_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
     return json_(Object.assign({ ok: true }, res));
@@ -1401,6 +1402,39 @@ function chiCoordina_(sh, r, chi) {
   if (!aperto || aperto.toUpperCase() === String(chi || '').trim().toUpperCase()) return false;
   if (isCoordinatore_(chi)) return true;
   throw new Error('Può chiudere il fermo solo chi l\'ha aperto (' + aperto + ') o un coordinatore');
+}
+/* Correzioni: il tecnico chiede, il responsabile corregge a mano il foglio Fermi e mette FATTA */
+const SH_CORR = 'Correzioni', CORR_H = ['Data richiesta', 'Fermo (ID)', 'Riga Fermi', 'Linea', 'Macchina', 'Data fermo', 'Chiesta da', 'Cosa correggere', 'Stato (DA FARE / FATTA)', 'Note', 'ID richiesta'];
+function correzione_(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), fsh = ss.getSheetByName(SH_FERMI);
+  const r = findRow_(fsh, p.fermo);
+  if (!r) throw new Error('Fermo ' + p.fermo + ' non trovato');
+  if (!String(p.testo || '').trim()) throw new Error('Scrivi cosa va corretto: obbligatorio');
+  let sh = ss.getSheetByName(SH_CORR);
+  if (!sh) {
+    sh = ss.insertSheet(SH_CORR);
+    sh.getRange(1, 1, 1, CORR_H.length).setValues([CORR_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+    sh.setFrozenRows(1); sh.setColumnWidth(8, 380); sh.setColumnWidth(10, 260); sh.hideColumns(11);
+  }
+  const ids = sh.getLastRow() > 1 ? sh.getRange(2, 11, sh.getLastRow() - 1, 1).getValues().map(x => String(x[0])) : [];
+  if (ids.indexOf(String(p.id)) >= 0) return { dup: true };
+  const v = fsh.getRange(r, 1, 1, HEAD.length).getValues()[0];
+  const chi = String(v[C.MAN - 1] || v[C.APERTO_DA - 1] || '').trim(), io = String(p.manutentore || '').trim();
+  if (chi.toUpperCase() !== io.toUpperCase() && String(v[C.APERTO_DA - 1] || '').trim().toUpperCase() !== io.toUpperCase() && !isCoordinatore_(io))
+    throw new Error('La correzione la può chiedere solo chi ha registrato il fermo o un coordinatore');
+  const giorno = v[C.INIZIO - 1] instanceof Date ? v[C.INIZIO - 1] : v[C.DATA - 1];
+  sh.appendRow([new Date(Number(p.ts) || Date.now()), p.fermo, r, v[C.LINEA - 1], v[C.MACC - 1], giorno, io, String(p.testo).trim(), 'DA FARE', '', p.id]);
+  const n = sh.getLastRow();
+  sh.getRange(n, 1).setNumberFormat('dd/MM/yyyy HH:mm'); sh.getRange(n, 6).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(n, 9).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['DA FARE', 'FATTA'], true).build()).setBackground('#fff3d6');
+  fsh.getRange(r, C.ALTRO).setNote('Correzione chiesta da ' + io + ' il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm') + ': ' + String(p.testo).trim());
+  try {
+    mail_('Correzione richiesta', 'CORREZIONE RICHIESTA · ' + v[C.LINEA - 1] + ' ' + nice_(v[C.MACC - 1]), [
+      ['Fermo del ' + (giorno instanceof Date ? Utilities.formatDate(giorno, TZ, 'dd/MM HH:mm') : '') + ' (riga ' + r + ' del foglio Fermi)'],
+      ['Chiesta da', io], ['Cosa correggere', h_(String(p.testo).trim().slice(0, 400))],
+      ['Cosa fare', 'correggi la riga ' + r + ' nel foglio Fermi, poi metti FATTA nel foglio Correzioni']], { noMail: (c => !!(c.tgToken && c.tgChat))(avvisiCfg_()) });
+  } catch (e) { Logger.log(e); }
+  return {};
 }
 function cancelFermo_(p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);

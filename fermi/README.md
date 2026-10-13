@@ -323,6 +323,8 @@ Foglio **Telefoni**: una riga per ogni coppia tecnico + telefono, con modello, p
 
 Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana).
 
+**Correzioni**: un fermo chiuso dall'app non si modifica. Chi l'ha registrato (o un coordinatore) apre il dettaglio del fermo → **Hai sbagliato qualcosa? Chiedi una correzione** e scrive cosa cambiare. La richiesta finisce nel foglio **Correzioni** (con la riga del foglio Fermi) e arriva un avviso su Telegram; sulla cella della descrizione compare una nota. Correggi a mano la riga in Fermi e metti **FATTA** nel foglio Correzioni.
+
 ### 5.10 Sveglia dello script
 Google "addormenta" lo script quando nessuno lo usa per un po': al risveglio la prima risposta può metterci 20–40 secondi (l'app scrive *"Il foglio risponde lentamente"* e intanto si lavora lo stesso: i dati restano in coda).
 Per evitarlo: menu **Pharma-Fix → Attiva sveglia dello script** (una volta sola; Google chiede di autorizzare *"collegarsi a un servizio esterno"* e *"eseguire in tua assenza"*: consenti). Da lì lo script si interroga da solo ogni 10 minuti da lunedì 5:00 a sabato 6:00 (sempre, se nel foglio Avvisi c'è una linea a ciclo continuo, vedi 5.12). Per toglierla: **Disattiva sveglia dello script**.
