@@ -124,6 +124,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .bigbtn.hero.ok{justify-content:center;padding-inline:16px;min-height:28vh;box-shadow:0 6px 18px rgba(31,122,77,.28)}.bigbtn.hero.ok .timer{font:600 40px var(--mono)}
 .bigbtn.hero.home{min-height:30vh;margin-top:6px}
 .bigbtn.hero.busy{background:#5a6873;box-shadow:none;cursor:default;min-height:24vh}.bigbtn.hero.busy .bt{font-size:34px}.bigbtn.hero.busy .timer{font:600 34px var(--mono);color:#fff}
+.step.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}.step .lockhint{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}.step:not(.locked) .lockhint{display:none}
+.stepn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--steel);color:#fff;font:700 12px var(--body);font-style:normal;margin-right:7px;vertical-align:1px}
 .bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--crit);color:#fff;font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:20px 16px;margin-top:14px}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-block:14px}
 .stat{background:var(--surface);padding:10px}
@@ -1126,20 +1128,24 @@ function closeSheet(f, opt = {}) {
     ${ORE ? `<div class="group"><span class="label">Orari del fermo · come sul batch record</span>
       <div class="times"><label>Inizio<input class="field" type="time" id="tini" ${FILL ? `value="${hhmm(f.start)}"` : ''} required></label><label>Fine<input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
       <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
-    <div class="group" id="phgrp"></div>
-    <div class="group"><span class="label">Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
-    <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
-    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="gua">${chips(guastiFor(eq), C.guasto)}</div><div id="solsug"></div></div>
-    <div class="group"><label class="label" for="altro">Altro (descrizione breve)</label><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
-    <div class="group"><label class="label" for="clotto">Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
-    <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
+    <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
+    <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Tipo intervento <i class="lockhint">· scegli prima la categoria</i></span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
+    <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Tipo guasto <i class="lockhint">· scegli prima il tipo intervento</i></span><div class="chips" id="gua">${chips(guastiFor(eq), C.guasto)}</div><div id="solsug"></div></div>
+    <div class="step locked" id="st4">
+      <div class="group"><label class="label" for="altro"><em class="stepn">4</em>Descrizione breve <i class="lockhint">· scegli prima il tipo guasto</i></label><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
+      <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
+      <div class="group" id="phgrp"></div>
+      <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
+    </div>
     <div class="err" id="err" hidden></div>
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
     ${REG ? '' : '<div class="center" style="margin-top:8px"><button class="linkbtn danger" id="canc">Fermo aperto per errore? Annullalo</button></div>'}`);
   photoBox($('#phgrp'), C, 'Foto zona di intervento');
-  singleChoice($('#cat'), v => C.cat = v);
-  singleChoice($('#int'), v => C.int = v);
-  singleChoice($('#gua'), v => { C.guasto = v; showSuggest(eq, v); });
+  // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
+  const sblocca = id => { const el = $('#' + id); if (!el || !el.classList.contains('locked')) return; el.classList.remove('locked'); setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
+  singleChoice($('#cat'), v => { C.cat = v; sblocca('st2'); });
+  singleChoice($('#int'), v => { C.int = v; sblocca('st3'); if (C.guasto) sblocca('st4'); });
+  singleChoice($('#gua'), v => { C.guasto = v; showSuggest(eq, v); sblocca('st4'); });
   if (C.guasto) showSuggest(eq, C.guasto);
   $('#go').onclick = () => {
     const altro = $('#altro').value.trim();
