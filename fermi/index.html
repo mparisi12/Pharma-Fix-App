@@ -118,6 +118,10 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .eqtitle h1{margin:12px 0 2px;font:700 36px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;overflow-wrap:anywhere}
 .fermobanner{display:flex;align-items:center;gap:10px;background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;margin-top:14px;color:var(--amber-ink)}
 .fermobanner .timer{font-size:20px;color:inherit}
+.bigbtn.hero{flex-direction:column;gap:6px;min-height:46vh;max-height:330px;padding:22px 16px;border-radius:18px;box-shadow:0 6px 18px rgba(194,59,42,.28)}
+.bigbtn.hero .bt{font:700 44px/1 var(--display);letter-spacing:.05em}
+.bigbtn.hero .bs{font:500 15px/1.2 var(--body);letter-spacing:0;text-transform:none;opacity:.92}
+.bigbtn.hero.ok{justify-content:center;padding-inline:16px;min-height:28vh;box-shadow:0 6px 18px rgba(31,122,77,.28)}.bigbtn.hero.ok .timer{font:600 40px var(--mono)}
 .bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--crit);color:#fff;font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:20px 16px;margin-top:14px}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-block:14px}
 .stat{background:var(--surface);padding:10px}
@@ -680,11 +684,6 @@ function renderEquip() {
   if (!eq) { $('#view').innerHTML = `${topline('Macchina', '', 'home')}<div class="banner">Macchina "${esc(S.view.code)}" non trovata nel foglio Equipment.</div>`; bindCommon(); return; }
   const all = allFermi().filter(f => f.code === eq.code);
   const open = all.find(f => f.stato === 'APERTO');
-  const from = Date.now() - 30 * 864e5;
-  const c30 = all.filter(f => f.stato === 'CHIUSO' && f.start >= from && f.end);
-  const mttr = c30.length ? c30.reduce((a, f) => a + (f.end - f.start), 0) / c30.length / 60000 : 0;
-  const cnt = {}; c30.forEach(f => { if (f.guasto) cnt[f.guasto] = (cnt[f.guasto] || 0) + 1; });
-  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
   const hist = all.filter(f => f.stato === 'CHIUSO' && f.end).sort((a, b) => b.start - a.start);
   const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length;
   const docs = S.documenti.filter(d => vale(d.dove, eq));
@@ -695,21 +694,16 @@ function renderEquip() {
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
-    ${open ? `<button class="bigbtn ok" data-close="${esc(open.id)}"><span>Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span></button>
+    ${open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
       <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
       ${provaPrima(eq, open, hist)}`
-      : `<button class="bigbtn" id="openf">${qr}Apri fermo</button>
+      : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
         ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>' : ''}`}
     <div class="tiles4">
       <button class="tile4" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
       <button class="tile4" data-tab="man">${I.doc}<b>MANUALI</b>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
       <button class="tile4" data-tab="sch">${I.sch}<b>SCHEDE</b>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
-    </div>
-    <div class="stats">
-      <div class="stat"><div class="label">Fermi 30 gg</div><div class="v">${c30.length}</div></div>
-      <div class="stat"><div class="label">MTTR 30 gg</div><div class="v">${c30.length ? fmtDur(mttr) : '—'}</div></div>
-      <div class="stat"><div class="label">Guasto top</div><div class="v sm" title="${esc(top ? top[0] : '')}">${top ? esc(top[0].split(',')[0]) + ' ×' + top[1] : '—'}</div></div>
     </div>
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
