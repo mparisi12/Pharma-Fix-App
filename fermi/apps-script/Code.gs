@@ -879,7 +879,7 @@ function mail_(tipo, oggetto, righe, opt) {
   if (c.to && !opt.noMail) try {
     // mail semplice, come una mail scritta a mano: solo testo e mittente col nome dell'account
     // (nome "Pharma-Fix" e impaginazione HTML facevano scattare i filtri antispam aziendali)
-    const corpo = righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n'); // niente link al foglio: il filtro aziendale lo rende illeggibile
+    const corpo = typeof righe === 'string' ? oggetto + '\n\n' + righe : righe.map(([k, v]) => v === undefined ? String(k).toUpperCase() + '\n' : k + ': ' + testo_(v)).join('\n'); // niente link al foglio: il filtro aziendale lo rende illeggibile
     MailApp.sendEmail(c.to, 'Pharma-Fix · ' + oggetto, corpo);
     canali.push('mail');
   } catch (e) { Logger.log('Mail non inviata: ' + e); }
@@ -901,7 +901,7 @@ const testo_ = v => String(v).replace(/<br\s*\/?>/gi, '\n   ').replace(/<a [^>]*
 function telegram_(token, chat, oggetto, righe) {
   const txt = testo_;
   const icona = /CRITICA/.test(oggetto) ? '🔴 ' : /RIPETUTO/.test(oggetto) ? '🔁 ' : /APERTO DA/.test(oggetto) ? '⏱️ ' : '🔔 ';
-  const testo = icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter((r, i) => r[1] !== undefined || i > 0).map(([k, v]) => v === undefined ? '\n' + k : k + ': ' + txt(v)).join('\n'); // righe senza valore dopo la prima = titoli di sezione
+  const testo = typeof righe === 'string' ? icona + oggetto + '\n\n' + righe : icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter((r, i) => r[1] !== undefined || i > 0).map(([k, v]) => v === undefined ? '\n' + k : k + ': ' + txt(v)).join('\n'); // righe senza valore dopo la prima = titoli di sezione
   try {
     const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', contentType: 'application/json',
       payload: JSON.stringify({ chat_id: chat, text: testo.slice(0, 4000), disable_web_page_preview: true }), muteHttpExceptions: true });
@@ -1049,45 +1049,79 @@ function anomalieTutte_() {
     descr: String(r[6] || ''), da: r[9], stato: String(r[10] || 'APERTA').toUpperCase(), chiusa: r[12] instanceof Date ? r[12] : null }));
 }
 
+/* ---------- Riepiloghi brevi (passaggio di turno e settimanale) ----------
+   Testo già impaginato: ore per area (PACKAGING / FILLING, mai sommate) e per linea, i fermi più lunghi,
+   solo le cose da sistemare. Il dettaglio completo resta nell'app e nel foglio Fermi. */
+const AREE_RIEP = ['PACKAGING', 'FILLING'];
+const areaStd_ = a => /^(FILL|STERIL)/i.test(String(a || '').trim()) ? 'FILLING' : /^(PACK|SECOND)/i.test(String(a || '').trim()) ? 'PACKAGING' : '';
+const nFermi_ = n => n + (n === 1 ? ' fermo' : ' fermi');
+// Nome corto della macchina: la prima parola ("Astucciatrice"); se sulla stessa linea due macchine iniziano uguale, il nome intero
+function macchinaBreve_() {
+  const conta = {};
+  equipment_(SpreadsheetApp.getActiveSpreadsheet()).forEach(e => { const k = String(e.linea).trim().toUpperCase() + '|' + String(e.macchina).trim().split(/\s+/)[0].toUpperCase(); conta[k] = (conta[k] || 0) + 1; });
+  return (linea, macc) => {
+    const m = String(macc || '').trim(), p = m.split(/\s+/)[0] || '';
+    return conta[String(linea).trim().toUpperCase() + '|' + p.toUpperCase()] > 1 ? nice_(m).slice(0, 28) : nice_(p);
+  };
+}
+// Ore per linea di un'area. tutteLinee: elenco delle linee da mostrare anche a zero (riepilogo settimanale)
+function righeLinee_(lista, tutteLinee) {
+  const per = {};
+  (tutteLinee || []).forEach(l => { per[l] = { n: 0, m: 0 }; });
+  lista.forEach(f => { const l = per[f.linea] = per[f.linea] || { n: 0, m: 0 }; l.n++; l.m += minDi_(f); });
+  const ord = (tutteLinee || []).slice();
+  return Object.keys(per).sort((x, y) => per[y].m - per[x].m || per[y].n - per[x].n || ord.indexOf(x) - ord.indexOf(y))
+    .map(l => '  ' + l + '  ' + (per[l].n ? durTxt_(per[l].m) + ' (' + per[l].n + ')' : '—'));
+}
+function piuLunghi_(lista, breve, conData) {
+  const ch = lista.filter(f => f.b).sort((x, y) => minDi_(y) - minDi_(x)).slice(0, 3);
+  return ch.length ? ['', '🔝 PIÙ LUNGHI'].concat(ch.map(f => '  ' + (conData ? gm_(f.a) + ' ' : '') + f.linea + ' ' + breve(f.linea, f.macc) + ' · ' +
+    (f.guasto || 'guasto non indicato') + ' · ' + durTxt_(minDi_(f)) + (f.orari === 'DICHIARATI' ? ' [dich.]' : ''))) : [];
+}
+function rigaAnomalie_(nuove, aperte, chiuse) {
+  const crit = aperte.filter(x => x.urg === 1).length;
+  return '🔺 ANOMALIE · ' + (nuove.length === 1 ? '1 nuova' : nuove.length + ' nuove') + (chiuse != null ? ' · ' + chiuse + (chiuse === 1 ? ' chiusa' : ' chiuse') : '') +
+    ' · ' + aperte.length + ' da gestire' + (crit ? ' (' + crit + (crit === 1 ? ' critica' : ' critiche') + ')' : '');
+}
+
 /* Riepilogo della settimana precedente (lun–dom) */
 function riepilogoSettimanale_() { if (repCfg_().settimanale) riepilogoSettimanale(); }
 function riepilogoSettimanale() {
   const oggi = dateOnly_(new Date()), dow = Number(Utilities.formatDate(oggi, TZ, 'u'));
   const fine = new Date(oggi.getTime() - (dow - 1) * 864e5), inizio = new Date(fine.getTime() - 7 * 864e5), prima = new Date(inizio.getTime() - 7 * 864e5);
-  const areaDi = areaDi_();
+  const areaDi = areaDi_(), breve = macchinaBreve_();
   const tutti = fermiTutti_().filter(f => f.stato === 'CHIUSO' && f.b);
-  tutti.forEach(f => { f.area = areaDi(f); });
-  const freccia = (a, b) => b ? (a > b ? ' ▲ ' : a < b ? ' ▼ ' : ' = ') + 'sett. prima ' + b : '';
-  // Filling e Packaging sempre separati: un blocco per area
-  const blocco = (nome, filtro) => {
-    const sett = tutti.filter(f => filtro(f) && f.a >= inizio && f.a < fine), prec = tutti.filter(f => filtro(f) && f.a >= prima && f.a < inizio);
-    if (!sett.length && !prec.length && nome === 'AREA NON TROVATA') return [];
-    const tot = sett.reduce((x, f) => x + minDi_(f), 0), totP = prec.reduce((x, f) => x + minDi_(f), 0);
-    const perLinea = {}; sett.forEach(f => { const l = perLinea[f.linea] = perLinea[f.linea] || { n: 0, m: 0 }; l.n++; l.m += minDi_(f); });
-    const perGuasto = {}; sett.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' (' + f.linea + ' ' + nice_(f.macc) + ')'; const g = perGuasto[k] = perGuasto[k] || { n: 0, m: 0 }; g.n++; g.m += minDi_(f); });
-    const righe = [['━━ ' + nome + ' ━━'],
-      ['Fermi', sett.length + freccia(sett.length, prec.length)],
-      ['Tempo di fermo', durTxt_(tot) + (totP ? ' (sett. prima ' + durTxt_(totP) + ')' : '')],
-      ['MTTR', sett.length ? durTxt_(tot / sett.length) : '—']];
-    if (sett.length) righe.push(
-      ['Per linea', Object.keys(perLinea).sort((a, b) => perLinea[b].m - perLinea[a].m).map(l => l + ': ' + perLinea[l].n + (perLinea[l].n === 1 ? ' fermo · ' : ' fermi · ') + durTxt_(perLinea[l].m) + ' · MTTR ' + durTxt_(perLinea[l].m / perLinea[l].n)).join('<br>')],
-      ['Guasti più frequenti', Object.keys(perGuasto).sort((a, b) => perGuasto[b].n - perGuasto[a].n || perGuasto[b].m - perGuasto[a].m).slice(0, 5).map(k => k + ' ×' + perGuasto[k].n + ' · ' + durTxt_(perGuasto[k].m)).join('<br>') || '—'],
-      ['Fermi più lunghi', sett.slice().sort((a, b) => minDi_(b) - minDi_(a)).slice(0, 3).map(f => gm_(f.a) + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + durTxt_(minDi_(f)) + (f.guasto ? ' · ' + f.guasto : '')).join('<br>')]);
-    return righe;
-  };
-  const an = anomalieTutte_(), aperte = an.filter(a => a.stato !== 'CHIUSA');
-  const aperti = fermiTutti_().filter(f => f.stato === 'APERTO');
-  aperti.forEach(f => { f.area = areaDi(f); });
-  const tag = f => f.area === 'FILLING' ? '[F] ' : f.area === 'PACKAGING' ? '[P] ' : '';
-  mail_('Riepilogo settimanale', 'RIEPILOGO SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5)), [
-    ['Settimana dal ' + gm_(inizio) + ' al ' + gm_(new Date(fine.getTime() - 864e5))]]
-    .concat(blocco('PACKAGING', f => f.area === 'PACKAGING'))
-    .concat(blocco('FILLING', f => f.area === 'FILLING'))
-    .concat(blocco('AREA NON TROVATA', f => !f.area))
-    .concat([['━━ GENERALE ━━'],
-    ['Anomalie', 'da gestire ' + aperte.length + ' (critiche ' + aperte.filter(a => a.urg === 1).length + ', urgenti ' + aperte.filter(a => a.urg === 2).length + ') · nuove ' + an.filter(a => a.ts && a.ts >= inizio && a.ts < fine).length + ' · chiuse ' + an.filter(a => a.chiusa && a.chiusa >= inizio && a.chiusa < fine).length],
-    ['Fermi ancora aperti', aperti.length ? aperti.map(f => tag(f) + f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']])
-    .concat(righeCompitiSett_(inizio, fine)));
+  tutti.forEach(f => { f.area = areaStd_(areaDi(f)); });
+  const sett = tutti.filter(f => f.a >= inizio && f.a < fine), prec = tutti.filter(f => f.a >= prima && f.a < inizio);
+  // tutte le linee di ogni area, dal foglio Equipment (macchine attive), nell'ordine del foglio
+  const linee = {};
+  equipment_(SpreadsheetApp.getActiveSpreadsheet()).forEach(e => { const a = areaStd_(e.area), l = String(e.linea).trim(); if (!a || !l) return; linee[a] = linee[a] || []; if (linee[a].indexOf(l) < 0) linee[a].push(l); });
+  const out = [];
+  AREE_RIEP.concat(['']).forEach(area => {
+    const s = sett.filter(f => f.area === area), p = prec.filter(f => f.area === area);
+    if (!area && !s.length) return;
+    const tot = s.reduce((x, f) => x + minDi_(f), 0), totP = p.reduce((x, f) => x + minDi_(f), 0), diff = tot - totP;
+    out.push('', (area || 'AREA NON TROVATA') + ' · ' + nFermi_(s.length) + ' · ' + durTxt_(tot) +
+      (p.length ? '  ' + (Math.abs(diff) < 1 ? '= come la sett. prima' : (diff > 0 ? '▲ +' : '▼ −') + durTxt_(Math.abs(diff))) : ''));
+    if (s.length) out.push('  MTTR ' + durTxt_(tot / s.length));
+    out.push.apply(out, righeLinee_(s, area ? linee[area] : null));
+    const g = {}; s.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' · ' + f.linea + ' ' + breve(f.linea, f.macc); const x = g[k] = g[k] || { n: 0, m: 0 }; x.n++; x.m += minDi_(f); });
+    Object.keys(g).filter(k => g[k].n > 1).sort((x, y) => g[y].n - g[x].n || g[y].m - g[x].m).slice(0, 2)
+      .forEach(k => out.push('  🔁 ' + k + ' ×' + g[k].n + ' · ' + durTxt_(g[k].m)));
+  });
+  out.push.apply(out, piuLunghi_(sett, breve, true));
+  const an = anomalieTutte_();
+  out.push('', rigaAnomalie_(an.filter(a => a.ts && a.ts >= inizio && a.ts < fine), an.filter(a => a.stato !== 'CHIUSA'),
+    an.filter(a => a.chiusa && a.chiusa >= inizio && a.chiusa < fine).length));
+  try { // compiti: solo i numeri, il dettaglio è nel foglio Compiti
+    const k = compitiTutti_();
+    if (k.length) {
+      const fatti = k.filter(x => x.stato === 'FATTO' && x.fatto >= inizio.getTime() && x.fatto < fine.getTime()), rit = k.filter(x => x.aperto && x.ritardo).length;
+      out.push('📋 COMPITI · ' + fatti.length + (fatti.length === 1 ? ' fatto' : ' fatti') + (fatti.length ? ' (' + fatti.filter(x => !x.ritardo).length + ' in tempo)' : '') + ' · ' + rit + ' in ritardo aperti');
+    }
+  } catch (e) { Logger.log(e); }
+  const titolo = 'SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5));
+  mail_('Riepilogo settimanale', titolo, out.slice(1).join('\n'));
 }
 
 /* Passaggio di turno: cosa è successo nel turno appena finito, solo dai dati registrati */
@@ -1104,26 +1138,33 @@ function provaPassaggioTurno() { passaggioTurno(true); }
 function passaggioTurno(conMail, soloLinee) {
   const ref = new Date(Date.now() - 30 * 60000), a = inizioTurno_(ref), b = new Date(a.getTime() + 8 * 3600e3);
   const linea = x => !soloLinee || soloLinee.indexOf(String(x.linea || '').trim().toUpperCase()) >= 0;
-  const t = turno_(a), giorno = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'][Number(Utilities.formatDate(a, TZ, 'u'))] + ' ' + gm_(a);
+  const t = turno_(a), giorno = ['', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'][Number(Utilities.formatDate(a, TZ, 'u'))] + ' ' + gm_(a);
+  const areaDi = areaDi_(), breve = macchinaBreve_();
   const tutti = fermiTutti_().filter(linea);
+  tutti.forEach(f => { f.area = areaStd_(areaDi(f)); });
   const nel = tutti.filter(f => f.a >= a && f.a < b).sort((x, y) => x.a - y.a);
   const aperti = tutti.filter(f => f.stato === 'APERTO');
-  const an = anomalieTutte_().filter(linea), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), chiuse = an.filter(x => x.chiusa && x.chiusa >= a && x.chiusa < b);
-  const aperte = an.filter(x => x.stato !== 'CHIUSA');
+  const an = anomalieTutte_().filter(linea), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), aperte = an.filter(x => x.stato !== 'CHIUSA');
   const tot = nel.reduce((x, f) => x + minDi_(f), 0);
-  const riga = f => hm_(f.a) + (f.b ? '–' + hm_(f.b) : '') + ' ' + f.linea + ' ' + nice_(f.macc) + ' · ' + (f.guasto || 'guasto non indicato') + ' · ' + (f.b ? durTxt_(minDi_(f)) : 'APERTO') +
-    ' · ' + (f.man || '?') + (f.altro ? ' · ' + h_(f.altro.slice(0, 70)) : ' · (senza descrizione)') + (f.orari === 'DICHIARATI' ? ' [dichiarato]' : '');
-  const solo = soloLinee ? ' · solo ' + soloLinee.join(', ') : '';
-  mail_('Passaggio di turno', 'PASSAGGIO TURNO ' + t + ' · ' + giorno + solo, [
-    ['Turno ' + t + ' di ' + giorno + ' (' + hm_(a) + '–' + hm_(b) + ')' + (soloLinee ? ' · ciclo continuo: ' + soloLinee.join(', ') : '')],
-    ['Fermi nel turno', nel.length ? nel.length + ' · tempo di fermo ' + durTxt_(tot) : 'nessun fermo registrato'],
-    ['Dettaglio', nel.length ? nel.slice(0, 20).map(riga).join('<br>') + (nel.length > 20 ? '<br>… e altri ' + (nel.length - 20) : '') : '—'],
-    ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dalle ' + hm_(f.a) + ' (' + durTxt_((Date.now() - f.a) / 60000) + ') · ' + (f.man || '?')).join('<br>') : 'nessuno'],
-    ['Anomalie nuove', nuove.length ? nuove.map(x => 'urg. ' + x.urg + ' · ' + x.linea + ' ' + nice_(x.macc) + ' · ' + h_(x.descr.slice(0, 70)) + ' · ' + (x.da || '')).join('<br>') : 'nessuna'],
-    ['Anomalie chiuse', chiuse.length || 'nessuna'],
-    ['Anomalie da gestire', aperte.length + (aperte.length ? ' (critiche ' + aperte.filter(x => x.urg === 1).length + ', urgenti ' + aperte.filter(x => x.urg === 2).length + ')' : '')]]
-    .concat(soloLinee ? [] : righeCompitiTurno_(a, b))
-    .concat([['Nota', 'riepilogo automatico dai dati registrati nell\'app']]), { noMail: !conMail });
+  const out = ['⏱ ' + nFermi_(nel.length).toUpperCase() + (nel.length ? ' · ' + durTxt_(tot) : '')];
+  if (nel.length) AREE_RIEP.concat(['']).forEach(area => {
+    const s = nel.filter(f => f.area === area);
+    if (!area && !s.length) return;
+    out.push('', (area || 'AREA NON TROVATA') + ' · ' + (s.length ? durTxt_(s.reduce((x, f) => x + minDi_(f), 0)) + ' (' + nFermi_(s.length) + ')' : 'nessun fermo'));
+    if (s.length) out.push.apply(out, righeLinee_(s));
+  });
+  out.push.apply(out, piuLunghi_(nel, breve, false));
+  // Da sistemare: fermi lasciati aperti e fermi chiusi senza descrizione
+  const senza = nel.filter(f => f.b && !String(f.altro || '').trim());
+  if (aperti.length || senza.length) {
+    out.push('', '⚠️ DA SISTEMARE');
+    aperti.forEach(f => out.push('  APERTO: ' + f.linea + ' ' + breve(f.linea, f.macc) + ' dalle ' + (f.a < a ? gm_(f.a) + ' ' : '') + hm_(f.a) + ' · ' + (f.man || '?')));
+    if (senza.length) out.push('  Senza descrizione: ' + senza.length + ' (' + senza.map(f => String(f.man || '?').split(' ')[0]).filter((x, i, l) => l.indexOf(x) === i).join(', ') + ')');
+  }
+  out.push('', rigaAnomalie_(nuove, aperte, null));
+  nuove.forEach(x => out.push('  urg. ' + x.urg + ' · ' + x.linea + ' ' + breve(x.linea, x.macc) + ' · ' + String(x.descr).slice(0, 50)));
+  const titolo = 'PASSAGGIO TURNO ' + t + ' · ' + giorno + ' · ' + Utilities.formatDate(a, TZ, 'H') + '–' + Utilities.formatDate(b, TZ, 'H') + (soloLinee ? ' · solo ' + soloLinee.join(', ') : '');
+  mail_('Passaggio di turno', titolo, out.join('\n'), { noMail: !conMail });
 }
 
 /* Backup: copia .xlsx del foglio in "Pharma-Fix Backup" (Drive), tiene le ultime N */
@@ -1559,26 +1600,3 @@ function compitiTutti_() {
 }
 const chiK_ = k => k.presoDa || k.a;
 
-function righeCompitiTurno_(a, b) {
-  let tutti; try { tutti = compitiTutti_(); } catch (e) { Logger.log(e); return []; }
-  if (!tutti.length) return [];
-  const fatti = tutti.filter(k => k.stato === 'FATTO' && k.fatto >= a.getTime() && k.fatto < b.getTime());
-  const rit = tutti.filter(k => k.aperto && k.ritardo);
-  const prossimo = turno_(new Date(b.getTime() + 60000)), perTurno = tutti.filter(k => k.aperto && !k.presoDa && turnoDi_(k.a) === prossimo);
-  const riga = k => h_(k.titolo.slice(0, 60)) + ' · ' + (chiK_(k) || '?') + (k.code ? ' · ' + k.code : '');
-  return [['Compiti fatti nel turno', fatti.length ? fatti.map(k => riga(k) + (k.nota ? ' · ' + h_(k.nota.slice(0, 60)) : '')).join('<br>') : 'nessuno'],
-    ['Compiti in ritardo', rit.length ? rit.slice(0, 10).map(k => riga(k) + ' · scadeva il ' + gm_(new Date(k.entro))).join('<br>') + (rit.length > 10 ? '<br>… e altri ' + (rit.length - 10) : '') : 'nessuno']]
-    .concat(perTurno.length ? [['Compiti per il turno ' + prossimo, perTurno.map(riga).join('<br>')]] : []);
-}
-function righeCompitiSett_(inizio, fine) {
-  let tutti; try { tutti = compitiTutti_(); } catch (e) { Logger.log(e); return []; }
-  if (!tutti.length) return [];
-  const i = inizio.getTime(), f = fine.getTime();
-  const nuovi = tutti.filter(k => k.ts >= i && k.ts < f), fatti = tutti.filter(k => k.stato === 'FATTO' && k.fatto >= i && k.fatto < f);
-  const rit = tutti.filter(k => k.aperto && k.ritardo);
-  const per = {}; tutti.filter(k => k.aperto).forEach(k => { const p = per[chiK_(k)] = per[chiK_(k)] || { a: 0, r: 0 }; p.a++; if (k.ritardo) p.r++; });
-  return [['━━ COMPITI ━━'],
-    ['Settimana', 'assegnati ' + nuovi.length + ' · fatti ' + fatti.length + (fatti.length ? ' (in tempo ' + fatti.filter(k => !k.ritardo).length + ', in ritardo ' + fatti.filter(k => k.ritardo).length + ')' : '')],
-    ['Aperti adesso', tutti.filter(k => k.aperto).length + (rit.length ? ' · in ritardo ' + rit.length : '')],
-    ['Per persona (aperti)', Object.keys(per).length ? Object.keys(per).sort().map(n => n + ': ' + per[n].a + (per[n].r ? ' (in ritardo ' + per[n].r + ')' : '')).join('<br>') : '—']];
-}
