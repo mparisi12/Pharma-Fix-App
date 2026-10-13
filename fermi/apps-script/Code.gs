@@ -1189,7 +1189,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1334,6 +1334,7 @@ function closeFermo_(p) {
   const r = findRow_(sh, p.id);
   if (!r) throw new Error('Fermo ' + p.id + ' non trovato');
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
+  const daAltri = chiCoordina_(sh, r, p.manutentore); // chi non l'ha aperto deve essere coordinatore
   lotto_(p.lotto);
   const d = new Date(Number(p.ts));
   // FILLING: fermo aperto prima di entrare in sterile, chiuso con gli orari del batch record (p.inizio = inizio corretto)
@@ -1351,7 +1352,8 @@ function closeFermo_(p) {
   const code = sh.getRange(r, C.EQ).getValue();
   const url = savePhoto_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura');
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
-  if (p.manutentore) sh.getRange(r, C.MAN).setValue(p.manutentore);
+  if (p.manutentore && !daAltri) sh.getRange(r, C.MAN).setValue(p.manutentore);
+  if (daAltri) sh.getRange(r, C.MAN).setNote('Chiuso da ' + p.manutentore + ' (coordinatore) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
   sh.getRange(r, C.CAT, 1, 4).setValues([[p.categoria || '', p.intervento || '', p.guasto || '', p.altro || '']]);
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
@@ -1366,11 +1368,19 @@ function closeFermo_(p) {
   return { row: r };
 }
 
+// Il fermo lo chiude/annulla chi l'ha aperto; un altro solo se è coordinatore (torna true in quel caso)
+function chiCoordina_(sh, r, chi) {
+  const aperto = String(sh.getRange(r, C.APERTO_DA).getValue() || sh.getRange(r, C.MAN).getValue() || '').trim();
+  if (!aperto || aperto.toUpperCase() === String(chi || '').trim().toUpperCase()) return false;
+  if (isCoordinatore_(chi)) return true;
+  throw new Error('Può chiudere il fermo solo chi l\'ha aperto (' + aperto + ') o un coordinatore');
+}
 function cancelFermo_(p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);
   const r = findRow_(sh, p.id);
   if (!r) return { dup: true };
   if (sh.getRange(r, C.STATO).getValue() !== 'APERTO') throw new Error('Si possono annullare solo fermi aperti');
+  chiCoordina_(sh, r, p.manutentore);
   sh.deleteRow(r);
   return {};
 }
