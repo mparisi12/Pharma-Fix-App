@@ -641,7 +641,7 @@ function renderHome() {
   $('#view').innerHTML = `
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
     <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
-    <div class="center"><button class="linkbtn" id="manual">QR rovinato? Scegli la macchina a mano</button></div>
+    <div class="center"><button class="linkbtn" id="manual">Problemi con il QR? Scegli la macchina a mano</button></div>
     ${coord ? `<h2>Fermi aperti · ${open.length}</h2>
     <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>`
     : `<h2>I tuoi fermi aperti · ${miei.length}</h2>
