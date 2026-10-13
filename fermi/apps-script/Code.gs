@@ -224,6 +224,7 @@ function onOpen() {
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
+    .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -1189,7 +1190,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1225,6 +1226,11 @@ function json_(o) {
 
 function init_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) { // una volta sola dopo l'aggiornamento
+    const lock = LockService.getScriptLock();
+    try { if (lock.tryLock(5000)) { if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) sistemaLotti(); } } catch (e) { Logger.log(e); }
+    finally { try { lock.releaseLock(); } catch (e) {} }
+  }
   const equipment = equipment_(ss);
   // Liste
   const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues();
@@ -1315,6 +1321,7 @@ function openFermo_(p) {
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
   sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto);
   sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
   sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
   if (url) sh.getRange(r, C.FOTO_A).setFormula(F_(linkFormula_(url)));
@@ -1326,7 +1333,25 @@ function openFermo_(p) {
 function lotto_(v) {
   const s = String(v == null ? '' : v).trim();
   if (!/^\d{4,10}$/.test(s)) throw new Error('Lotto obbligatorio: inserisci il numero di lotto');
-  return Number(s);
+  return s; // testo: gli zeri iniziali (es. 012345) non si perdono
+}
+// Lotti scritti come numero dalle versioni precedenti: tornano testo a 6 cifre (012345). Gira da solo una volta.
+const LOTTO_CIFRE = 6;
+function sistemaLotti() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
+  let n = 0;
+  if (last >= 2) {
+    const rg = sh.getRange(2, C.LOTTO, last - 1, 1), v = rg.getValues();
+    const out = v.map(r => {
+      const x = r[0];
+      if (typeof x === 'number' && isFinite(x)) { const t = String(Math.round(x)); if (t.length < LOTTO_CIFRE) n++; return [t.padStart(LOTTO_CIFRE, '0')]; }
+      return [x];
+    });
+    rg.setNumberFormat('@').setValues(out);
+  }
+  PropertiesService.getScriptProperties().setProperty('LOTTI_TESTO', '1');
+  try { SpreadsheetApp.getUi().alert('Lotti sistemati: ' + n + ' con lo zero iniziale ripristinato. La colonna Lotto ora è in formato testo.'); } catch (e) {}
+  return n;
 }
 
 function closeFermo_(p) {
@@ -1334,7 +1359,10 @@ function closeFermo_(p) {
   const r = findRow_(sh, p.id);
   if (!r) throw new Error('Fermo ' + p.id + ' non trovato');
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
+  const daAltri = chiCoordina_(sh, r, p.manutentore); // chi non l'ha aperto deve essere coordinatore
   lotto_(p.lotto);
+  if (String(p.intervento || '').trim().toUpperCase() === 'SOSTITUZIONE' && !String(p.pezzo || '').trim())
+    throw new Error('Con SOSTITUZIONE il codice pezzo sostituito è obbligatorio');
   const d = new Date(Number(p.ts));
   // FILLING: fermo aperto prima di entrare in sterile, chiuso con gli orari del batch record (p.inizio = inizio corretto)
   const nuovoInizio = p.inizio ? new Date(Number(p.inizio)) : null;
@@ -1351,7 +1379,8 @@ function closeFermo_(p) {
   const code = sh.getRange(r, C.EQ).getValue();
   const url = savePhoto_(p.foto, Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura');
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
-  if (p.manutentore) sh.getRange(r, C.MAN).setValue(p.manutentore);
+  if (p.manutentore && !daAltri) sh.getRange(r, C.MAN).setValue(p.manutentore);
+  if (daAltri) sh.getRange(r, C.MAN).setNote('Chiuso da ' + p.manutentore + ' (coordinatore) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
   sh.getRange(r, C.CAT, 1, 4).setValues([[p.categoria || '', p.intervento || '', p.guasto || '', p.altro || '']]);
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
@@ -1359,18 +1388,26 @@ function closeFermo_(p) {
   sh.getRange(r, C.REG).setValue(new Date(Number(p.reg) || Date.now())).setNumberFormat('dd/MM/yyyy HH:mm');
   const tel = String(sh.getRange(r, C.TEL).getValue() || '');
   if (p.dev && tel.indexOf(p.dev) < 0) sh.getRange(r, C.TEL).setValue(tel ? tel + ' / ' + p.dev : p.dev);
-  sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
+  sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
   try { SpreadsheetApp.flush(); aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
   avvisoRipetuto_(sh, code, p.guasto);
   return { row: r };
 }
 
+// Il fermo lo chiude/annulla chi l'ha aperto; un altro solo se è coordinatore (torna true in quel caso)
+function chiCoordina_(sh, r, chi) {
+  const aperto = String(sh.getRange(r, C.APERTO_DA).getValue() || sh.getRange(r, C.MAN).getValue() || '').trim();
+  if (!aperto || aperto.toUpperCase() === String(chi || '').trim().toUpperCase()) return false;
+  if (isCoordinatore_(chi)) return true;
+  throw new Error('Può chiudere il fermo solo chi l\'ha aperto (' + aperto + ') o un coordinatore');
+}
 function cancelFermo_(p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI);
   const r = findRow_(sh, p.id);
   if (!r) return { dup: true };
   if (sh.getRange(r, C.STATO).getValue() !== 'APERTO') throw new Error('Si possono annullare solo fermi aperti');
+  chiCoordina_(sh, r, p.manutentore);
   sh.deleteRow(r);
   return {};
 }

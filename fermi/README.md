@@ -402,6 +402,7 @@ Per partire: menu **Pharma-Fix → Attiva report e backup automatici** (una volt
 | Un documento non si apre ("Richiedi l'accesso") | Il file in Drive non è condiviso: tasto destro → Condividi → *Chiunque abbia il link* (o *chiunque nell'organizzazione*). |
 | Un documento non compare sulla macchina | Nel foglio Documenti la colonna **Dove** non contiene il codice della macchina né la sua linea, oppure è scritta diversa (es. `ST3 04` invece di `ST3-04`). |
 | "Il foglio risponde lentamente" | Lo script si stava svegliando: i dati arrivano da soli. Se succede spesso: **Pharma-Fix → Attiva sveglia dello script** (5.10). |
+| Lotto senza lo zero iniziale (es. 12345 invece di 012345) | Corretto: i lotti ora si salvano come testo. Quelli vecchi si sistemano da soli una volta dopo l'aggiornamento (a 6 cifre); per rifarlo: **Pharma-Fix → Sistema lotti (zeri iniziali)**. |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
 
 ---
