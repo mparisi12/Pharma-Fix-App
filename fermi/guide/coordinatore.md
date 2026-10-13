@@ -41,16 +41,29 @@ Quando un tecnico risolve qualcosa di nuovo, chiedigli di aggiungerlo in **Soluz
 
 Se una soluzione già approvata è sbagliata o superata, segnalalo al responsabile, che la corregge nel foglio.
 
-## 5. Telefoni dei tecnici
+## 5. Compiti: assegnarli e seguirli
+
+Tocca il **tuo nome** in alto → **Compiti del reparto** → **+ Assegna un compito**:
+- **A chi**: un tecnico, oppure **Turno T1 / T2 / T3** (lo vede chi è in turno; il primo che tocca *Lo prendo io* ne diventa responsabile).
+- **Titolo**, **cosa fare**, **macchina** (facoltativa), **priorità** (normale / urgente), **entro il**.
+
+Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi gli aperti (in rosso quelli in ritardo), i fatti, il riepilogo **per persona** e lo storico (tocca un nome per vedere solo i suoi).
+- **Annullare** un compito che non serve più o **riaprirne** uno fatto male: dal dettaglio, con il **motivo** (obbligatorio, resta scritto).
+- Tutto resta nel foglio **Compiti**: chi l'ha assegnato, preso in carico e fatto, quando, con la nota. Nulla si cancella.
+- Nel passaggio di turno trovi i compiti fatti, quelli in ritardo e quelli per il turno che entra; il lunedì il riepilogo per persona.
+
+Per i tecnici, **Stampa etichette QR** non c'è più nel menu del nome: resta solo ai coordinatori.
+
+## 6. Telefoni dei tecnici
 
 Ogni tecnico è legato al suo telefono. Se un tecnico vede **"Telefono non autorizzato"** (telefono nuovo o cambiato), avvisa il responsabile: lo approva nel foglio Telefoni. Intanto il tecnico può continuare a lavorare: i dati restano in coda e partono dopo l'approvazione.
 Se un telefono viene perso, avvisa subito il responsabile per bloccarlo.
 Il **codice reparto** per i tecnici nuovi lo dà solo il responsabile: non passarlo tu e non scriverlo in chat o sui gruppi.
 
-## 6. La tua routine
+## 7. La tua routine
 
 | Quando | Cosa |
 |---|---|
 | **A ogni passaggio di turno** | Leggi il messaggio, controlla fermi aperti e "(senza descrizione)", anomalie critiche |
-| **Ogni giorno** | Anomalie da gestire: chi le ha in carico? Ci sono critiche ferme? Soluzioni da approvare |
+| **Ogni giorno** | Anomalie da gestire: chi le ha in carico? Ci sono critiche ferme? Soluzioni da approvare. Compiti in ritardo |
 | **Lunedì mattina** | Riepilogo settimanale: guasti che si ripetono e fermi lunghi da discutere con il responsabile |

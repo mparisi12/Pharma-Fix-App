@@ -1086,7 +1086,8 @@ function riepilogoSettimanale() {
     .concat(blocco('AREA NON TROVATA', f => !f.area))
     .concat([['━━ GENERALE ━━'],
     ['Anomalie', 'da gestire ' + aperte.length + ' (critiche ' + aperte.filter(a => a.urg === 1).length + ', urgenti ' + aperte.filter(a => a.urg === 2).length + ') · nuove ' + an.filter(a => a.ts && a.ts >= inizio && a.ts < fine).length + ' · chiuse ' + an.filter(a => a.chiusa && a.chiusa >= inizio && a.chiusa < fine).length],
-    ['Fermi ancora aperti', aperti.length ? aperti.map(f => tag(f) + f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']]));
+    ['Fermi ancora aperti', aperti.length ? aperti.map(f => tag(f) + f.linea + ' ' + nice_(f.macc) + ' dal ' + gm_(f.a) + ' ' + hm_(f.a)).join('<br>') : 'nessuno']])
+    .concat(righeCompitiSett_(inizio, fine)));
 }
 
 /* Passaggio di turno: cosa è successo nel turno appena finito, solo dai dati registrati */
@@ -1120,8 +1121,9 @@ function passaggioTurno(conMail, soloLinee) {
     ['Fermi ancora aperti', aperti.length ? aperti.map(f => f.linea + ' ' + nice_(f.macc) + ' dalle ' + hm_(f.a) + ' (' + durTxt_((Date.now() - f.a) / 60000) + ') · ' + (f.man || '?')).join('<br>') : 'nessuno'],
     ['Anomalie nuove', nuove.length ? nuove.map(x => 'urg. ' + x.urg + ' · ' + x.linea + ' ' + nice_(x.macc) + ' · ' + h_(x.descr.slice(0, 70)) + ' · ' + (x.da || '')).join('<br>') : 'nessuna'],
     ['Anomalie chiuse', chiuse.length || 'nessuna'],
-    ['Anomalie da gestire', aperte.length + (aperte.length ? ' (critiche ' + aperte.filter(x => x.urg === 1).length + ', urgenti ' + aperte.filter(x => x.urg === 2).length + ')' : '')],
-    ['Nota', 'riepilogo automatico dai dati registrati nell\'app']], { noMail: !conMail });
+    ['Anomalie da gestire', aperte.length + (aperte.length ? ' (critiche ' + aperte.filter(x => x.urg === 1).length + ', urgenti ' + aperte.filter(x => x.urg === 2).length + ')' : '')]]
+    .concat(soloLinee ? [] : righeCompitiTurno_(a, b))
+    .concat([['Nota', 'riepilogo automatico dai dati registrati nell\'app']]), { noMail: !conMail });
 }
 
 /* Backup: copia .xlsx del foglio in "Pharma-Fix Backup" (Drive), tiene le ultime N */
@@ -1190,7 +1192,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1200,6 +1202,8 @@ function doPost(e) {
     else if (p.action === 'anomaliaStato') res = statoAnomalia_(p);
     else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
     else if (p.action === 'correzione') res = correzione_(p);
+    else if (p.action === 'compito') res = addCompito_(p);
+    else if (p.action === 'compitoStato') res = statoCompito_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
     return json_(Object.assign({ ok: true }, res));
@@ -1257,7 +1261,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {
@@ -1444,4 +1448,137 @@ function cancelFermo_(p) {
   chiCoordina_(sh, r, p.manutentore);
   sh.deleteRow(r);
   return {};
+}
+
+/* =================== Compiti ===================
+   Il coordinatore assegna un compito a un tecnico o a un turno; il tecnico lo prende in carico e lo segna fatto.
+   Una riga per compito nel foglio Compiti, mai cancellata: lo stato cambia e ogni passaggio finisce nella colonna Storia. */
+const SH_COMP = 'Compiti';
+const COMP_H = ['ID', 'Creato il', 'Assegnato da', 'Assegnato a (tecnico o Turno T1/T2/T3)', 'Linea', 'Macchina (codice)', 'Titolo', 'Cosa fare',
+  'Priorità (NORMALE / URGENTE)', 'Entro il', 'Stato (DA FARE / IN CORSO / FATTO / ANNULLATO)', 'Preso in carico da', 'Preso il', 'Fatto da', 'Fatto il',
+  'Nota di chiusura', 'In ritardo', 'Storia'];
+const K = { ID: 1, CREATO: 2, DA: 3, A: 4, LINEA: 5, EQ: 6, TITOLO: 7, DESCR: 8, PR: 9, ENTRO: 10, STATO: 11, PRESO_DA: 12, PRESO: 13, FATTO_DA: 14, FATTO: 15, NOTA: 16, RIT: 17, STORIA: 18 };
+const K_STATI = ['DA FARE', 'IN CORSO', 'FATTO', 'ANNULLATO'];
+function compitiSheet_(ss) {
+  let sh = ss.getSheetByName(SH_COMP);
+  if (sh) return sh;
+  sh = ss.insertSheet(SH_COMP);
+  sh.getRange(1, 1, 1, COMP_H.length).setValues([COMP_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(K.TITOLO, 240); sh.setColumnWidth(K.DESCR, 320); sh.setColumnWidth(K.NOTA, 280); sh.setColumnWidth(K.STORIA, 420);
+  sh.getRange(2, K.ENTRO, 999, 1).setNumberFormat('dd/MM/yyyy');
+  [K.CREATO, K.PRESO, K.FATTO].forEach(c => sh.getRange(2, c, 999, 1).setNumberFormat('dd/MM/yyyy HH:mm'));
+  sh.getRange(2, K.STATO, 999, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(K_STATI, true).build());
+  return sh;
+}
+const ora_ = () => Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
+const turnoDi_ = a => ((String(a || '').match(/^\s*turno\s+(T[123])\s*$/i) || [])[1] || '').toUpperCase();
+function entro_(v) {
+  if (v instanceof Date) return dateOnly_(v);
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const n = Number(v); return n ? dateOnly_(new Date(n)) : null;
+}
+function addCompito_(p) {
+  if (!isCoordinatore_(p.manutentore)) throw new Error('Solo i coordinatori possono assegnare compiti');
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = compitiSheet_(ss);
+  if (findIn_(sh, p.id)) return { dup: true };
+  const titolo = String(p.titolo || '').trim(), a = String(p.a || '').trim();
+  if (!titolo) throw new Error('Il titolo del compito è obbligatorio');
+  const turno = turnoDi_(a);
+  const tecnici = (() => { const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues(), c = lv[0].indexOf('Manutentori');
+    return c < 0 ? [] : lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean); })();
+  if (!turno && !tecnici.some(t => t.toUpperCase() === a.toUpperCase())) throw new Error('Tecnico non valido per il compito: ' + a);
+  const entro = entro_(p.entro);
+  if (!entro) throw new Error('La data "entro il" è obbligatoria');
+  const eq = p.code ? (equipment_(ss).find(x => x.code === p.code) || { linea: '' }) : { linea: '' };
+  const d = new Date(Number(p.ts) || Date.now()), chi = String(p.manutentore).trim();
+  const pr = /^urg/i.test(String(p.pr || '')) ? 'URGENTE' : 'NORMALE';
+  sh.appendRow([p.id, d, chi, turno ? 'Turno ' + turno : a, eq.linea || '', p.code || '', titolo, String(p.descr || '').trim(), pr, entro, 'DA FARE',
+    '', '', '', '', '', '', Utilities.formatDate(d, TZ, 'dd/MM/yyyy HH:mm') + ' assegnato da ' + chi + ' a ' + (turno ? 'Turno ' + turno : a)]);
+  const r = sh.getLastRow();
+  sh.getRange(r, K.CREATO).setNumberFormat('dd/MM/yyyy HH:mm'); sh.getRange(r, K.ENTRO).setNumberFormat('dd/MM/yyyy');
+  // In ritardo: fatto dopo la scadenza, oppure ancora aperto e scaduto (si aggiorna da solo ogni giorno)
+  sh.getRange(r, K.RIT).setFormulaR1C1('=IF(RC11="ANNULLATO","",IF(RC11="FATTO",IF(INT(RC15)>RC10,"SÌ","NO"),IF(TODAY()>RC10,"SÌ","")))');
+  if (pr === 'URGENTE') sh.getRange(r, K.PR).setBackground('#fbeaa0');
+  return {};
+}
+function statoCompito_(p) {
+  const sh = compitiSheet_(SpreadsheetApp.getActiveSpreadsheet());
+  const r = findIn_(sh, p.id);
+  if (!r) throw new Error('Compito ' + p.id + ' non trovato');
+  const v = sh.getRange(r, 1, 1, COMP_H.length).getValues()[0];
+  const stato = String(p.stato || '').toUpperCase(), prima = String(v[K.STATO - 1] || 'DA FARE').toUpperCase();
+  if (K_STATI.indexOf(stato) < 0) throw new Error('Stato non valido');
+  const chi = String(p.manutentore || '').trim(), CHI = chi.toUpperCase(), coord = isCoordinatore_(chi);
+  const a = String(v[K.A - 1] || '').trim(), preso = String(v[K.PRESO_DA - 1] || '').trim();
+  const mio = a.toUpperCase() === CHI || preso.toUpperCase() === CHI || (!!turnoDi_(a) && !preso);
+  const nota = String(p.nota || '').trim(), quando = new Date(Number(p.ts) || Date.now());
+  if (stato === prima) return { dup: true }; // reinvio dalla coda del telefono
+  let log;
+  if (stato === 'IN CORSO') {
+    if (prima !== 'DA FARE') throw new Error('Il compito non è più da fare (' + prima + ')');
+    if (!mio && !coord) throw new Error('Compito assegnato a ' + (preso || a) + ': lo può prendere solo lui o un coordinatore');
+    sh.getRange(r, K.STATO).setValue('IN CORSO');
+    sh.getRange(r, K.PRESO_DA, 1, 2).setValues([[chi, quando]]); sh.getRange(r, K.PRESO).setNumberFormat('dd/MM/yyyy HH:mm');
+    log = 'preso in carico da ' + chi;
+  } else if (stato === 'FATTO') {
+    if (prima === 'ANNULLATO') throw new Error('Il compito è stato annullato');
+    if (!mio && !coord) throw new Error('Compito assegnato a ' + (preso || a) + ': lo può segnare fatto solo lui o un coordinatore');
+    if (!preso) { sh.getRange(r, K.PRESO_DA, 1, 2).setValues([[chi, quando]]); sh.getRange(r, K.PRESO).setNumberFormat('dd/MM/yyyy HH:mm'); }
+    sh.getRange(r, K.STATO).setValue('FATTO');
+    sh.getRange(r, K.FATTO_DA, 1, 3).setValues([[chi, quando, nota]]); sh.getRange(r, K.FATTO).setNumberFormat('dd/MM/yyyy HH:mm');
+    log = 'fatto da ' + chi + (nota ? ': ' + nota : '');
+  } else { // DA FARE (riaperto) o ANNULLATO: solo coordinatori, con il motivo
+    if (!coord) throw new Error('Solo i coordinatori possono ' + (stato === 'ANNULLATO' ? 'annullare' : 'riaprire') + ' un compito');
+    if (!nota) throw new Error('Il motivo è obbligatorio');
+    sh.getRange(r, K.STATO).setValue(stato);
+    if (stato === 'DA FARE') sh.getRange(r, K.PRESO_DA, 1, 5).clearContent(); // torna a chi era assegnato; la storia resta
+    log = (stato === 'ANNULLATO' ? 'annullato' : 'riaperto') + ' da ' + chi + ': ' + nota;
+  }
+  const storia = String(v[K.STORIA - 1] || '');
+  sh.getRange(r, K.STORIA).setValue((storia ? storia + '\n' : '') + Utilities.formatDate(quando, TZ, 'dd/MM/yyyy HH:mm') + ' ' + log);
+  return {};
+}
+// Per l'app: tutti i compiti aperti + fatti/annullati negli ultimi 90 giorni
+function compiti_(ss) {
+  const from = Date.now() - 90 * 864e5;
+  return righe_(ss, SH_COMP, COMP_H.length).map(r => ({ id: String(r[K.ID - 1]), ts: ts_(r[K.CREATO - 1]), da: String(r[K.DA - 1]), a: String(r[K.A - 1]).trim(),
+    linea: String(r[K.LINEA - 1]), code: String(r[K.EQ - 1]), titolo: String(r[K.TITOLO - 1]), descr: String(r[K.DESCR - 1]),
+    pr: String(r[K.PR - 1] || 'NORMALE').toUpperCase(), entro: r[K.ENTRO - 1] instanceof Date ? r[K.ENTRO - 1].getTime() : ts_(r[K.ENTRO - 1]),
+    stato: String(r[K.STATO - 1] || 'DA FARE').toUpperCase(), presoDa: String(r[K.PRESO_DA - 1]), preso: ts_(r[K.PRESO - 1]),
+    fattoDa: String(r[K.FATTO_DA - 1]), fatto: ts_(r[K.FATTO - 1]), nota: String(r[K.NOTA - 1]), storia: String(r[K.STORIA - 1]) }))
+    .filter(k => k.id && (k.stato === 'DA FARE' || k.stato === 'IN CORSO' || (k.fatto || k.ts || 0) >= from));
+}
+// Per i riepiloghi (passaggio di turno e settimanale)
+function compitiTutti_() {
+  const oggi = dateOnly_(new Date()).getTime();
+  return compiti_(SpreadsheetApp.getActiveSpreadsheet()).map(k => Object.assign(k, {
+    aperto: k.stato === 'DA FARE' || k.stato === 'IN CORSO',
+    ritardo: (k.stato === 'DA FARE' || k.stato === 'IN CORSO') ? !!k.entro && oggi > k.entro : k.stato === 'FATTO' && !!k.entro && !!k.fatto && dateOnly_(new Date(k.fatto)).getTime() > k.entro }));
+}
+const chiK_ = k => k.presoDa || k.a;
+
+function righeCompitiTurno_(a, b) {
+  let tutti; try { tutti = compitiTutti_(); } catch (e) { Logger.log(e); return []; }
+  if (!tutti.length) return [];
+  const fatti = tutti.filter(k => k.stato === 'FATTO' && k.fatto >= a.getTime() && k.fatto < b.getTime());
+  const rit = tutti.filter(k => k.aperto && k.ritardo);
+  const prossimo = turno_(new Date(b.getTime() + 60000)), perTurno = tutti.filter(k => k.aperto && !k.presoDa && turnoDi_(k.a) === prossimo);
+  const riga = k => h_(k.titolo.slice(0, 60)) + ' · ' + (chiK_(k) || '?') + (k.code ? ' · ' + k.code : '');
+  return [['Compiti fatti nel turno', fatti.length ? fatti.map(k => riga(k) + (k.nota ? ' · ' + h_(k.nota.slice(0, 60)) : '')).join('<br>') : 'nessuno'],
+    ['Compiti in ritardo', rit.length ? rit.slice(0, 10).map(k => riga(k) + ' · scadeva il ' + gm_(new Date(k.entro))).join('<br>') + (rit.length > 10 ? '<br>… e altri ' + (rit.length - 10) : '') : 'nessuno']]
+    .concat(perTurno.length ? [['Compiti per il turno ' + prossimo, perTurno.map(riga).join('<br>')]] : []);
+}
+function righeCompitiSett_(inizio, fine) {
+  let tutti; try { tutti = compitiTutti_(); } catch (e) { Logger.log(e); return []; }
+  if (!tutti.length) return [];
+  const i = inizio.getTime(), f = fine.getTime();
+  const nuovi = tutti.filter(k => k.ts >= i && k.ts < f), fatti = tutti.filter(k => k.stato === 'FATTO' && k.fatto >= i && k.fatto < f);
+  const rit = tutti.filter(k => k.aperto && k.ritardo);
+  const per = {}; tutti.filter(k => k.aperto).forEach(k => { const p = per[chiK_(k)] = per[chiK_(k)] || { a: 0, r: 0 }; p.a++; if (k.ritardo) p.r++; });
+  return [['━━ COMPITI ━━'],
+    ['Settimana', 'assegnati ' + nuovi.length + ' · fatti ' + fatti.length + (fatti.length ? ' (in tempo ' + fatti.filter(k => !k.ritardo).length + ', in ritardo ' + fatti.filter(k => k.ritardo).length + ')' : '')],
+    ['Aperti adesso', tutti.filter(k => k.aperto).length + (rit.length ? ' · in ritardo ' + rit.length : '')],
+    ['Per persona (aperti)', Object.keys(per).length ? Object.keys(per).sort().map(n => n + ': ' + per[n].a + (per[n].r ? ' (in ritardo ' + per[n].r + ')' : '')).join('<br>') : '—']];
 }

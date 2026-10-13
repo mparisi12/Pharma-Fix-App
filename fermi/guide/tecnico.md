@@ -27,10 +27,12 @@ Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi
 ### Chiudere (~30 secondi)
 1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**.
 2. **Foto** della zona di intervento → **tocca la foto per cerchiare** il punto.
-3. Scegli **Categoria**, **Tipo intervento** e **Tipo guasto**.
+3. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto**: ogni scelta sblocca la successiva.
 4. **Descrizione breve**: cosa hai fatto. Scrivila sempre, anche corta: finisce nel passaggio di turno.
-5. Controlla il **lotto** e scrivi il **codice pezzo** se hai cambiato un ricambio.
+5. Controlla il **lotto**. Se il tipo intervento è **SOSTITUZIONE**, scrivi il **codice pezzo** (obbligatorio).
 6. **Chiudi fermo**.
+
+Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Chiedi correzione** e scrivi cosa va corretto: lo sistema il responsabile.
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
@@ -53,7 +55,16 @@ Gli orari scritti a mano valgono per il **turno in corso**, o per quello appena 
 | **Manuali / Schede formato** | Manuali, schemi elettrici e schede formato della macchina o della linea |
 | **Segnala anomalia** | Qualcosa da sistemare ma che non ferma la macchina adesso: urgenza **1** critico, **2** urgente, **3** programmabile, foto e cosa serve |
 
-## 5. Il pallino in alto
+## 5. I tuoi compiti
+
+Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una pulizia). Il **numero rosso sul tuo nome**, in alto, dice quanti compiti hai da fare.
+1. Tocca il **tuo nome** → **I miei compiti**: quelli assegnati a te e quelli del **tuo turno**.
+2. Tocca un compito → **Prendo in carico** (per un compito del turno: **Lo prendo io**, così i colleghi sanno che è tuo).
+3. A lavoro finito scrivi una **nota** (cosa hai fatto; se serve, il riferimento al logbook) → **Fatto**.
+
+Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook e moduli.
+
+## 6. Il pallino in alto
 
 | Pallino | Cosa fare |
 |---|---|
@@ -62,7 +73,7 @@ Gli orari scritti a mano valgono per il **turno in corso**, o per quello appena 
 | 🔴 Non connesso | **Continua a lavorare**: i dati restano sul telefono e partono quando torna la rete. Non disinstallare l'app |
 | 🔴 Telefono non autorizzato | Avvisa il coordinatore: deve approvare il tuo telefono. I dati restano in coda e partono dopo |
 
-## 6. Cose da ricordare
+## 7. Cose da ricordare
 
 - **Un fermo per volta per macchina**, aperto e chiuso con il QR.
 - **Mai lasciare un fermo aperto** a fine turno: arriva un avviso al coordinatore.
