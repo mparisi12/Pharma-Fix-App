@@ -101,7 +101,8 @@ h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:va
 .timer{font:500 17px var(--mono);color:#9a6500;font-variant-numeric:tabular-nums}
 @media (prefers-color-scheme:dark){.timer{color:var(--amber)}}
 .closebtn{border:0;border-radius:10px;background:var(--ok);color:#fff;font:700 16px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:14px}
-.hrow{display:flex;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:100%;text-align:left}
+.hrow{display:flex;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:100%;text-align:left;font:inherit;color:inherit}
+button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .hrow > div{min-width:0;flex:1}
 .hrow .t1{font-weight:600;font-size:14px}
 .hrow .t2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -645,6 +646,7 @@ function renderHome() {
     <div class="center"><button class="linkbtn" id="manual">Scegli macchina a mano</button></div>`;
   $('#scan').onclick = openScanner;
   $('#manual').onclick = () => pickSheet(eq => go({ name: 'equip', code: eq.code }));
+  $$('[data-hint]').forEach(b => b.onclick = () => { const f = today.find(x => x.id === b.dataset.hint); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); }); // dettaglio del fermo chiuso
   bindCommon();
 }
 function openCard(f) {
@@ -655,9 +657,9 @@ function openCard(f) {
 }
 function histRow(f) {
   const dur = f.end ? fmtDur((f.end - f.start) / 60000) : '';
-  return `<div class="hrow"><div><div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
+  return `<button class="hrow" data-hint="${esc(f.id)}"><div><div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
     <div class="t2">${fmtDT(f.start)} · ${esc(f.linea)} ${esc(f.macchina)}${f.altro ? ' · ' + esc(f.altro) : ''}</div></div>
-    <div class="dur">${dur}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></div>`;
+    <div class="dur">${dur}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></button>`;
 }
 function anoCard(a) {
   return `<button class="acard" data-ano="${esc(a.id)}">${urgTag(a.urgenza)}<div><div class="t1">${esc(a.linea)} · ${esc(nice(a.macchina))}</div>
