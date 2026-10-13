@@ -1135,7 +1135,7 @@ function closeSheet(f, opt = {}) {
       <div class="group"><label class="label" for="altro"><em class="stepn">4</em>Descrizione breve <i class="lockhint">· scegli prima il tipo guasto</i></label><textarea class="field" id="altro" placeholder="Cosa hai fatto. Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea></div>
       <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
       <div class="group" id="phgrp"></div>
-      <div class="group"><label class="label" for="pezzo">Codice pezzo sostituito</label><input class="field" id="pezzo" autocomplete="off" placeholder="Facoltativo"></div>
+      <div class="group" id="pzgrp" hidden><label class="label" for="pezzo">Codice pezzo sostituito · obbligatorio con SOSTITUZIONE</label><input class="field" id="pezzo" autocomplete="off" placeholder="Codice del ricambio montato"></div>
     </div>
     <div class="err" id="err" hidden></div>
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
@@ -1144,7 +1144,8 @@ function closeSheet(f, opt = {}) {
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
   const sblocca = id => { const el = $('#' + id); if (!el || !el.classList.contains('locked')) return; el.classList.remove('locked'); setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
   singleChoice($('#cat'), v => { C.cat = v; sblocca('st2'); });
-  singleChoice($('#int'), v => { C.int = v; sblocca('st3'); if (C.guasto) sblocca('st4'); });
+  const sost = () => U(C.int) === 'SOSTITUZIONE';
+  singleChoice($('#int'), v => { C.int = v; $('#pzgrp').hidden = !sost(); sblocca('st3'); if (C.guasto) sblocca('st4'); });
   singleChoice($('#gua'), v => { C.guasto = v; showSuggest(eq, v); sblocca('st4'); });
   if (C.guasto) showSuggest(eq, C.guasto);
   $('#go').onclick = () => {
@@ -1153,6 +1154,7 @@ function closeSheet(f, opt = {}) {
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
     if (!msg && (C.guasto === 'ALTRO' || C.int === 'ALTRO') && !altro) msg = 'Hai scelto ALTRO: scrivi una descrizione breve.';
     if (!msg && !LOTTO_OK($('#clotto').value)) msg = LOTTO_MSG;
+    if (!msg && sost() && !$('#pezzo').value.trim()) { msg = 'Hai scelto SOSTITUZIONE: scrivi il codice del pezzo sostituito.'; $('#pezzo').focus(); }
     const now = Date.now();
     let ini = f.start, fin = now;
     let dich = REG;
@@ -1172,7 +1174,7 @@ function closeSheet(f, opt = {}) {
     const lotto = $('#clotto').value.trim();
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
     enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
-      altro, pezzo: $('#pezzo').value.trim(), lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now });
+      altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now });
     delete PRE_G[f.id]; save('preg', PRE_G);
     closeSh(); toast((REG ? 'Fermo registrato · ' : 'Fermo chiuso · ') + fmtDur((fin - ini) / 60000));
   };

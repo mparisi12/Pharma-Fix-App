@@ -1361,6 +1361,8 @@ function closeFermo_(p) {
   if (sh.getRange(r, C.STATO).getValue() === 'CHIUSO') return { dup: true };
   const daAltri = chiCoordina_(sh, r, p.manutentore); // chi non l'ha aperto deve essere coordinatore
   lotto_(p.lotto);
+  if (String(p.intervento || '').trim().toUpperCase() === 'SOSTITUZIONE' && !String(p.pezzo || '').trim())
+    throw new Error('Con SOSTITUZIONE il codice pezzo sostituito è obbligatorio');
   const d = new Date(Number(p.ts));
   // FILLING: fermo aperto prima di entrare in sterile, chiuso con gli orari del batch record (p.inizio = inizio corretto)
   const nuovoInizio = p.inizio ? new Date(Number(p.inizio)) : null;
