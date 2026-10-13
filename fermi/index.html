@@ -716,7 +716,7 @@ function renderEquip() {
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
     ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi</button>' : ''}
-    <div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>`;
+    ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
@@ -1063,7 +1063,7 @@ function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <p class="hint">Fermi, soluzioni e anomalie vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
-    <a class="submit blue" href="qr.html" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;margin-bottom:10px">${I.qr.replace('<svg', '<svg width="22" height="22"')}Stampa etichette QR</a>
+    ${isCoord() ? `<a class="submit blue" href="qr.html" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;margin-bottom:10px">${I.qr.replace('<svg', '<svg width="22" height="22"')}Stampa etichette QR</a>` : ''}
     <button class="submit red" id="logout">Esci</button>`);
   $('#logout').onclick = logout;
 };
