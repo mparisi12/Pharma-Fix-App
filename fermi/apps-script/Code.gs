@@ -224,6 +224,7 @@ function onOpen() {
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
+    .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -1225,6 +1226,11 @@ function json_(o) {
 
 function init_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) { // una volta sola dopo l'aggiornamento
+    const lock = LockService.getScriptLock();
+    try { if (lock.tryLock(5000)) { if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) sistemaLotti(); } } catch (e) { Logger.log(e); }
+    finally { try { lock.releaseLock(); } catch (e) {} }
+  }
   const equipment = equipment_(ss);
   // Liste
   const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues();
@@ -1315,6 +1321,7 @@ function openFermo_(p) {
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
   sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto);
   sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
   sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
   if (url) sh.getRange(r, C.FOTO_A).setFormula(F_(linkFormula_(url)));
@@ -1326,7 +1333,25 @@ function openFermo_(p) {
 function lotto_(v) {
   const s = String(v == null ? '' : v).trim();
   if (!/^\d{4,10}$/.test(s)) throw new Error('Lotto obbligatorio: inserisci il numero di lotto');
-  return Number(s);
+  return s; // testo: gli zeri iniziali (es. 012345) non si perdono
+}
+// Lotti scritti come numero dalle versioni precedenti: tornano testo a 6 cifre (012345). Gira da solo una volta.
+const LOTTO_CIFRE = 6;
+function sistemaLotti() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
+  let n = 0;
+  if (last >= 2) {
+    const rg = sh.getRange(2, C.LOTTO, last - 1, 1), v = rg.getValues();
+    const out = v.map(r => {
+      const x = r[0];
+      if (typeof x === 'number' && isFinite(x)) { const t = String(Math.round(x)); if (t.length < LOTTO_CIFRE) n++; return [t.padStart(LOTTO_CIFRE, '0')]; }
+      return [x];
+    });
+    rg.setNumberFormat('@').setValues(out);
+  }
+  PropertiesService.getScriptProperties().setProperty('LOTTI_TESTO', '1');
+  try { SpreadsheetApp.getUi().alert('Lotti sistemati: ' + n + ' con lo zero iniziale ripristinato. La colonna Lotto ora è in formato testo.'); } catch (e) {}
+  return n;
 }
 
 function closeFermo_(p) {
@@ -1359,7 +1384,7 @@ function closeFermo_(p) {
   sh.getRange(r, C.REG).setValue(new Date(Number(p.reg) || Date.now())).setNumberFormat('dd/MM/yyyy HH:mm');
   const tel = String(sh.getRange(r, C.TEL).getValue() || '');
   if (p.dev && tel.indexOf(p.dev) < 0) sh.getRange(r, C.TEL).setValue(tel ? tel + ' / ' + p.dev : p.dev);
-  sh.getRange(r, C.LOTTO).setValue(lotto_(p.lotto));
+  sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto_(p.lotto));
   sh.getRange(r, 1, 1, HEAD.length).setBackground(null);
   try { SpreadsheetApp.flush(); aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
   avvisoRipetuto_(sh, code, p.guasto);
