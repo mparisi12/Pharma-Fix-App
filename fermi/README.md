@@ -67,6 +67,7 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Soluzioni** | Troubleshooting: dove vale (codice macchina, linea o `TUTTE`), tipo guasto, problema, soluzione, codici ricambio, allegato. | L'app (pulsante *Aggiungi soluzione*) e tu. |
 | **Documenti** | Manuali, schemi, schede formato: dove vale, tipo, titolo, descrizione, **link**. | Tu (vedi 5.6). |
 | **Anomalie** | Segnalazioni: macchina, urgenza (cella colorata), descrizione, cosa serve, foto, stato APERTA / IN CORSO / CHIUSA, chi l'ha gestita, nota. | L'app; tu puoi cambiare stato e note. |
+| **Compiti** | Compiti assegnati dai coordinatori a un tecnico o a un turno: chi, cosa, entro quando, stato DA FARE / IN CORSO / FATTO / ANNULLATO, chi l'ha preso e quando, chi l'ha fatto e quando, nota, **In ritardo** (calcolato), **Storia** (ogni passaggio con data e nome). Una riga per compito, **mai cancellata**. Si crea da solo al primo compito (vedi 5.13). | L'app. Non cancellare righe: un compito che non serve si annulla dall'app. |
 | **Telefoni** | Il telefono di ogni tecnico. Il primo si registra da solo; un telefono nuovo, o il telefono di un collega, resta **DA APPROVARE** (vedi 5.9). | Tu (colonna Stato). |
 | **Controlli** | Casi da guardare (telefoni da approvare, stesso telefono per più tecnici, fermi sovrapposti, orari dichiarati inseriti tardi): menu **Pharma-Fix → Controlla registrazioni**. | Lo script. |
 | **KPI** | Indicatori separati per Filling e Packaging, con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, RFR, Pareto doppio (frequenza e durata) con grafici, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
@@ -180,11 +181,13 @@ Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è *
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
 2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
-3. Scegli **Categoria**, **Tipo intervento**, **Tipo guasto** (uno solo, come nel template). Sotto il guasto compaiono le **soluzioni verificate** più adatte per quella macchina (*Prova prima*): leggile prima di cercare altrove.
+3. Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template). Sotto il guasto compaiono le **soluzioni verificate** più adatte per quella macchina (*Prova prima*): leggile prima di cercare altrove.
 4. **Altro (descrizione breve)**: obbligatoria se hai scelto ALTRO. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio.
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
-6. **Codice pezzo sostituito** se hai cambiato un ricambio.
+6. **Codice pezzo sostituito**: compare solo se il tipo intervento è **SOSTITUZIONE**, e allora è obbligatorio.
 7. **Chiudi fermo**.
+
+Il fermo lo può chiudere (o annullare) **solo chi l'ha aperto**, oppure un coordinatore. Un fermo chiuso non si modifica dall'app: nel dettaglio c'è **Chiedi correzione** (vedi 5.9).
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
 
@@ -196,6 +199,12 @@ Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca du
 - **Anomalie** (barra in basso): *Da gestire* e *Chiuse* (ultimi 30 giorni). Tocca una anomalia → **Prendo in carico** oppure **Chiudi anomalia** con una nota.
 
 Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
+
+### Compiti (tocca il tuo nome in alto)
+- Il pallino rosso sul nome dice quanti **compiti** hai da fare. Tocca il nome → **I miei compiti**: quelli assegnati a te e quelli del **tuo turno** (es. *Turno T2*) che nessuno ha ancora preso.
+- Tocca un compito → **Prendo in carico** (o **Lo prendo io** se è del turno: da quel momento è tuo) → a lavoro finito scrivi una **nota** (cosa hai fatto, riferimento al logbook se serve) → **Fatto**.
+- Sotto trovi i compiti **fatti negli ultimi 30 giorni**.
+- I coordinatori, nello stesso menu, hanno anche **Compiti del reparto** e **Stampa etichette QR** (vedi 5.13).
 
 ### Il pallino in alto
 | Pallino | Significa |
@@ -360,9 +369,19 @@ Nel foglio **Avvisi**, colonne **E–F** (celle gialle), si accendono e spengono
 - **Linee a ciclo continuo** (es. `ST3`, separate da virgola): per queste linee il passaggio di turno arriva anche nel weekend (solo con i loro dati) e la sveglia / l'avviso dei fermi lunghi restano attivi 7 giorni su 7. Quando la linea torna sui 3 turni, svuota la cella **F7** del foglio Avvisi: tutto torna lunedì–sabato da solo, senza toccare lo script.
 - **Backup**: ogni **domenica sera** una copia Excel del foglio nella cartella Drive **Pharma-Fix Backup**; si tengono le ultime N (8 = due mesi).
 
+Quando si usano i **Compiti** (5.13), nel passaggio di turno compaiono anche i compiti fatti nel turno, quelli in ritardo e quelli assegnati al turno che entra; nel riepilogo settimanale un blocco **COMPITI** (assegnati, fatti in tempo / in ritardo, aperti per persona).
+
 Per partire: menu **Pharma-Fix → Attiva report e backup automatici** (una volta sola; Google può chiedere di nuovo le autorizzazioni). Prove subito: **Prova riepilogo settimanale**, **Prova passaggio di turno**, **Fai un backup adesso**.
 
 ---
+
+### 5.13 Compiti
+I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai tecnici dall'app: nome in alto → **Compiti del reparto** → **+ Assegna un compito**: a chi (un tecnico o **Turno T1 / T2 / T3**), titolo, cosa fare, macchina (facoltativa), priorità NORMALE / URGENTE, **entro il**.
+- **A un turno**: lo vedono i tecnici che hanno fatto l'accesso in quell'orario (6–14, 14–22, 22–6); chi tocca **Lo prendo io** ne diventa responsabile.
+- **Tracciabilità**: ogni compito è una riga del foglio **Compiti** che non si cancella mai. L'app scrive da sola chi e quando l'ha assegnato, preso in carico e fatto, con la nota di chiusura; la colonna **Storia** tiene tutti i passaggi in ordine, e **In ritardo** si calcola da sola (SÌ se fatto dopo la data, o ancora aperto e scaduto).
+- **Annullare o riaprire** (lavoro da rifare): solo i coordinatori, dal dettaglio del compito, con **motivo obbligatorio** che resta nella Storia. Riaprire riporta il compito a chi era assegnato.
+- In **Compiti del reparto**: aperti, in ritardo, fatti negli ultimi 7 giorni, riepilogo **per persona** (tocca un nome per vedere il suo storico). L'app mostra gli ultimi 90 giorni; tutto lo storico è nel foglio.
+- I compiti sono un **promemoria gestionale**: non sostituiscono logbook e moduli. Se il lavoro va documentato, il tecnico scrive il riferimento al logbook nella nota.
 
 ## 6. I dati in Excel
 

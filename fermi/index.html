@@ -198,6 +198,21 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .ctxbar .t1{font-weight:600}
 .linkbtn{background:none;border:0;color:var(--steel);font-weight:600;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
 .danger{color:var(--crit)}
+/* Compiti (menu del nome) */
+.manbtn{display:inline-flex;align-items:center;gap:6px}.manbtn .nm{overflow:hidden;text-overflow:ellipsis}
+.kpill{flex:none;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font:600 12px/20px var(--body);padding:0 6px;text-align:center}
+.mbtn{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;font:600 16px var(--body);color:var(--ink);text-align:left;text-decoration:none;margin-top:8px}
+.mbtn svg{width:22px;height:22px;flex:none;color:var(--steel)}.mbtn .cnt{margin-left:auto;font:500 12px var(--mono);color:var(--muted)}.mbtn .cnt.r{color:var(--crit)}
+.kcard{display:flex;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;width:100%;text-align:left;color:inherit}
+.kcard .bar{width:5px;border-radius:3px;background:var(--steel);flex:none}.kcard.late .bar{background:var(--crit)}.kcard.kurg .bar{background:var(--yel)}.kcard.done .bar{background:var(--ok)}.kcard.ann .bar{background:var(--line)}
+.kcard > div{flex:1;min-width:0}.kcard .r1{display:flex;align-items:center;gap:6px;font:500 12px var(--mono);color:var(--muted)}.kcard .r1 > span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kcard .r1 .tag{margin-left:auto;flex:none}
+.kcard .t1{font-weight:600;margin-top:2px}.kcard .t2{font-size:12px;color:var(--muted)}
+.tag.r{background:var(--crit-soft);color:var(--crit)}
+.kbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;white-space:pre-line}
+.kfacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.kfacts > div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0;overflow-wrap:anywhere}
+.kstoria{font:500 12px/1.6 var(--mono);color:var(--muted);white-space:pre-line;margin-top:6px}
+.person{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;text-align:left;color:inherit}.person b{flex:1;min-width:0}
+.person[aria-pressed="true"]{border-color:var(--steel);box-shadow:inset 0 0 0 1px var(--steel)}
 
 /* Barra in basso */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
@@ -280,7 +295,7 @@ textarea.field{min-height:64px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [],
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [],
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
@@ -366,6 +381,32 @@ function allAnomalie() {
   }
   return [...m.values()];
 }
+// Compiti: assegnati dal coordinatore a un tecnico o a un turno ("Turno T2")
+function allCompiti() {
+  const m = new Map(S.compiti.map(k => [k.id, { ...k }]));
+  for (const op of OUTBOX) {
+    if (op.action === 'compito' && !m.has(op.id)) {
+      const e = eqBy(op.code) || {};
+      m.set(op.id, { id: op.id, ts: op.ts, da: op.manutentore, a: op.a, code: op.code || '', linea: e.linea || '', titolo: op.titolo, descr: op.descr, pr: op.pr, entro: op.entroTs, stato: 'DA FARE', storia: '', pending: true });
+    } else if (op.action === 'compitoStato' && m.has(op.id)) {
+      const k = m.get(op.id), st = op.stato; k.pending = true;
+      if (st === 'IN CORSO') Object.assign(k, { stato: st, presoDa: op.manutentore, preso: op.ts });
+      else if (st === 'FATTO') Object.assign(k, { stato: st, presoDa: k.presoDa || op.manutentore, fattoDa: op.manutentore, fatto: op.ts, nota: op.nota });
+      else if (st === 'DA FARE') Object.assign(k, { stato: st, presoDa: '', preso: null, fattoDa: '', fatto: null });
+      else k.stato = st;
+    }
+  }
+  return [...m.values()];
+}
+const kTurno = k => (String(k.a || '').match(/^\s*turno\s+(T[123])\s*$/i) || [])[1];
+const kAperto = k => k.stato === 'DA FARE' || k.stato === 'IN CORSO';
+const kAperti = l => l.filter(kAperto).sort((a, b) => (a.entro || 9e15) - (b.entro || 9e15));
+const oggi0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const kLate = k => kAperto(k) ? !!k.entro && oggi0() > k.entro : k.stato === 'FATTO' && !!k.entro && !!k.fatto && new Date(k.fatto).setHours(0, 0, 0, 0) > k.entro;
+const kChi = k => k.presoDa || k.a;
+// I miei: assegnati a me, presi da me, o del mio turno non ancora presi da nessuno (i coordinatori vedono i turni in "Compiti del reparto")
+const kMio = k => U(k.presoDa) === U(S.man) || (!k.presoDa && (U(k.a) === U(S.man) || (!isCoord() && kTurno(k) === turnoOf(Date.now()))));
+const mieiCompiti = () => allCompiti().filter(k => kMio(k) || (k.stato === 'FATTO' && U(k.fattoDa) === U(S.man)));
 const anoAperte = list => list.filter(a => a.stato !== 'CHIUSA').sort((a, b) => a.urgenza - b.urgenza || b.ts - a.ts);
 // "Dove" di soluzioni e documenti: codice macchina, nome linea o TUTTE
 function vale(dove, eq, ancheLinea = true) {
@@ -439,7 +480,7 @@ function pinInvalid() {
   showLogin(); if (had) { const e = $('#lerr'); e.textContent = 'Il codice reparto è cambiato: inseriscilo di nuovo.'; e.hidden = false; }
 }
 async function apiGet(pin = getPin()) {
-  if (MOCK) { const db = load('mockdb', {}); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: db.fermi || [], soluzioni: db.soluzioni || [], documenti: [], anomalie: db.anomalie || [] }; }
+  if (MOCK) { const db = load('mockdb', {}); return { ok: true, equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: db.fermi || [], soluzioni: db.soluzioni || [], documenti: [], anomalie: db.anomalie || [], compiti: db.compiti || [] }; }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60000); // lo script "a freddo" può metterci parecchio
   try {
     const r = await fetch(CFG.API_URL + '?action=init&key=' + encodeURIComponent(pin), { signal: ctl.signal });
@@ -452,10 +493,10 @@ async function apiGet(pin = getPin()) {
 }
 async function apiPost(op) {
   if (MOCK) { // modalità demo: i dati restano sul telefono
-    const db = load('mockdb', {}); db.fermi = db.fermi || []; db.soluzioni = db.soluzioni || []; db.anomalie = db.anomalie || [];
-    const S0 = { ...S, fermi: db.fermi, soluzioni: db.soluzioni, anomalie: db.anomalie }, keep = OUTBOX;
+    const db = load('mockdb', {}); db.fermi = db.fermi || []; db.soluzioni = db.soluzioni || []; db.anomalie = db.anomalie || []; db.compiti = db.compiti || [];
+    const S0 = { ...S, fermi: db.fermi, soluzioni: db.soluzioni, anomalie: db.anomalie, compiti: db.compiti }, keep = OUTBOX;
     OUTBOX = [op]; Object.assign(S, S0);
-    db.fermi = allFermi().map(f => ({ ...f, pending: false })); db.soluzioni = allSoluzioni().map(s => ({ ...s, pending: false })); db.anomalie = allAnomalie().map(a => ({ ...a, pending: false }));
+    db.fermi = allFermi().map(f => ({ ...f, pending: false })); db.soluzioni = allSoluzioni().map(s => ({ ...s, pending: false })); db.anomalie = allAnomalie().map(a => ({ ...a, pending: false })); db.compiti = allCompiti().map(k => ({ ...k, pending: false }));
     OUTBOX = keep; save('mockdb', db); return { ok: true };
   }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 60000);
@@ -474,7 +515,7 @@ async function sync() {
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
-        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
@@ -487,9 +528,9 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
-  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || [];
+  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || [];
   S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti });
 }
 async function refresh() {
   if (!MOCK && !getPin()) return;
@@ -627,7 +668,7 @@ function renderSync() {
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
 }
-function renderHeader() { $('#manbtn').textContent = S.man || '—'; }
+function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
 const topline = (title, sub, back) => `<div class="topline"><button class="back" data-back="${esc(back || 'home')}" aria-label="Indietro">${I.back}</button>
   <div style="flex:1;min-width:0"><div class="ptitle">${esc(title)}</div>${sub ? `<div class="code" style="margin-top:3px">${esc(sub)}</div>` : ''}</div></div>`;
 function bindBack() { $$('[data-back]').forEach(b => b.onclick = () => { const v = b.dataset.back; go(v.startsWith('equip:') ? { name: 'equip', code: v.slice(6) } : { name: v }); }); }
@@ -716,7 +757,7 @@ function renderEquip() {
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
     ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi</button>' : ''}
-    <div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>`;
+    ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
@@ -1062,12 +1103,116 @@ function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save(
 function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
-    <p class="hint">Fermi, soluzioni e anomalie vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
-    <a class="submit blue" href="qr.html" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;margin-bottom:10px">${I.qr.replace('<svg', '<svg width="22" height="22"')}Stampa etichette QR</a>
+    <div class="hint" style="margin:2px 0 6px">${isCoord() ? 'Coordinatore' : 'Tecnico'} · turno ${turnoOf(Date.now())}</div>
+    ${menuCompiti()}
+    ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
+    <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
     <button class="submit red" id="logout">Esci</button>`);
   $('#logout').onclick = logout;
+  bindMenuCompiti();
 };
 
+/* ================= Compiti ================= */
+const IK = { task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
+  team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.5 4.6 4.5"/></svg>' };
+function menuCompiti() {
+  const n = kAperti(mieiCompiti().filter(kMio)).length, rit = isCoord() ? kAperti(allCompiti()).filter(kLate).length : 0;
+  return `<button class="mbtn" id="mk">${IK.task}I miei compiti<span class="cnt ${n ? 'r' : ''}">${n} da fare</span></button>
+    ${isCoord() ? `<button class="mbtn" id="rep">${IK.team}Compiti del reparto<span class="cnt ${rit ? 'r' : ''}">${rit} in ritardo</span></button>` : ''}`;
+}
+function bindMenuCompiti() { $('#mk').onclick = shMiei; const r = $('#rep'); if (r) r.onclick = () => shReparto(); }
+function kCard(k, perMe) {
+  const late = kLate(k), cls = k.stato === 'ANNULLATO' ? 'ann' : k.stato === 'FATTO' ? 'done' : late ? 'late' : k.pr === 'URGENTE' ? 'kurg' : '';
+  const tag = k.stato === 'ANNULLATO' ? '<span class="tag g">Annullato</span>' : k.stato === 'FATTO' ? `<span class="tag ${late ? 'f' : 'v'}">Fatto ${k.fatto ? fmtD(k.fatto) : ''}${late ? ' · in ritardo' : ''}</span>`
+    : late ? `<span class="tag r">In ritardo · entro ${fmtD(k.entro)}</span>` : k.stato === 'IN CORSO' ? '<span class="tag g">In corso</span>' : `<span class="tag ${k.pr === 'URGENTE' ? 'f' : 'g'}">Entro ${k.entro ? fmtD(k.entro) : '—'}</span>`;
+  const chi = perMe ? (k.presoDa ? (U(k.presoDa) === U(S.man) ? 'Per te' : k.presoDa) : kTurno(k) ? 'Per il turno ' + kTurno(k) : 'Per te') : kChi(k) + (k.presoDa && kTurno(k) ? ' (turno ' + kTurno(k) + ')' : '');
+  return `<button class="kcard ${cls}" data-k="${esc(k.id)}"><span class="bar"></span><div><div class="r1"><span>${esc(chi)}${k.code ? ' · ' + esc(k.code) : ''}</span>${tag}</div>
+    <div class="t1">${k.pr === 'URGENTE' && kAperto(k) ? '⚡ ' : ''}${esc(k.titolo)}</div><div class="t2">da ${esc(k.da || '—')}${k.pending ? ' · in coda' : ''}</div></div></button>`;
+}
+function bindK(back) { $$('#sheet [data-k]').forEach(b => b.onclick = () => shCompito(b.dataset.k, back)); }
+function shMiei() {
+  const l = mieiCompiti(), ap = kAperti(l.filter(kMio)), from = Date.now() - 30 * 864e5;
+  const ft = l.filter(k => k.stato === 'FATTO' && U(k.fattoDa) === U(S.man) && (k.fatto || 0) >= from).sort((a, b) => b.fatto - a.fatto);
+  sheet(`<div class="sheet-h"><div><h3>I miei compiti</h3><div class="hint" style="margin-top:4px">Assegnati a te${isCoord() ? '' : ' o al tuo turno (' + turnoOf(Date.now()) + ')'}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <h2>Da fare · ${ap.length}</h2><div class="list">${ap.length ? ap.map(k => kCard(k, true)).join('') : '<div class="empty">Niente da fare. Ottimo lavoro.</div>'}</div>
+    <h2>Fatti negli ultimi 30 giorni · ${ft.length}</h2><div class="list">${ft.length ? ft.map(k => kCard(k, true)).join('') : '<div class="empty">Ancora nessuno.</div>'}</div>`);
+  bindK(shMiei);
+}
+function shCompito(id, back) {
+  const k = allCompiti().find(x => x.id === id); if (!k) { back(); return; }
+  const coord = isCoord(), mio = kMio(k) || coord, ap = kAperto(k);
+  const eq = k.code ? eqBy(k.code) : null;
+  sheet(`<div class="sheet-h"><div><div class="code">${esc(k.a)}${k.code ? ' · ' + esc(k.code) + (eq ? ' ' + esc(nice(eq.macchina)) : '') : ''}</div><h3 style="margin-top:4px">${esc(k.titolo)}</h3></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="tag ${k.pr === 'URGENTE' ? 'f' : 'g'}">${k.pr === 'URGENTE' ? 'URGENTE' : 'NORMALE'}</span><span class="tag g">${esc(k.stato)}</span>${kLate(k) ? '<span class="tag r">IN RITARDO</span>' : ''}${k.pending ? '<span class="tag f">IN CODA</span>' : ''}</div>
+    ${k.descr ? `<div class="kbox"><div class="label">Cosa fare</div>${esc(k.descr)}</div>` : ''}
+    <div class="kfacts"><div><div class="label">Entro il</div><b>${k.entro ? fmtD(k.entro) : '—'}</b></div><div><div class="label">Assegnato da</div><b>${esc(k.da || '—')}</b>${k.ts ? '<div class="hint" style="margin:0">' + fmtDT(k.ts) + '</div>' : ''}</div>
+      ${k.presoDa ? `<div><div class="label">Preso in carico</div><b>${esc(k.presoDa)}</b>${k.preso ? '<div class="hint" style="margin:0">' + fmtDT(k.preso) + '</div>' : ''}</div>` : ''}
+      ${k.stato === 'FATTO' ? `<div><div class="label">Fatto</div><b>${esc(k.fattoDa || '')}</b>${k.fatto ? '<div class="hint" style="margin:0">' + fmtDT(k.fatto) + '</div>' : ''}</div>` : ''}</div>
+    ${k.stato === 'FATTO' && k.nota ? `<div class="kbox"><div class="label">Nota di chiusura</div>${esc(k.nota)}</div>` : ''}
+    ${ap && mio ? `${k.stato === 'DA FARE' ? `<button class="submit blue" id="ktake">${kTurno(k) && !k.presoDa ? 'Lo prendo io' : 'Prendo in carico'}</button>` : ''}
+      <div class="group"><label class="label" for="kn">Nota · cosa hai fatto</label><textarea class="field" id="kn" placeholder="Es. contate 14 ventose, scritto sul logbook"></textarea></div>
+      <button class="submit" id="kdone" style="margin-top:10px">Fatto</button>` : ap ? '<p class="hint">Lo può segnare fatto solo chi lo ha ricevuto o un coordinatore.</p>' : ''}
+    ${coord && k.stato !== 'ANNULLATO' ? `<div class="group"><label class="label" for="km">${ap ? 'Annullare il compito?' : 'Riaprire il compito?'} · motivo obbligatorio</label><input class="field" id="km" placeholder="${ap ? 'Es. non serve più' : 'Es. lavoro da rifare'}">
+      <button class="morebtn" id="kco" style="${ap ? 'color:var(--crit);border-color:var(--crit)' : ''}">${ap ? 'Annulla il compito' : 'Riapri il compito'}</button><div class="err" id="kerr" hidden></div></div>` : ''}
+    ${k.storia ? `<div class="group"><span class="label">Storia</span><div class="kstoria">${esc(k.storia)}</div></div>` : ''}
+    <button class="linkbtn" id="kbk">‹ Indietro</button>`);
+  $('#kbk').onclick = back;
+  const send = (stato, nota, msg) => needMan(() => { enqueue({ action: 'compitoStato', id: k.id, stato, nota, ts: Date.now(), manutentore: S.man }); toast(msg, 3200); back(); });
+  const t = $('#ktake'); if (t) t.onclick = () => send('IN CORSO', '', 'Preso in carico');
+  const d = $('#kdone'); if (d) d.onclick = () => send('FATTO', $('#kn').value.trim(), 'Compito fatto: lo vede chi te l\'ha assegnato');
+  const c = $('#kco'); if (c) c.onclick = () => { const m = $('#km').value.trim(); if (!m) { const e = $('#kerr'); e.textContent = 'Scrivi il motivo: resta nella storia del compito.'; e.hidden = false; return; }
+    send(ap ? 'ANNULLATO' : 'DA FARE', m, ap ? 'Compito annullato' : 'Compito riaperto'); };
+}
+function shReparto(filtro = '') {
+  const all = allCompiti(), ap = kAperti(all), rit = ap.filter(kLate), w = Date.now() - 7 * 864e5;
+  const per = {}; all.forEach(k => { const n = kChi(k); const p = per[n] = per[n] || { a: 0, r: 0, f: 0, fr: 0 }; if (kAperto(k)) { p.a++; if (kLate(k)) p.r++; } else if (k.stato === 'FATTO') { p.f++; if (kLate(k)) p.fr++; } });
+  const storico = all.filter(k => !kAperto(k) && (!filtro || U(kChi(k)) === U(filtro))).sort((a, b) => (b.fatto || b.ts) - (a.fatto || a.ts));
+  sheet(`<div class="sheet-h"><div><h3>Compiti del reparto</h3><div class="hint" style="margin-top:4px">Solo coordinatori · ultimi 90 giorni</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="stats"><div class="stat"><div class="label">Aperti</div><div class="v">${ap.length}</div></div><div class="stat"><div class="label">In ritardo</div><div class="v" style="color:var(--crit)">${rit.length}</div></div>
+      <div class="stat"><div class="label">Fatti 7 gg</div><div class="v">${all.filter(k => k.stato === 'FATTO' && (k.fatto || 0) >= w).length}</div></div></div>
+    <button class="addbtn" id="kass" style="margin-top:4px">+ Assegna un compito</button>
+    <h2>Aperti · ${ap.length}</h2><div class="list">${ap.length ? ap.map(k => kCard(k, false)).join('') : '<div class="empty">Nessun compito aperto.</div>'}</div>
+    <h2>Per persona</h2><div class="list">${Object.keys(per).sort().map(n => `<button class="person" data-p="${esc(n)}" aria-pressed="${U(n) === U(filtro)}"><b>${esc(n)}</b>${per[n].r ? `<span class="tag r">${per[n].r} in ritardo</span>` : ''}<span class="tag g">${per[n].a} aperti</span><span class="tag v">${per[n].f} fatti${per[n].fr ? ' (' + per[n].fr + ' in ritardo)' : ''}</span></button>`).join('') || '<div class="empty">Ancora nessun compito.</div>'}</div>
+    <h2>Storico${filtro ? ' · ' + esc(filtro) : ''} · ${storico.length}${filtro ? '<button class="more" id="kall">Tutti</button>' : ''}</h2>
+    <div class="list">${storico.length ? storico.slice(0, 60).map(k => kCard(k, false)).join('') : '<div class="empty">Nessun compito chiuso.</div>'}</div>
+    ${filtro ? '' : '<div class="hint">Tocca una persona per vedere solo i suoi compiti. Lo storico completo è nel foglio Compiti.</div>'}`);
+  $('#kass').onclick = () => shAssegna();
+  $$('#sheet [data-p]').forEach(b => b.onclick = () => shReparto(U(b.dataset.p) === U(filtro) ? '' : b.dataset.p));
+  const ka = $('#kall'); if (ka) ka.onclick = () => shReparto();
+  bindK(() => shReparto(filtro));
+}
+function shAssegna(P = { a: '', pr: 'NORMALE', code: '', t: '', d: '', w: '' }) {
+  const tecnici = [...new Set(S.liste['Manutentori'] || [])].sort();
+  const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  if (!P.w) P.w = iso(new Date(Date.now() + 3 * 864e5));
+  const eq = P.code ? eqBy(P.code) : null;
+  sheet(`<div class="sheet-h"><h3>Assegna un compito</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="group"><span class="label">A chi</span><div class="chips" id="ka">${chips(tecnici, P.a)}${chips(['Turno T1', 'Turno T2', 'Turno T3'], P.a, 'ghost')}</div>
+      <div class="hint">A un turno: lo vede chi è in turno, e chi lo prende per primo ne diventa responsabile.</div></div>
+    <div class="group"><label class="label" for="kt">Titolo</label><input class="field" id="kt" maxlength="90" placeholder="Es. Controllare scorta ventose ST3" value="${esc(P.t)}"></div>
+    <div class="group"><label class="label" for="kd">Cosa fare · facoltativo</label><textarea class="field" id="kd" placeholder="Dettagli per il tecnico">${esc(P.d)}</textarea></div>
+    <div class="group"><span class="label">Macchina · facoltativa</span><div class="ctxbar" style="margin-top:0"><div class="t1">${eq ? esc(eq.code) + ' · ' + esc(nice(eq.macchina)) : 'Nessuna'}</div>
+      ${eq ? '<button class="linkbtn" id="knoeq">Togli</button>' : ''}<button class="linkbtn" id="kpick">${eq ? 'Cambia' : 'Scegli'}</button></div></div>
+    <div class="group"><span class="label">Priorità</span><div class="chips" id="kp">${chips(['NORMALE', 'URGENTE'], P.pr)}</div></div>
+    <div class="group"><label class="label" for="kw">Entro il</label><input class="field" id="kw" type="date" min="${iso(new Date())}" value="${esc(P.w)}"></div>
+    <div class="err" id="ker" hidden></div>
+    <button class="submit blue" id="kok">Assegna</button>
+    <button class="linkbtn" id="kbk">‹ Indietro</button>`);
+  const keep = () => { P.t = $('#kt').value; P.d = $('#kd').value; P.w = $('#kw').value; };
+  singleChoice($('#ka'), v => P.a = v); singleChoice($('#kp'), v => P.pr = v);
+  $('#kbk').onclick = () => shReparto();
+  $('#kpick').onclick = () => { keep(); pickSheet(e => { P.code = e.code; shAssegna(P); }); }; // il modulo si riapre con quello già scritto
+  const ne = $('#knoeq'); if (ne) ne.onclick = () => { keep(); P.code = ''; shAssegna(P); };
+  $('#kok').onclick = () => needMan(() => {
+    keep();
+    const t = P.t.trim(), e = $('#ker');
+    const msg = !P.a ? 'Scegli a chi assegnarlo.' : t.length < 4 ? 'Scrivi un titolo per il compito.' : !P.w ? 'Scegli entro quando.' : '';
+    if (msg) { e.textContent = msg; e.hidden = false; return; }
+    const [y, m, g] = P.w.split('-').map(Number);
+    enqueue({ action: 'compito', id: uid('K'), a: P.a, titolo: t, descr: P.d.trim(), code: P.code, pr: P.pr, entro: P.w, entroTs: new Date(y, m - 1, g).getTime(), ts: Date.now(), manutentore: S.man });
+    toast('Compito assegnato a ' + P.a, 3200); shReparto();
+  });
+}
 function pickSheet(cb) {
   const linee = [...new Set(S.equipment.map(e => e.linea))];
   let L = null;
@@ -1226,7 +1371,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
-    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; }
+    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
