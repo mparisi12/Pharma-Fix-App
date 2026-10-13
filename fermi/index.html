@@ -413,7 +413,7 @@ async function withMedia(op) { // la richiesta da spedire, con le foto riprese d
 }
 function dropMedia(op) { for (const k of MEDIA) if (op[k] === IDB_REF) media('del', mediaKey(op, k)).catch(() => {}); }
 async function cleanMedia() { // archivio: via i file di registrazioni già inviate
-  try { const keep = new Set(OUTBOX.flatMap(o => MEDIA.map(k => mediaKey(o, k)))); for (const k of await media('keys')) if (!keep.has(k)) await media('del', k); } catch {}
+  try { const keep = new Set(OUTBOX.flatMap(o => MEDIA.map(k => mediaKey(o, k)))); for (const k of await media('keys')) if (!keep.has(k) && !String(k).startsWith('bozza:')) await media('del', k); } catch {}
 }
 
 /* ================= Backend ================= */
@@ -481,6 +481,7 @@ async function refresh() {
   if (!MOCK && !getPin()) return;
   try { applyInit(await apiGet()); }
   catch (e) { if (isPinErr(e)) { pinInvalid(); return; } S.net = e.server ? 'err' : e.name === 'AbortError' ? 'slow' : 'off'; S.errMsg = e.message; }
+  if (S.view.name === 'anoform') { renderSync(); renderHeader(); return; } // non ricostruire il modulo mentre si compila
   render();
 }
 
@@ -515,9 +516,9 @@ function toJpeg(img, circles = [], max = 1024, q = .7) {
   return c.toDataURL('image/jpeg', q).split(',')[1];
 }
 // Foto con cerchi: disegna dentro el, aggiorna lo stato P {img, circles}
-function photoBox(el, P, label) {
+function photoBox(el, P, label, onChange = () => {}) {
   const draw = () => {
-    if (!P.img) { el.innerHTML = `<button class="camtile" type="button">${I.cam}${esc(label)}</button>`; el.querySelector('button').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); }); return; }
+    if (!P.img) { el.innerHTML = `<button class="camtile" type="button">${I.cam}${esc(label)}</button>`; el.querySelector('button').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); onChange(true); }); return; }
     el.innerHTML = `<span class="label">${esc(label)}</span><div class="annot" style="margin-top:8px"><canvas></canvas></div>
       <div class="hint">Tocca la foto per cerchiare il punto. Tocca un cerchio per toglierlo. <button class="linkbtn" type="button" style="padding:0 0 0 6px">Rifai foto</button></div>`;
     const cv = el.querySelector('canvas'), s = Math.min(1, 900 / Math.max(P.img.naturalWidth, P.img.naturalHeight));
@@ -525,8 +526,8 @@ function photoBox(el, P, label) {
     const paint = () => { const x = cv.getContext('2d'); x.drawImage(P.img, 0, 0, cv.width, cv.height); drawCircles(x, P.circles, cv.width, cv.height); }; paint();
     cv.onpointerdown = e => { const r = cv.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height; const m = Math.min(cv.width, cv.height);
       const hit = P.circles.findIndex(c => Math.hypot((c.x - px) * cv.width, (c.y - py) * cv.height) < c.r * m);
-      if (hit >= 0) P.circles.splice(hit, 1); else P.circles.push({ x: px, y: py, r: .11 }); paint(); };
-    el.querySelector('.linkbtn').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); });
+      if (hit >= 0) P.circles.splice(hit, 1); else P.circles.push({ x: px, y: py, r: .11 }); paint(); onChange(false); };
+    el.querySelector('.linkbtn').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); onChange(true); });
   };
   draw();
 }
@@ -914,6 +915,21 @@ function renderAno() {
   bindCommon();
 }
 const ANO_DRAFT = { urg: 0, img: null, circles: [], descr: '', serve: '' };
+// Bozza dell'anomalia salvata sul telefono mentre si scrive: non si perde se l'app si ricarica
+// (es. Android chiude la pagina mentre è aperta la fotocamera) o se arrivano dati nuovi dal foglio.
+function salvaBozzaAno(foto) {
+  const A = ANO_DRAFT, vuota = !A.urg && !A.img && !A.descr.trim() && !A.serve.trim();
+  if (vuota) { save('anobozza', null); media('del', 'bozza:ano').catch(() => {}); return; }
+  save('anobozza', { code: S.view.code || '', urg: A.urg, descr: A.descr, serve: A.serve, circles: A.circles });
+  if (foto && A.img) media('put', 'bozza:ano', toJpeg(A.img, [], 1400, .8)).catch(() => {});
+}
+async function caricaBozzaAno() {
+  const b = load('anobozza', null); if (!b) return;
+  Object.assign(ANO_DRAFT, { urg: b.urg || 0, descr: b.descr || '', serve: b.serve || '', circles: b.circles || [] });
+  if (b.code && !S.view.code && S.view.name === 'anoform') S.view.code = b.code;
+  try { const d = await media('get', 'bozza:ano'); if (d) { const im = new Image(); im.onload = () => { ANO_DRAFT.img = im; if (S.view.name === 'anoform') renderAnoForm(); }; im.src = 'data:image/jpeg;base64,' + d; } } catch {}
+  if (S.view.name === 'anoform') renderAnoForm();
+}
 function renderAnoForm() {
   const eq = S.view.code ? eqBy(S.view.code) : null;
   const A = ANO_DRAFT;
@@ -932,15 +948,16 @@ function renderAnoForm() {
     <div class="hint center">Segnalata da ${esc(S.man || '—')} · finisce nel foglio Anomalie e nello storico della macchina</div>
     <button class="submit red" id="go" style="margin-top:10px">Invia segnalazione</button>`;
   const keep = () => { A.descr = $('#ad').value; A.serve = $('#as').value; };
-  $('#chg').onclick = () => { keep(); openScannerOrPick(e => go({ name: 'anoform', code: e.code })); };
-  $('#urg').onclick = e => { const b = e.target.closest('[data-u]'); if (!b) return; A.urg = +b.dataset.u; $$('#urg [data-u]').forEach(x => x.setAttribute('aria-pressed', x === b)); };
-  photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare');
+  $('#ad').oninput = $('#as').oninput = () => { keep(); salvaBozzaAno(false); }; // salva mentre si scrive
+  $('#chg').onclick = () => { keep(); openScannerOrPick(e => { go({ name: 'anoform', code: e.code }); salvaBozzaAno(false); }); };
+  $('#urg').onclick = e => { const b = e.target.closest('[data-u]'); if (!b) return; A.urg = +b.dataset.u; $$('#urg [data-u]').forEach(x => x.setAttribute('aria-pressed', x === b)); salvaBozzaAno(false); };
+  photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare', nuova => { keep(); salvaBozzaAno(nuova); });
   $('#go').onclick = () => needMan(() => {
     keep();
     const msg = !eq ? 'Scegli la macchina.' : !A.urg ? 'Scegli l\'urgenza (1, 2 o 3).' : !A.descr.trim() ? 'Scrivi cosa hai visto.' : '';
     if (msg) { const e = $('#aerr'); e.textContent = msg; e.hidden = false; return; }
     enqueue({ action: 'anomalia', id: uid('A'), code: eq.code, urgenza: A.urg, descr: A.descr.trim(), serve: A.serve.trim(), foto: A.img ? toJpeg(A.img, A.circles) : '', ts: Date.now(), manutentore: S.man });
-    Object.assign(A, { urg: 0, img: null, circles: [], descr: '', serve: '' });
+    Object.assign(A, { urg: 0, img: null, circles: [], descr: '', serve: '' }); salvaBozzaAno(false);
     toast('Anomalia segnalata'); go({ name: 'equip', code: eq.code });
   });
   bindCommon();
@@ -1195,7 +1212,7 @@ async function checkUpdate() {
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
   const deep = eq && !h && eqBy(eq);
   if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
-  sync(); cleanMedia();
+  caricaBozzaAno(); sync(); cleanMedia();
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
   checkUpdate();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { sync(); checkUpdate(); } });
