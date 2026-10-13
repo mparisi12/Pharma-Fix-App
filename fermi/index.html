@@ -122,6 +122,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .bigbtn.hero .bt{font:700 44px/1 var(--display);letter-spacing:.05em}
 .bigbtn.hero .bs{font:500 15px/1.2 var(--body);letter-spacing:0;text-transform:none;opacity:.92}
 .bigbtn.hero.ok{justify-content:center;padding-inline:16px;min-height:28vh;box-shadow:0 6px 18px rgba(31,122,77,.28)}.bigbtn.hero.ok .timer{font:600 40px var(--mono)}
+.bigbtn.hero.home{min-height:30vh;margin-top:6px}
+.bigbtn.hero.busy{background:#5a6873;box-shadow:none;cursor:default;min-height:24vh}.bigbtn.hero.busy .bt{font-size:34px}.bigbtn.hero.busy .timer{font:600 34px var(--mono)}
 .bigbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:14px;background:var(--crit);color:#fff;font:700 24px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:20px 16px;margin-top:14px}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-block:14px}
 .stat{background:var(--surface);padding:10px}
@@ -324,7 +326,7 @@ function allFermi() {
   const m = new Map(S.fermi.map(f => [f.id, { ...f }]));
   for (const op of OUTBOX) {
     if (op.action === 'open' && !m.has(op.id)) {
-      m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, pending: true });
+      m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, apertoDa: op.manutentore, pending: true });
     } else if (op.action === 'close' && m.has(op.id)) {
       Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, ...(op.inizio ? { start: op.inizio } : {}), ...(op.dichiarato ? { orari: 'DICHIARATI' } : {}), lotto: op.lotto || m.get(op.id).lotto, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
     } else if (op.action === 'cancel') m.delete(op.id);
@@ -333,6 +335,9 @@ function allFermi() {
 }
 // Coordinatori (colonna del foglio Liste): approvano le soluzioni nuove dei tecnici
 const isCoord = (nome = S.man) => !!nome && Object.keys(S.liste).filter(k => /^\s*coordinator[ei]\s*$/i.test(k)).some(k => (S.liste[k] || []).some(c => U(c) === U(nome)));
+// Il fermo lo chiude (o annulla) solo chi l'ha aperto; i coordinatori possono chiudere tutti
+const apertoDa = f => String(f.apertoDa || f.man || '');
+const canClose = f => !!S.man && (U(apertoDa(f)) === U(S.man) || isCoord());
 function allSoluzioni() {
   const out = S.soluzioni.map(s => ({ ...s, stato: s.stato || 'VERIFICATA' }));
   for (const op of OUTBOX) {
@@ -464,7 +469,7 @@ async function sync() {
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
-        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinatori/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
@@ -629,26 +634,21 @@ function renderHome() {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const today = all.filter(f => f.stato === 'CHIUSO' && f.end >= t0.getTime());
   const ano = anoAperte(allAnomalie());
-  const nApp = isCoord() ? solDaApprovare().length : 0;
+  const coord = isCoord(), nApp = coord ? solDaApprovare().length : 0;
+  const miei = open.filter(f => U(apertoDa(f)) === U(S.man)), altri = open.filter(f => U(apertoDa(f)) !== U(S.man));
   $('#view').innerHTML = `
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
-    <button class="fermocard" id="scan">
-      <div class="row"><div class="qr">${I.qr}</div><div><div class="t1">FERMO MACCHINA</div><div class="t2">Scansiona il QR per aprirlo</div></div></div>
-      <div class="steps"><span>1 · QR</span><span>2 · Lotto</span><span>3 · Apri fermo</span></div>
-    </button>
-    <div class="hint center">Fermo già aperto su quella macchina? Lo stesso QR apre la <b style="color:var(--ok)">chiusura</b>.</div>
-    <div class="tiles3">
-      <button class="tile" data-go="sol"><span style="color:var(--steel)">${I.search}</span>Cerca soluzione</button>
-      <button class="tile" data-go="doc">${I.doc}Documenti</button>
-      <button class="tile" data-go="anoform">${I.ano}Anomalia</button>
-    </div>
-    <h2>Fermi aperti · ${open.length}</h2>
-    <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>
+    <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
+    <div class="center"><button class="linkbtn" id="manual">QR rovinato? Scegli la macchina a mano</button></div>
+    ${coord ? `<h2>Fermi aperti · ${open.length}</h2>
+    <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>`
+    : `<h2>I tuoi fermi aperti · ${miei.length}</h2>
+    <div class="list">${miei.length ? miei.map(openCard).join('') : '<div class="empty">Nessun tuo fermo in corso.</div>'}</div>
+    ${altri.length ? `<h2>Altri fermi in corso · ${altri.length}</h2><div class="list">${altri.map(openCard).join('')}</div>` : ''}`}
     <h2>Anomalie da gestire · ${ano.length}${ano.length > 3 ? '<button class="more" data-go="ano">Tutte</button>' : ''}</h2>
     <div class="list">${ano.length ? ano.slice(0, 3).map(anoCard).join('') : '<div class="empty">Nessuna anomalia aperta.</div>'}</div>
     <h2>Chiusi oggi · ${today.length}</h2>
-    <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>
-    <div class="center"><button class="linkbtn" id="manual">Scegli macchina a mano</button></div>`;
+    <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
   $('#manual').onclick = () => pickSheet(eq => go({ name: 'equip', code: eq.code }));
   $$('[data-hint]').forEach(b => b.onclick = () => { const f = today.find(x => x.id === b.dataset.hint); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); }); // dettaglio del fermo chiuso
@@ -656,9 +656,9 @@ function renderHome() {
 }
 function openCard(f) {
   return `<div class="ocard"><span class="bar"></span><button class="what" data-eq="${esc(f.code)}"><div class="ln">${esc(f.linea)} · ${esc(f.macchina)}</div>
-    <div class="mc">dal ${fmtDT(f.start)} · ${esc(f.man || '')}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}</div>
+    <div class="mc">dal ${fmtDT(f.start)} · ${esc(apertoDa(f))}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}</div>
     <div class="timer" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</div></button>
-    <button class="closebtn" data-close="${esc(f.id)}">Chiudi</button></div>`;
+    ${canClose(f) ? `<button class="closebtn" data-close="${esc(f.id)}">Chiudi</button>` : ''}</div>`;
 }
 function histRow(f) {
   const dur = f.end ? fmtDur((f.end - f.start) / 60000) : '';
@@ -672,7 +672,7 @@ function anoCard(a) {
 }
 function bindCommon() {
   $$('[data-eq]').forEach(b => b.onclick = () => go({ name: 'equip', code: b.dataset.eq }));
-  $$('[data-close]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.close); if (f) needMan(() => closeSheet(f)); });
+  $$('[data-close]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.close); if (f) needMan(() => canClose(f) ? closeSheet(f) : toast('Può chiuderlo solo ' + apertoDa(f) + ' o un coordinatore', 3500)); });
   $$('[data-go]').forEach(b => b.onclick = () => go({ name: b.dataset.go, code: b.dataset.code || undefined }));
   $$('[data-ano]').forEach(b => b.onclick = () => anoSheet(b.dataset.ano));
   bindBack();
@@ -694,7 +694,9 @@ function renderEquip() {
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
-    ${open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
+    ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
+      ${provaPrima(eq, open, hist)}`
+    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
       <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
       ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
@@ -1171,7 +1173,7 @@ function closeSheet(f, opt = {}) {
   const cb = $('#canc');
   if (cb) cb.onclick = () => {
     if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = 'Tocca ancora per annullare il fermo'; return; }
-    enqueue({ action: 'cancel', id: f.id }); closeSh(); toast('Fermo annullato');
+    enqueue({ action: 'cancel', id: f.id, manutentore: S.man }); closeSh(); toast('Fermo annullato');
   };
 }
 
