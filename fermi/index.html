@@ -222,8 +222,8 @@ nav.tabs button svg{width:22px;height:22px}
 nav.tabs button[aria-current="page"]{color:var(--steel)}
 
 /* Fogli a comparsa */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--bg);width:100%;max-width:640px;max-height:94%;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.scrim{position:fixed;inset:0;overscroll-behavior:contain;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{overscroll-behavior:contain;background:var(--bg);width:100%;max-width:640px;max-height:94%;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .sheet-h h3{margin:0;font:700 24px/1.1 var(--display);text-transform:uppercase;letter-spacing:.03em}
 .x{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:44px;height:44px;font-size:20px;line-height:1;flex:none}
@@ -1041,10 +1041,18 @@ function anoSheet(id) {
 /* ================= Fogli a comparsa ================= */
 function sheet(html) {
   $('#sheet').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  lockBg(true);
   $('#scrim').onclick = e => { if (e.target.id === 'scrim') closeSh(); };
   $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
 }
-function closeSh() { $('#sheet').innerHTML = ''; }
+function closeSh() { $('#sheet').innerHTML = ''; lockBg(false); }
+// Con un foglio a mezza pagina aperto la pagina dietro resta ferma (anche su iPhone, dove overflow:hidden non basta)
+let LOCK_Y = null;
+function lockBg(on) {
+  const b = document.body;
+  if (on && LOCK_Y === null) { LOCK_Y = window.scrollY; Object.assign(b.style, { position: 'fixed', top: -LOCK_Y + 'px', left: '0', right: '0', width: '100%' }); }
+  else if (!on && LOCK_Y !== null) { const y = LOCK_Y; LOCK_Y = null; Object.assign(b.style, { position: '', top: '', left: '', right: '', width: '' }); window.scrollTo(0, y); }
+}
 function chips(list, sel, cls = '') { return list.map(v => `<button class="chip ${cls}" type="button" data-v="${esc(v)}" aria-pressed="${sel === v}">${esc(v)}</button>`).join(''); }
 function singleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); onPick(b.dataset.v); }; }
 
