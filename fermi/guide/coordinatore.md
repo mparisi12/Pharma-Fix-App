@@ -9,8 +9,8 @@ Il coordinatore usa l'app come i tecnici (vedi la *Guida per il tecnico*) e in p
 | 🔴 **Anomalia CRITICA** | Appena un tecnico segnala un'anomalia con urgenza 1 | Valuta subito: serve fermare la linea, chiamare un fornitore, ordinare un ricambio? Prendila in carico dall'app |
 | ⏱️ **Fermo APERTO DA…** | Un fermo resta aperto oltre le ore impostate (es. 2) | È un fermo lungo o qualcuno si è dimenticato di chiuderlo. Chiama il tecnico: se ha finito, lo chiude dall'app |
 | 🔁 **Guasto RIPETUTO** | Lo stesso guasto sulla stessa macchina si ripete (es. 3 volte in 7 giorni) | Non è più un caso: serve una soluzione vera (regolazione, ricambio, preventiva). Parlane con il responsabile |
-| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra. È scritto **dai dati registrati**, non dai tecnici: se vedi "(senza descrizione)" o "guasto non indicato", chiedi al tecnico di completare |
-| 🔔 **Riepilogo settimanale** | Lunedì alle 7 | Numeri della settimana, separati **Packaging** e **Filling**: fermi, tempo, MTTR, guasti più frequenti, fermi più lunghi |
+| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra: ore di fermo per Packaging e Filling divise per linea, i 3 fermi più lunghi, anomalie. È scritto **dai dati registrati**: in **Da sistemare** trovi i fermi lasciati aperti e quelli senza descrizione, con il nome; chiedi al tecnico di completare |
+| 🔔 **Riepilogo settimanale** | Lunedì alle 7 | Settimana separata **Packaging** e **Filling**: fermi, ore e confronto con la settimana prima, MTTR, ore di tutte le linee, guasti che si ripetono, fermi più lunghi, anomalie e compiti |
 
 Su ST3, finché è a ciclo continuo, il passaggio di turno arriva anche sabato e domenica (solo con i dati di ST3).
 
@@ -27,7 +27,7 @@ Obiettivo: **nessuna anomalia critica aperta a fine turno** senza che qualcuno l
 
 - **Fermi aperti**: li vedi nella home dell'app. A fine turno non ce ne devono essere di dimenticati.
 - **Filling**: il fermo si apre prima di entrare in sterile (così lo vedi tra i fermi aperti) e si chiude all'uscita con gli orari del batch record. Se nel batch record c'è un fermo che non compare nel passaggio di turno, va registrato (al massimo entro 2 ore dal cambio turno).
-- **Descrizioni**: una descrizione corta ma vera serve a tutti (e alle soluzioni future). Le righe "(senza descrizione)" nel passaggio di turno sono quelle da far completare.
+- **Descrizioni**: una descrizione corta ma vera serve a tutti (e alle soluzioni future). I fermi senza descrizione compaiono nel passaggio di turno, in **Da sistemare**, con il nome di chi li ha registrati: sono quelli da far completare.
 
 ## 4. Soluzioni: sei tu ad approvarle
 
@@ -50,7 +50,7 @@ Tocca il **tuo nome** in alto → **Compiti del reparto** → **+ Assegna un com
 Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi gli aperti (in rosso quelli in ritardo), i fatti, il riepilogo **per persona** e lo storico (tocca un nome per vedere solo i suoi).
 - **Annullare** un compito che non serve più o **riaprirne** uno fatto male: dal dettaglio, con il **motivo** (obbligatorio, resta scritto).
 - Tutto resta nel foglio **Compiti**: chi l'ha assegnato, preso in carico e fatto, quando, con la nota. Nulla si cancella.
-- Nel passaggio di turno trovi i compiti fatti, quelli in ritardo e quelli per il turno che entra; il lunedì il riepilogo per persona.
+- I compiti non compaiono nel passaggio di turno: il dettaglio (anche chi è in ritardo) è nel foglio Compiti e in *Compiti del reparto*; il lunedì il riepilogo ne riporta i numeri.
 
 Per i tecnici, **Stampa etichette QR** non c'è più nel menu del nome: resta solo ai coordinatori.
 
@@ -64,6 +64,6 @@ Il **codice reparto** per i tecnici nuovi lo dà solo il responsabile: non passa
 
 | Quando | Cosa |
 |---|---|
-| **A ogni passaggio di turno** | Leggi il messaggio, controlla fermi aperti e "(senza descrizione)", anomalie critiche |
+| **A ogni passaggio di turno** | Leggi il messaggio, sistema con i tecnici quello che è in **Da sistemare**, anomalie critiche |
 | **Ogni giorno** | Anomalie da gestire: chi le ha in carico? Ci sono critiche ferme? Soluzioni da approvare. Compiti in ritardo |
 | **Lunedì mattina** | Riepilogo settimanale: guasti che si ripetono e fermi lunghi da discutere con il responsabile |
