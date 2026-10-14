@@ -198,6 +198,12 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .ctxbar .t1{font-weight:600}
 .linkbtn{background:none;border:0;color:var(--steel);font-weight:600;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
 .danger{color:var(--crit)}
+/* Vestizione sterile (menu del nome) */
+.vbox{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r);padding:12px;margin-top:8px;border:1px solid var(--line);background:var(--surface)}
+.vbox svg{width:24px;height:24px;flex:none}.vbox b{display:block;font-size:15px}.vbox .hint{margin:2px 0 0}
+.vbox.warn{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-ink)}.vbox.warn .hint{color:var(--amber-ink)}
+.vbox.exp{background:var(--crit-soft);border-color:var(--crit);color:var(--crit)}.vbox.exp .hint{color:var(--ink)}
+.vbox.ok svg{color:var(--ok)}
 /* Compiti (menu del nome) */
 .manbtn{display:inline-flex;align-items:center;gap:6px}.manbtn .nm{overflow:hidden;text-overflow:ellipsis}
 .kpill{flex:none;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font:600 12px/20px var(--body);padding:0 6px;text-align:center}
@@ -295,7 +301,7 @@ textarea.field{min-height:64px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [],
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [],
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
@@ -407,6 +413,12 @@ const kChi = k => k.presoDa || k.a;
 // I miei: assegnati a me, presi da me, o del mio turno non ancora presi da nessuno (i coordinatori vedono i turni in "Compiti del reparto")
 const kMio = k => U(k.presoDa) === U(S.man) || (!k.presoDa && (U(k.a) === U(S.man) || (!isCoord() && kTurno(k) === turnoOf(Date.now()))));
 const mieiCompiti = () => allCompiti().filter(k => kMio(k) || (k.stato === 'FATTO' && U(k.fattoDa) === U(S.man)));
+// Vestizione per l'area sterile: scadenza per tecnico (foglio Vestizioni). Avviso da 60 giorni prima
+const VEST_AVVISO = 60;
+const vestDi = (nome = S.man) => S.vestizioni.find(v => U(v.man) === U(nome)) || null;
+const vestGiorni = v => Math.round((new Date(v.scad).setHours(0, 0, 0, 0) - oggi0()) / 864e5);
+const vestStato = v => !v || !v.scad ? '' : vestGiorni(v) < 0 ? 'exp' : vestGiorni(v) <= VEST_AVVISO ? 'warn' : 'ok';
+const ggTxt = n => n === 0 ? 'oggi' : n === 1 ? 'domani' : 'tra ' + n + ' giorni';
 const anoAperte = list => list.filter(a => a.stato !== 'CHIUSA').sort((a, b) => a.urgenza - b.urgenza || b.ts - a.ts);
 // "Dove" di soluzioni e documenti: codice macchina, nome linea o TUTTE
 function vale(dove, eq, ancheLinea = true) {
@@ -528,9 +540,9 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
-  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || [];
+  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || [];
   S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni });
 }
 async function refresh() {
   if (!MOCK && !getPin()) return;
@@ -668,7 +680,7 @@ function renderSync() {
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
 }
-function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
+function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length + (/warn|exp/.test(vestStato(vestDi())) ? 1 : 0) : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
 const topline = (title, sub, back) => `<div class="topline"><button class="back" data-back="${esc(back || 'home')}" aria-label="Indietro">${I.back}</button>
   <div style="flex:1;min-width:0"><div class="ptitle">${esc(title)}</div>${sub ? `<div class="code" style="margin-top:3px">${esc(sub)}</div>` : ''}</div></div>`;
 function bindBack() { $$('[data-back]').forEach(b => b.onclick = () => { const v = b.dataset.back; go(v.startsWith('equip:') ? { name: 'equip', code: v.slice(6) } : { name: v }); }); }
@@ -1113,16 +1125,38 @@ function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="hint" style="margin:2px 0 6px">${isCoord() ? 'Coordinatore' : 'Tecnico'} · turno ${turnoOf(Date.now())}</div>
+    ${boxVest()}
     ${menuCompiti()}
+    ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Vestizioni del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(S.vestizioni.filter(v => /warn|exp/.test(vestStato(v))).length) : ''}
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
     <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
     <button class="submit red" id="logout">Esci</button>`);
   $('#logout').onclick = logout;
   bindMenuCompiti();
+  const vr = $('#vrep'); if (vr) vr.onclick = shVestizioni;
 };
 
 /* ================= Compiti ================= */
-const IK = { task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
+function boxVest(v = vestDi()) {
+  const st = vestStato(v); if (!st) return '';
+  const g = vestGiorni(v), d = fmtDL(v.scad);
+  if (st === 'ok') return ''; // valida: nessun avviso (si vede solo in scadenza o scaduta)
+  if (st === 'warn') return `<div class="vbox warn">${IK.vest}<div><b>Vestizione sterile in scadenza</b><div class="hint">Scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota la riqualifica con il responsabile.</div></div></div>`;
+  return `<div class="vbox exp">${IK.vest}<div><b>Vestizione sterile SCADUTA</b><div class="hint">Scaduta il <b style="display:inline">${d}</b>. Non entrare in area sterile finché la qualifica non è rinnovata.</div></div></div>`;
+}
+const fmtDL = t => { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); };
+function shVestizioni() {
+  const l = S.vestizioni.slice().sort((a, b) => a.scad - b.scad);
+  const tag = v => { const st = vestStato(v), g = vestGiorni(v); return st === 'exp' ? '<span class="tag r">Scaduta</span>' : st === 'warn' ? `<span class="tag f">${ggTxt(g)}</span>` : '<span class="tag v">Valida</span>'; };
+  const senza = [...new Set(S.liste['Manutentori'] || [])].filter(m => !vestDi(m)).sort();
+  sheet(`<div class="sheet-h"><div><h3>Vestizioni del reparto</h3><div class="hint" style="margin-top:4px">Accesso all'area sterile · avviso ${VEST_AVVISO} giorni prima</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="list" style="margin-top:12px">${l.length ? l.map(v => `<div class="person"><b>${esc(v.man)}</b>${tag(v)}<span class="hint" style="margin:0;flex-basis:100%">vestizione ${fmtDL(v.data)} · ${v.mesi} mesi · scade <b style="display:inline">${fmtDL(v.scad)}</b></span></div>`).join('') : '<div class="empty">Nessuna vestizione nel foglio.</div>'}</div>
+    ${senza.length ? `<h2>Senza data · ${senza.length}</h2><div class="hint" style="margin-top:0">${senza.map(esc).join(', ')}</div>` : ''}
+    <div class="hint" style="margin-top:14px">Date e durata si aggiornano nel foglio <b style="display:inline">Vestizioni</b>.</div>
+    <button class="linkbtn" id="vbk">‹ Indietro</button>`);
+  $('#vbk').onclick = () => $('#manbtn').click();
+}
+const IK = { vest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
   team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.5 4.6 4.5"/></svg>' };
 function menuCompiti() {
   const n = kAperti(mieiCompiti().filter(kMio)).length, rit = isCoord() ? kAperti(allCompiti()).filter(kLate).length : 0;
@@ -1387,7 +1421,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
-    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; }
+    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };

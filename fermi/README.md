@@ -389,6 +389,12 @@ Se qualcuno usa ancora i fogli di carta, puoi ricopiare i fermi direttamente nel
 
 Poi menu **Pharma-Fix → Completa fermi scritti a mano (da carta)**: lo script completa le righe senza *ID fermo* (data e ora vere, fermo a cavallo della mezzanotte, Stato CHIUSO, codice Equipment, Turno, ID, *Orari* = **CARTACEO**) così contano nei KPI, nei riepiloghi e compaiono nello storico della macchina nell'app. Alla fine ti dice quali righe non è riuscito a completare e perché (manca la linea, la macchina non si trova o è ambigua sulla linea — es. i riordinatori di ST6: in quel caso scrivi il codice nella colonna Equipment). Lo stesso controllo parte da solo prima di aggiornare i KPI e prima del riepilogo del lunedì, che per area riporta *da carta N*.
 
+### 5.15 Vestizioni (accesso all'area sterile)
+Il foglio **Vestizioni** si crea da solo (con l'elenco dei Manutentori) alla prima apertura dell'app dopo l'aggiornamento. Per ogni tecnico scrivi la **Data vestizione** (ultima qualifica) e, se diversa da 12, la **Durata (mesi)**; *Scadenza* e *Giorni mancanti* si calcolano da soli. Un tecnico nuovo: aggiungi una riga con il nome scritto come in Liste.
+- **Tecnico**: da **60 giorni** prima della scadenza vede nel menu del nome il box giallo *in scadenza* e il pallino rosso sul nome; da scaduta il box rosso *SCADUTA* (resta finché non aggiorni la data). Se è valida non compare nulla.
+- **Coordinatori**: menu del nome → **Vestizioni del reparto** (tutti, ordinati per scadenza, più chi è senza data).
+- **Riepilogo del lunedì**: riga 🧤 VESTIZIONI con chi è in scadenza e chi è scaduto (solo se ce n'è).
+
 ## 6. I dati in Excel
 
 - **Copia veloce**: dal Google Sheet **File → Scarica → Microsoft Excel (.xlsx)**.
