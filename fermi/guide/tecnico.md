@@ -22,7 +22,7 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 4. **Apri fermo**: parte il cronometro. (*Non ora* chiude il riquadro e ti lascia sulla scheda della macchina.)
 
 ### Mentre lavori: "Cosa provare"
-Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno.
+Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno. In fondo c'è **+ Aggiungi soluzione** (con il guasto già scelto) se trovi qualcosa di nuovo.
 
 ### Chiudere (~30 secondi)
 1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**. In alto vedi quando è stato aperto, da chi, la durata e il lotto.
@@ -53,28 +53,32 @@ Gli orari scritti a mano valgono per il **turno in corso**, o per quello appena 
 
 | Cosa | A cosa serve |
 |---|---|
-| **Storico** (scorrendo la pagina della macchina) | Gli ultimi interventi: chi, quando, quanto è durato, cosa ha fatto. Tocca un intervento per vedere la foto |
-| **Soluzioni** | Cerca per parola (pinze, ventose…) o per guasto. **+ Aggiungi soluzione** quando hai risolto qualcosa di nuovo: la vedi subito tu (*DA APPROVARE*), la vedranno tutti dopo l'approvazione del coordinatore |
+| **In produzione oggi** (sotto il nome della macchina) | Cosa sta girando oggi su quella linea e cosa c'è domani, dal programma di produzione |
+| **Storico** (scorrendo la pagina della macchina) | Gli ultimi interventi, 5 alla volta (**Mostra altri** per i precedenti): chi, quando, quanto è durato, cosa ha fatto. Tocca un intervento per vedere la foto |
+| **Soluzioni** (barra in basso) | L'archivio di tutte le macchine: cerca per parola (pinze, ventose…) o per guasto. **+ Aggiungi soluzione**: la vedi subito tu (*DA APPROVARE*), la vedranno tutti dopo l'approvazione del coordinatore |
 | **Manuali / Schede formato** | Manuali, schemi elettrici e schede formato della macchina o della linea |
 | **Segnala anomalia** | Qualcosa da sistemare ma che non ferma la macchina adesso: urgenza **1** critico, **2** urgente, **3** programmabile, foto e cosa serve |
 
-## 5. I tuoi compiti
+## 5. Il menu del tuo nome
 
+Tocca il **tuo nome** in alto a destra. Il **numero rosso** sul nome ti dice che c'è qualcosa da fare (compiti o vestizione in scadenza).
+
+### I miei compiti
 Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una pulizia). Il **numero rosso sul tuo nome**, in alto, dice quanti compiti hai da fare.
-1. Tocca il **tuo nome** → **I miei compiti**: quelli assegnati a te e quelli del **tuo turno**.
+1. **I miei compiti**: quelli assegnati a te e quelli del **tuo turno** (secondo il foglio turni).
 2. Tocca un compito → **Prendo in carico** (per un compito del turno: **Lo prendo io**, così i colleghi sanno che è tuo).
 3. A lavoro finito scrivi una **nota** (cosa hai fatto; se serve, il riferimento al logbook) → **Fatto**.
 
 Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook e moduli.
 
 ### Programma produzione
-Nella scheda della macchina vedi cosa è in produzione oggi su quella linea; aprendo un fermo i lotti del giorno sono già pronti da toccare. Dal menu del tuo nome, **Programma produzione** mostra tutte le linee (oggi, domani, dopodomani) con i cambi formato in giallo.
+Nella scheda della macchina vedi cosa è in produzione oggi su quella linea; aprendo un fermo i lotti del giorno sono già pronti da toccare. **Programma produzione** mostra tutte le linee (oggi, domani, dopodomani) con i cambi formato in giallo.
 
 ### Turni
-Nel menu del tuo nome: **I miei turni** (i prossimi 14 giorni, con i cambi turno) e **Chi c'è** (chi è in turno oggi, domani e dopodomani, chi è assente o in ferie).
+**I miei turni** (i prossimi 14 giorni, con i cambi turno) e **Chi c'è** (chi è in turno oggi, domani e dopodomani, chi è assente o in ferie).
 
 ### Vestizione sterile
-Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel menu del tuo nome compare un avviso giallo (e il pallino rosso sul nome): prenota la riqualifica con il responsabile. Se è scaduta l'avviso è rosso: **non entrare in sterile** finché non è rinnovata.
+Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel menu compare un avviso giallo (e il pallino rosso sul nome): prenota la riqualifica con il responsabile. Se è scaduta l'avviso è rosso: **non entrare in sterile** finché non è rinnovata.
 
 ## 6. Il pallino in alto
 

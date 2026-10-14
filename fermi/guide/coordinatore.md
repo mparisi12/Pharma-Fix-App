@@ -54,6 +54,9 @@ Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi g
 
 Per i tecnici, **Stampa etichette QR** non c'è più nel menu del nome: resta solo ai coordinatori.
 
+### Programma produzione
+Dal menu del nome, **Programma produzione**: tutte le linee oggi, domani e dopodomani, cambi formato in giallo. Il passaggio di turno riporta i cambi formato del giorno dopo (*📦 Domani cambi formato: …*): è il momento di organizzare chi li segue.
+
 ### Turni
 **Chi c'è** (menu del nome) mostra chi è in turno oggi, domani e dopodomani e chi è assente. Il passaggio di turno inizia con *In turno: …*. I compiti assegnati a un turno li vede chi quel giorno è davvero in quel turno (foglio Turni, aggiornato dal responsabile ogni mese).
 
