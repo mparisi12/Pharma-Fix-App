@@ -1125,6 +1125,7 @@ function riepilogoSettimanale() {
       out.push('📋 COMPITI · ' + fatti.length + (fatti.length === 1 ? ' fatto' : ' fatti') + (fatti.length ? ' (' + fatti.filter(x => !x.ritardo).length + ' in tempo)' : '') + ' · ' + rit + ' in ritardo aperti');
     }
   } catch (e) { Logger.log(e); }
+  const rv = rigaVestizioni_(); if (rv) out.push(rv);
   const titolo = 'SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5));
   mail_('Riepilogo settimanale', titolo, out.slice(1).join('\n'));
 }
@@ -1311,7 +1312,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {
@@ -1681,4 +1682,49 @@ function completaFermiCarta_() {
     if (fatte) SpreadsheetApp.flush();
     return { fatte: fatte, problemi: problemi };
   } finally { lock.releaseLock(); }
+}
+
+/* =================== Vestizioni (accesso all'area sterile) ===================
+   Foglio Vestizioni: una riga per tecnico con data dell'ultima vestizione e durata in mesi (vuota = 12).
+   L'app avvisa il tecnico da VEST_AVVISO giorni prima della scadenza; i coordinatori vedono tutto il reparto. */
+const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], VEST_AVVISO = 60;
+function vestSheet_(ss) {
+  let sh = ss.getSheetByName(SH_VEST);
+  if (sh) return sh;
+  const lock = LockService.getScriptLock();
+  try {
+    if (!lock.tryLock(10000)) return null;
+    sh = ss.getSheetByName(SH_VEST); if (sh) return sh;
+    sh = ss.insertSheet(SH_VEST);
+    sh.getRange(1, 1, 1, VEST_H.length).setValues([VEST_H]).setFontWeight('bold').setBackground('#dfe7ec');
+    const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues(), c = lv[0].indexOf('Manutentori');
+    const nomi = c < 0 ? [] : [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].sort();
+    if (nomi.length) sh.getRange(2, 1, nomi.length, 1).setValues(nomi.map(n => [n]));
+    sh.getRange('B2:B').setNumberFormat('dd/MM/yyyy'); sh.getRange('B2:C').setBackground('#fff3d6');
+    sh.getRange('D2').setFormula(F_('=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",12,C2:C),DAY(B2:B))))'));
+    sh.getRange('E2').setFormula(F_('=ARRAYFORMULA(IF(D2:D="","",D2:D-TODAY()))'));
+    sh.getRange('D2:D').setNumberFormat('dd/MM/yyyy'); sh.getRange('E2:E').setNumberFormat('0');
+    sh.setFrozenRows(1); sh.setColumnWidth(1, 220); sh.setColumnWidth(6, 300);
+    return sh;
+  } catch (e) { Logger.log(e); return ss.getSheetByName(SH_VEST); }
+  finally { try { lock.releaseLock(); } catch (e) {} }
+}
+// Per l'app: tecnici con la data di vestizione e la scadenza calcolata qui (non dipende dalle formule del foglio)
+function vestizioni_(ss) {
+  const sh = vestSheet_(ss);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().filter(r => String(r[0]).trim() && r[1]).map(r => {
+    const d = r[1] instanceof Date ? r[1] : dataOra_(r[1], null);
+    if (!d) return null;
+    const mesi = Number(r[2]) || 12, s = new Date(d.getFullYear(), d.getMonth() + mesi, d.getDate());
+    return { man: String(r[0]).trim(), data: d.getTime(), mesi: mesi, scad: s.getTime() };
+  }).filter(Boolean);
+}
+function rigaVestizioni_() {
+  let v; try { v = vestizioni_(SpreadsheetApp.getActiveSpreadsheet()); } catch (e) { Logger.log(e); return ''; }
+  const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
+  const corto = x => x.man.split(' ')[0] + ' ' + gm_(new Date(x.scad));
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
+  if (!inScad.length && !scadute.length) return '';
+  return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
 }

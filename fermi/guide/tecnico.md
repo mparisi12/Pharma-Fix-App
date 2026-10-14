@@ -66,6 +66,9 @@ Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una
 
 Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook e moduli.
 
+### Vestizione sterile
+Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel menu del tuo nome compare un avviso giallo (e il pallino rosso sul nome): prenota la riqualifica con il responsabile. Se è scaduta l'avviso è rosso: **non entrare in sterile** finché non è rinnovata.
+
 ## 6. Il pallino in alto
 
 | Pallino | Cosa fare |

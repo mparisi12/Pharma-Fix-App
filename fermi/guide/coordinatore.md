@@ -54,6 +54,9 @@ Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi g
 
 Per i tecnici, **Stampa etichette QR** non c'è più nel menu del nome: resta solo ai coordinatori.
 
+### Vestizioni
+Nel menu del tuo nome, **Vestizioni del reparto**: tutti i tecnici ordinati per scadenza della vestizione sterile (scadute, in scadenza nei prossimi 60 giorni, valide) e chi non ha ancora una data. Le date le aggiorna il responsabile nel foglio Vestizioni. Il lunedì il riepilogo riporta chi è in scadenza o scaduto.
+
 ## 6. Telefoni dei tecnici
 
 Ogni tecnico è legato al suo telefono. Se un tecnico vede **"Telefono non autorizzato"** (telefono nuovo o cambiato), avvisa il responsabile: lo approva nel foglio Telefoni. Intanto il tecnico può continuare a lavorare: i dati restano in coda e partono dopo l'approvazione.
