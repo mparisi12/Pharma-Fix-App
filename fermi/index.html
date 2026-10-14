@@ -165,7 +165,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .filters{margin-top:10px}
 .provaprima{margin-top:12px;background:var(--surface);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
 .pp-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:var(--steel)}.pp-h svg{width:18px;height:18px}.pp-h b{font:700 17px var(--display);letter-spacing:.04em;text-transform:uppercase}.pp-h span{flex-basis:100%;font-size:12px;color:var(--muted)}
-#pg .chip.extra{display:none}#pg.all .chip.extra{display:inline-flex}.chip.ghost{border-style:dashed;color:var(--steel)}
+#pg .chip.extra{display:none}#pg.all .chip.extra{display:inline-flex}.chip.ghost{border-style:dashed;color:var(--steel)}.chip.ghost[aria-pressed="true"]{color:var(--steel-ink);border-style:solid}
 .chip .cnt{font:500 11px var(--mono);opacity:.75;margin-left:4px}
 .provaprima .sugg{margin-top:0;background:none;border:0;padding:0}.provaprima .sugg-i{border:1px solid var(--line);background:var(--surface2)}
 .sugg{margin-top:10px;background:var(--steel-soft);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
@@ -746,7 +746,8 @@ function renderEquip() {
       <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
       ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
-        ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>' : ''}`}
+        ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>'
+          : '<div class="center"><button class="linkbtn" id="regf">Ti sei dimenticato di aprirlo? Registra un fermo già finito</button></div>'}`}
     <div class="tiles4">
       <button class="tile4" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
       <button class="tile4" data-tab="man">${I.doc}<b>MANUALI</b>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
@@ -1236,7 +1237,7 @@ function pickSheet(cb) {
 }
 
 /* ================= Fermi: apertura e chiusura ================= */
-const OFFSETS = [0, 5, 10, 15, 30];
+const OFFSETS = [0]; // "Adesso"; per un inizio diverso c'è "Altro orario"
 const LOTTO_OK = v => /^\d{4,10}$/.test(String(v || '').trim());
 const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto il fermo non si può registrare.';
 function openSheet(eq) {
@@ -1245,16 +1246,23 @@ function openSheet(eq) {
   sheet(`<div class="sheet-h"><div><h3>Apri fermo</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="group"><label class="label" for="lotto">Lotto</label><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
       ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
-    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" type="button" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}</div></div>
+    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" type="button" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}<button class="chip ghost" type="button" data-v="ora" aria-pressed="false">Altro orario</button></div>
+      <div id="orawrap" hidden style="margin-top:10px"><input class="field" type="time" id="oraini"><div class="hint">Ora in cui la macchina si è fermata. L'inizio viene segnato come <b>dichiarato</b>.</div></div></div>
     <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
     <div class="err" id="oerr" hidden></div>
     <button class="submit red" id="go">Apri fermo</button>`);
-  singleChoice($('#offs'), v => O.offset = +v);
+  singleChoice($('#offs'), v => { O.offset = v === 'ora' ? 'ora' : +v; $('#orawrap').hidden = v !== 'ora'; if (v === 'ora') $('#oraini').focus(); });
   $('#go').onclick = () => {
-    const lv = $('#lotto').value.trim();
-    if (!LOTTO_OK(lv)) { const e = $('#oerr'); e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
-    const ts = Date.now() - O.offset * 60000;
-    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts), manutentore: S.man, foto: '' });
+    const lv = $('#lotto').value.trim(), e = $('#oerr'), now = Date.now();
+    if (!LOTTO_OK(lv)) { e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
+    let ts = now - (O.offset === 'ora' ? 0 : O.offset) * 60000, dich;
+    if (O.offset === 'ora') { // inizio scritto a mano: nel turno in corso (o appena finito, entro 2 ore dal cambio turno)
+      ts = oraToTs($('#oraini').value, now); const t0 = limiteDichiarati(now);
+      const msg = ts == null ? 'Scrivi l\'ora di inizio del fermo.' : ts < t0 ? 'Si possono aprire solo fermi iniziati dalle ' + pad(new Date(t0).getHours()) + ':' + pad(new Date(t0).getMinutes()) + ' in poi.' : '';
+      if (msg) { e.textContent = msg; e.hidden = false; return; }
+      dich = true;
+    }
+    enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts), manutentore: S.man, foto: '', dichiarato: dich });
     closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
   };
 }
@@ -1296,10 +1304,10 @@ function closeSheet(f, opt = {}) {
   const C = { img: null, circles: [], cat: null, int: null, guasto: PRE_G[f.id] || null };
   const REG = !!opt.reg, FILL = !REG && isFill(eq), ORE = REG || FILL, t0 = limiteDichiarati();
   const hhmm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
-  sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>FILLING</b>' : ` · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span>`}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
-    ${ORE ? `<div class="group"><span class="label">Orari del fermo · come sul batch record</span>
+  sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>' + esc(areaLbl(eq.area) || 'FERMO GIÀ FINITO') + '</b>' : ` · <span class="timer" style="font-size:13px" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</span>`}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    ${ORE ? `<div class="group"><span class="label">Orari del fermo${isFill(eq) ? ' · come sul batch record' : ''}</span>
       <div class="times"><label>Inizio<input class="field" type="time" id="tini" ${FILL ? `value="${hhmm(f.start)}"` : ''} required></label><label>Fine<input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
-      <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
+      <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : REG && !isFill(eq) ? 'Fermo non aperto in tempo: scrivi quando la macchina si è fermata e quando è ripartita. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
     <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
     <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Tipo intervento <i class="lockhint">· scegli prima la categoria</i></span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
     <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Tipo guasto <i class="lockhint">· scegli prima il tipo intervento</i></span><div class="chips" id="gua">${chips(guastiFor(eq), C.guasto)}</div><div id="solsug"></div></div>
