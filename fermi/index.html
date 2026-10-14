@@ -778,7 +778,6 @@ function renderEquip() {
   const all = allFermi().filter(f => f.code === eq.code);
   const open = all.find(f => f.stato === 'APERTO');
   const hist = all.filter(f => f.stato === 'CHIUSO' && f.end).sort((a, b) => b.start - a.start);
-  const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length;
   const docs = S.documenti.filter(d => vale(d.dove, eq));
   const nSch = docs.filter(d => /SCHED/.test(d.tipo)).length, nMan = docs.length - nSch;
   const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
@@ -795,8 +794,7 @@ function renderEquip() {
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
         ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>'
           : '<div class="center"><button class="linkbtn" id="regf">Ti sei dimenticato di aprirlo? Registra un fermo già finito</button></div>'}`}
-    <div class="tiles4">
-      <button class="tile4" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
+    <div class="tiles4" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <button class="tile4" data-tab="man">${I.doc}<b>MANUALI</b>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
       <button class="tile4" data-tab="sch">${I.sch}<b>SCHEDE</b>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
@@ -816,6 +814,7 @@ function renderEquip() {
     const b = e.target.closest('[data-v]'); if (!b) return;
     PRE_G[open.id] = b.dataset.v; save('preg', PRE_G);
     pg.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); $('#pgsol').innerHTML = sugBox(eq, b.dataset.v, true); };
+  const pa = $('#ppadd'); if (pa) pa.onclick = () => needMan(() => { const g = $('#pg [aria-pressed="true"]'); solSheet(eq, { guasto: g ? g.dataset.v : null }); });
   bindCommon();
 }
 const GIORNI = ['DOMENICA', 'LUNEDÌ', 'MARTEDÌ', 'MERCOLEDÌ', 'GIOVEDÌ', 'VENERDÌ', 'SABATO'];
@@ -925,11 +924,12 @@ function provaPrima(eq, open, hist) {
   const sel = PRE_G[open.id] || (gl[0].n ? gl[0].g : '');
   return `<div class="provaprima"><div class="pp-h">${I.sol}<b>Cosa provare</b><span>scegli il guasto: le soluzioni verificate per questa macchina</span></div>
     <div class="chips" id="pg">${gl.map((x, i) => `<button class="chip${i >= 6 && x.g !== sel ? ' extra' : ''}" type="button" data-v="${esc(x.g)}" aria-pressed="${x.g === sel}">${esc(x.g.split(',')[0])}${x.n ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('')}${gl.length > 6 ? `<button class="chip ghost" type="button" data-more>+ altri ${gl.length - 6}</button>` : ''}</div>
-    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div></div>`;
+    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div>
+    <button class="morebtn" id="ppadd" type="button" style="margin-top:0">+ Aggiungi soluzione</button></div>`;
 }
 function sugBox(eq, guasto, vuoto) {
   const list = suggerite(eq, guasto);
-  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila: servirà al prossimo collega.</div>' : '';
+  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila qui sotto: servirà al prossimo collega.</div>' : '';
   return `<div class="sugg">${vuoto ? '' : `<div class="sugg-h">${I.sol}<b>Prova prima · soluzioni verificate</b></div>`}
     ${list.map(s => `<div class="sugg-i"><div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>${s.ricambi ? `<div class="hint" style="margin:0">Ricambi: ${esc(s.ricambi)}</div>` : ''}</div>`).join('')}</div>`;
 }
