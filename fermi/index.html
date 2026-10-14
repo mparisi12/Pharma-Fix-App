@@ -201,7 +201,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 /* Turni */
 .tcode{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:30px;border-radius:7px;font:700 16px var(--display);flex:none;padding:0 6px}
 .tc1{background:#f9d3d6;color:#9b1c25}.tc2{background:#fbeaa0;color:#6b4600}.tc3{background:#bcd9f0;color:#123f66}.tcG{background:#f5b443;color:#5a3300}
-.tcR{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}.tcF,.tcA{background:#fff16a;color:#b3261e}.tcX{background:var(--surface2);color:var(--ink)}
+.tcR{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}.tcF,.tcA{background:#fff16a;color:#b3261e}.tcC{background:#6c35a0;color:#fff}.tcX{background:var(--surface2);color:var(--ink)}
 .trow{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .trow.today{border-color:var(--steel);box-shadow:inset 0 0 0 1px var(--steel)}.trow .dd{width:74px;flex:none;font:500 13px var(--mono);color:var(--muted)}.trow.today .dd{color:var(--steel);font-weight:600}
 .trow .tl{flex:1;min-width:0;font-weight:600;font-size:14px}.trow .tl small{display:block;font-weight:400;color:var(--muted);font-size:12px}
@@ -429,8 +429,8 @@ const dKey = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.
 const turnoCod = v => { const p = String(v ?? '').trim().toUpperCase().split(/\s+/).filter(Boolean); return p.length ? { c: p[0], o: p[1] && p[1] !== p[0] ? p[1] : '' } : null; };
 const turnoDi = (nome, t) => { const k = Object.keys(S.turni || {}).find(n => U(n) === U(nome)); return k ? turnoCod(S.turni[k][dKey(t)]) : null; };
 const ORE_T = { '1': '6–14', '2': '14–22', '3': '22–6', G: 'giornata' };
-const nomeT = c => /^[123]$/.test(c) ? 'Turno ' + c : c === 'G' ? 'Giornata' : c === 'R' ? 'Riposo' : c === 'F' ? 'Ferie' : 'Assente';
-const clsT = c => 'tc' + (/^[123GRF]$/.test(c) ? c : c === 'A' ? 'A' : 'X');
+const nomeT = c => /^[123]$/.test(c) ? 'Turno ' + c : c === 'G' ? 'Giornata' : c === 'R' ? 'Riposo' : c === 'F' ? 'Ferie' : c === 'C' ? 'Corso' : 'Assente';
+const clsT = c => 'tc' + (/^[123GRFC]$/.test(c) ? c : c === 'A' ? 'A' : 'X');
 // Il turno "di adesso" per una persona: tra mezzanotte e le 6 vale il 3 del giorno prima
 const turnoAdesso = (nome, now = Date.now()) => { const h = new Date(now).getHours(); const ieri = turnoDi(nome, now - 864e5);
   if (h < 6 && ieri && ieri.c === '3') return '3'; const t = turnoDi(nome, now); return t ? t.c : ''; };
@@ -1186,7 +1186,8 @@ function shChiCe(off) {
     ${box({ k: '2', t: 'Turno 2' }, 'tc2', by(c => c === '2'), '14–22')}
     ${box({ k: '3', t: 'Turno 3' }, 'tc3', by(c => c === '3'), '22–6')}
     ${box({ k: 'G', t: 'Giornata' }, 'tcG', by(c => c === 'G'), '')}
-    ${box({ k: 'A', t: 'Assenti e ferie' }, 'tcA', by(c => !/^[123GR]$/.test(c)).map(p => ({ ...p, n: p.n + ' · ' + nomeT(p.x.c).toLowerCase() })), '')}
+    ${box({ k: 'C', t: 'Corso / formazione' }, 'tcC', by(c => c === 'C'), '')}
+    ${box({ k: 'A', t: 'Assenti e ferie' }, 'tcA', by(c => !/^[123GRC]$/.test(c)).map(p => ({ ...p, n: p.n + ' · ' + nomeT(p.x.c).toLowerCase() })), '')}
     ${box({ k: 'R', t: 'Riposo' }, 'tcR', by(c => c === 'R'), '')}
     <button class="linkbtn" id="cbk">‹ Indietro</button>`);
   $('#cday').onclick = e => { const b = e.target.closest('[data-o]'); if (b) shChiCe(+b.dataset.o); };

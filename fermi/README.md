@@ -397,7 +397,7 @@ Il foglio **Vestizioni** si crea da solo (con l'elenco dei Manutentori) alla pri
 
 ### 5.16 Turni
 Il foglio **Turni** si crea da solo (vuoto) alla prima apertura dell'app dopo l'aggiornamento. Ogni mese **incolla la tabella dall'Excel dei turni** sotto il mese precedente, così com'è: la riga con le date e una riga per persona (nomi scritti come in Liste). Va bene anche un foglio per mese, purché il nome inizi con *Turni* (es. "Turni novembre").
-Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata, **R** riposo, **F** ferie, **A** (o qualsiasi altro codice) assente; un secondo numero è il turno originale (**3 1** = fa il 3, era nell'1). Per una malattia usa **A**: nell'app compare solo *assente*, mai il motivo.
+Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata, **R** riposo, **F** ferie, **C** corso/formazione, **A** (o qualsiasi altro codice) assente; un secondo numero è il turno originale (**3 1** = fa il 3, era nell'1). Per una malattia usa **A**: nell'app compare solo *assente*, mai il motivo.
 - **Tutti**, nel menu del nome: **I miei turni** (prossimi 14 giorni, cambi evidenziati) e **Chi c'è** (oggi, domani, dopodomani: turno 1, 2, 3, giornata, assenti e ferie, riposo).
 - **Compiti a un turno**: li vede chi quel giorno è in quel turno secondo il foglio (senza turni nel foglio, conta l'orario).
 - **Passaggio di turno**: prima riga *👷 In turno: …* con chi doveva esserci ed è assente.

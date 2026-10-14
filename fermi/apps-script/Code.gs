@@ -812,7 +812,7 @@ function controllaRegistrazioni() {
     v.forEach(x => {
       const g = new Date(x.a.getTime() - (Number(Utilities.formatDate(x.a, TZ, 'H')) < 6 ? 864e5 : 0)), p = nomiT[x.man.trim().toUpperCase()];
       const cod = p ? codTurno_(p[Utilities.formatDate(g, TZ, 'yyyy-MM-dd')]) : null;
-      if (cod && cod.c && !/^[123G]$/.test(cod.c)) out.push(['Fermo di chi non era in turno', x.man + ' risultava ' + ({ R: 'a riposo', F: 'in ferie' }[cod.c] || 'assente') + ' il ' + Utilities.formatDate(g, TZ, 'dd/MM') + ' (nome o telefono sbagliato? turni da aggiornare?)', 'Fermi riga ' + x.r]);
+      if (cod && cod.c && !/^[123GC]$/.test(cod.c)) out.push(['Fermo di chi non era in turno', x.man + ' risultava ' + ({ R: 'a riposo', F: 'in ferie' }[cod.c] || 'assente') + ' il ' + Utilities.formatDate(g, TZ, 'dd/MM') + ' (nome o telefono sbagliato? turni da aggiornare?)', 'Fermi riga ' + x.r]);
     });
     v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
       .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
@@ -1793,7 +1793,7 @@ function rigaTurno_(a, t) {
   Object.keys(tt).sort().forEach(nome => {
     const x = codTurno_(tt[nome][k]); if (!x.c) return;
     if (x.c === n) dentro.push(corto(nome) + (x.o ? ' (cambio)' : ''));
-    else if (x.o === n && !/^[123G]$/.test(x.c)) assenti.push(corto(nome));
+    else if (x.o === n && !/^[123G]$/.test(x.c)) assenti.push(corto(nome) + (x.c === 'C' ? ' (corso)' : ''));
   });
   if (!dentro.length && !assenti.length) return '';
   return '👷 In turno: ' + (dentro.join(', ') || 'nessuno nel foglio Turni') + (assenti.length ? ' · assenti: ' + assenti.join(', ') : '');
