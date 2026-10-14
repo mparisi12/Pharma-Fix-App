@@ -806,6 +806,14 @@ function controllaRegistrazioni() {
       const l = per[m].sort((x, y) => x.a - y.a);
       for (let i = 1; i < l.length; i++) if (l[i].a < l[i - 1].b) out.push(['Fermi sovrapposti', m + ': righe ' + l[i - 1].r + ' e ' + l[i].r, 'Fermi riga ' + l[i].r]);
     });
+    // fermi registrati da chi quel giorno risultava a riposo, in ferie o assente (foglio Turni)
+    let tt = {}; try { tt = turniTutti_(ss); } catch (e) { Logger.log(e); }
+    const nomiT = {}; Object.keys(tt).forEach(n => { nomiT[n.toUpperCase()] = tt[n]; });
+    v.forEach(x => {
+      const g = new Date(x.a.getTime() - (Number(Utilities.formatDate(x.a, TZ, 'H')) < 6 ? 864e5 : 0)), p = nomiT[x.man.trim().toUpperCase()];
+      const cod = p ? codTurno_(p[Utilities.formatDate(g, TZ, 'yyyy-MM-dd')]) : null;
+      if (cod && cod.c && !/^[123G]$/.test(cod.c)) out.push(['Fermo di chi non era in turno', x.man + ' risultava ' + ({ R: 'a riposo', F: 'in ferie' }[cod.c] || 'assente') + ' il ' + Utilities.formatDate(g, TZ, 'dd/MM') + ' (nome o telefono sbagliato? turni da aggiornare?)', 'Fermi riga ' + x.r]);
+    });
     v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
       .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
   }
@@ -1153,6 +1161,7 @@ function passaggioTurno(conMail, soloLinee) {
   const an = anomalieTutte_().filter(linea), nuove = an.filter(x => x.ts && x.ts >= a && x.ts < b), aperte = an.filter(x => x.stato !== 'CHIUSA');
   const tot = nel.reduce((x, f) => x + minDi_(f), 0);
   const out = ['⏱ ' + nFermi_(nel.length).toUpperCase() + (nel.length ? ' · ' + durTxt_(tot) : '')];
+  const rt = rigaTurno_(a, t); if (rt) out.unshift(rt, ''); // chi era in turno (foglio Turni)
   if (nel.length) AREE_RIEP.concat(['']).forEach(area => {
     const s = nel.filter(f => f.area === area);
     if (!area && !s.length) return;
@@ -1312,7 +1321,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {
@@ -1727,4 +1736,65 @@ function rigaVestizioni_() {
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
+}
+
+/* =================== Turni (dal foglio Turni) ===================
+   Ogni mese si incolla la tabella dei turni (riga con le date + una riga per persona) nel foglio Turni,
+   sotto il mese precedente; vale anche un foglio per mese purché il nome inizi con "Turni".
+   Celle: 1 / 2 / 3 / G = turno, R = riposo, F = ferie, A (o altro) = assente; "3 1" = fa il 3, era nell'1 (cambio). */
+const SH_TURNI = 'Turni';
+function turniSheet_(ss) {
+  if (ss.getSheets().some(s => /^turni/i.test(s.getName()))) return;
+  const lock = LockService.getScriptLock();
+  try {
+    if (!lock.tryLock(10000) || ss.getSheets().some(s => /^turni/i.test(s.getName()))) return;
+    const sh = ss.insertSheet(SH_TURNI);
+    sh.getRange('A1').setValue('Incolla qui sotto la tabella dei turni di ogni mese, così com\'è nell\'Excel (riga delle date e una riga per persona, nomi scritti come in Liste). Il mese nuovo sotto il precedente.')
+      .setFontStyle('italic').setFontColor('#4d5b66');
+  } catch (e) { Logger.log(e); } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+// Tutti i turni letti: { NOME: { 'yyyy-MM-dd': '3 1' } }
+function turniTutti_(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const out = {}, key = d => Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+  const data = x => {
+    if (x instanceof Date && x.getFullYear() >= 2000) return x;
+    const m = String(x || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    return m ? new Date(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+  };
+  ss.getSheets().filter(s => /^turni/i.test(s.getName())).forEach(sh => {
+    if (sh.getLastRow() < 2) return;
+    let date = null;
+    sh.getDataRange().getValues().forEach(r => {
+      const dd = r.slice(1).map(data);
+      if (dd.filter(Boolean).length >= 7) { date = dd; return; } // riga delle date: inizia un mese
+      const nome = String(r[0] || '').trim().replace(/\s+/g, ' ');
+      if (!date || !nome) return;
+      const p = out[nome] = out[nome] || {};
+      r.slice(1).forEach((v, i) => { if (date[i] && v !== '' && v != null) p[key(date[i])] = String(v).trim().toUpperCase().replace(/\s+/g, ' '); });
+    });
+  });
+  return out;
+}
+// Per l'app: da 7 giorni fa a 35 giorni avanti
+function turni_(ss) {
+  turniSheet_(ss);
+  const t = turniTutti_(ss), da = Utilities.formatDate(new Date(Date.now() - 7 * 864e5), TZ, 'yyyy-MM-dd'), a = Utilities.formatDate(new Date(Date.now() + 35 * 864e5), TZ, 'yyyy-MM-dd');
+  const out = {};
+  Object.keys(t).forEach(n => { const p = {}; Object.keys(t[n]).forEach(k => { if (k >= da && k <= a) p[k] = t[n][k]; }); if (Object.keys(p).length) out[n] = p; });
+  return out;
+}
+const codTurno_ = v => { const p = String(v || '').trim().split(' '); return { c: p[0] || '', o: p[1] && p[1] !== p[0] ? p[1] : '' }; };
+// Riga del passaggio di turno: chi era in quel turno e chi doveva esserci ma era assente
+function rigaTurno_(a, t) {
+  let tt; try { tt = turniTutti_(); } catch (e) { Logger.log(e); return ''; }
+  const k = Utilities.formatDate(a, TZ, 'yyyy-MM-dd'), n = t.replace('T', ''), corto = s => s.split(' ')[0];
+  const dentro = [], assenti = [];
+  Object.keys(tt).sort().forEach(nome => {
+    const x = codTurno_(tt[nome][k]); if (!x.c) return;
+    if (x.c === n) dentro.push(corto(nome) + (x.o ? ' (cambio)' : ''));
+    else if (x.o === n && !/^[123G]$/.test(x.c)) assenti.push(corto(nome));
+  });
+  if (!dentro.length && !assenti.length) return '';
+  return '👷 In turno: ' + (dentro.join(', ') || 'nessuno nel foglio Turni') + (assenti.length ? ' · assenti: ' + assenti.join(', ') : '');
 }
