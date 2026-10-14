@@ -16,10 +16,10 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 ## 2. Macchine PACKAGING: aprire e chiudere un fermo
 
 ### Aprire (~10 secondi)
-1. **Scansiona QR** sull'etichetta della macchina. Si apre la pagina della macchina.
-2. Tocca il pulsante rosso **Apri fermo**.
-3. Controlla il **lotto** (obbligatorio). Inizio: **Adesso**, oppure **Altro orario** se la macchina si è fermata prima (scrivi l'ora).
-4. **Apri fermo**: parte il cronometro.
+1. Nella home tocca **APRI FERMO MACCHINA** e inquadra il QR (oppure *Scegli la macchina a mano* / *Fotografa QR*).
+2. Si apre subito il riquadro **Apri fermo**: controlla la macchina e il **lotto** (obbligatorio).
+3. **Quando si è fermata?** **ADESSO**, oppure **SCEGLI ORARIO** se si è fermata prima (scrivi l'ora).
+4. **Apri fermo**: parte il cronometro. (*Non ora* chiude il riquadro e ti lascia sulla scheda della macchina.)
 
 ### Mentre lavori: "Cosa provare"
 Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno.
