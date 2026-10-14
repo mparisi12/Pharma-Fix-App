@@ -383,6 +383,12 @@ I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai t
 - In **Compiti del reparto**: aperti, in ritardo, fatti negli ultimi 7 giorni, riepilogo **per persona** (tocca un nome per vedere il suo storico). L'app mostra gli ultimi 90 giorni; tutto lo storico è nel foglio.
 - I compiti sono un **promemoria gestionale**: non sostituiscono logbook e moduli. Se il lavoro va documentato, il tecnico scrive il riferimento al logbook nella nota.
 
+### 5.14 Fermi ricopiati a mano (da fogli cartacei)
+Se qualcuno usa ancora i fogli di carta, puoi ricopiare i fermi direttamente nel foglio **Fermi**, anche in mezzo alle righe dell'app. Compila almeno:
+**Data**, **Ora Inizio**, **Ora Fine** (anche solo l'ora, es. 14:20), **Manutentore**, **Linea** (colonna M) e **Macchina** (o, meglio, il codice QR nella colonna **Equipment**), più categoria, tipo intervento, guasto, descrizione e lotto se li hai.
+
+Poi menu **Pharma-Fix → Completa fermi scritti a mano (da carta)**: lo script completa le righe senza *ID fermo* (data e ora vere, fermo a cavallo della mezzanotte, Stato CHIUSO, codice Equipment, Turno, ID, *Orari* = **CARTACEO**) così contano nei KPI, nei riepiloghi e compaiono nello storico della macchina nell'app. Alla fine ti dice quali righe non è riuscito a completare e perché (manca la linea, la macchina non si trova o è ambigua sulla linea — es. i riordinatori di ST6: in quel caso scrivi il codice nella colonna Equipment). Lo stesso controllo parte da solo prima di aggiornare i KPI e prima del riepilogo del lunedì, che per area riporta *da carta N*.
+
 ## 6. I dati in Excel
 
 - **Copia veloce**: dal Google Sheet **File → Scarica → Microsoft Excel (.xlsx)**.
