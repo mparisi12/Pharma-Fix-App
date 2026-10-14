@@ -1611,7 +1611,8 @@ const chiK_ = k => k.presoDa || k.a;
 
 
 /* =================== Fermi scritti a mano nel foglio (da carta) ===================
-   Righe aggiunte a mano nel foglio Fermi (senza ID fermo), es. ricopiate dai vecchi fogli cartacei.
+   Righe aggiunte a mano nel foglio Fermi (senza ID fermo, oppure con ore scritte come testo o senza codice Equipment),
+   es. ricopiate dai vecchi fogli cartacei.
    Le completa perché contino come le altre (KPI, riepiloghi, storico nell'app):
    data+ora vere, Stato CHIUSO, Linea e codice Equipment, Turno, ID, Orari = CARTACEO, formule.
    Si lancia dal menu (con il resoconto) e da sola prima di KPI e riepilogo settimanale. */
@@ -1641,7 +1642,10 @@ function completaFermiCarta_() {
     let fatte = 0; const problemi = [];
     v.forEach((row, i) => {
       const r = i + 2;
-      if (String(row[C.ID - 1]).trim()) return;
+      const vera = x => x instanceof Date && x.getFullYear() >= 1950;
+      const idOld = String(row[C.ID - 1]).trim(), stato = String(row[C.STATO - 1]).trim().toUpperCase();
+      // da completare: senza ID, oppure chiusa ma con ore scritte come testo / senza codice Equipment / senza turno
+      if (idOld && (stato !== 'CHIUSO' || (vera(row[C.INIZIO - 1]) && vera(row[C.FINE - 1]) && String(row[C.EQ - 1]).trim() && String(row[C.TURNO - 1]).trim()))) return;
       if (row[C.DATA - 1] === '' && row[C.INIZIO - 1] === '' && row[C.MACC - 1] === '') return; // riga vuota
       const g0 = dataOra_(row[C.DATA - 1], null) || (row[C.INIZIO - 1] instanceof Date && row[C.INIZIO - 1].getFullYear() >= 1950 ? row[C.INIZIO - 1] : null);
       const giorno = g0 ? new Date(g0.getFullYear(), g0.getMonth(), g0.getDate()) : null;
@@ -1664,14 +1668,14 @@ function completaFermiCarta_() {
       if (manca.length) { problemi.push('riga ' + r + ': manca ' + manca.join(', ') + (row[C.MACC - 1] ? ' (' + String(row[C.MACC - 1]).trim() + ')' : '')); return; }
       if (fin - ini > 24 * 3600e3) { problemi.push('riga ' + r + ': fermo più lungo di 24 ore, controlla gli orari'); return; }
       const e = eq.find(x => x.code === code);
-      const id = 'CARTA-' + Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [r, ini.getTime(), fin.getTime(), code, row[C.MAN - 1], Date.now()].join('|'))
+      const id = idOld || 'CARTA-' + Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [r, ini.getTime(), fin.getTime(), code, row[C.MAN - 1], Date.now()].join('|'))
         .map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('').slice(0, 10).toUpperCase();
       sh.getRange(r, C.DATA, 1, 3).setValues([[giorno, ini, fin]]);
       sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy'); sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
       if (!String(row[C.MACC - 1]).trim()) sh.getRange(r, C.MACC).setValue(e.macchina);
       sh.getRange(r, C.LINEA, 1, 2).setValues([[linea, turno_(ini)]]);
       sh.getRange(r, C.STATO, 1, 4).setValues([['CHIUSO', id, code, row[C.APERTO_DA - 1] || row[C.MAN - 1] || '']]);
-      sh.getRange(r, C.ORARI, 1, 2).setValues([[ORA_CARTA, new Date()]]); sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
+      sh.getRange(r, C.ORARI, 1, 2).setValues([[row[C.ORARI - 1] || ORA_CARTA, row[C.REG - 1] || new Date()]]); sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
       if (row[C.LOTTO - 1] !== '') sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto_(row[C.LOTTO - 1]));
       sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
       sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
