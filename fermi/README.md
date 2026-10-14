@@ -162,14 +162,16 @@ L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo
 
 ### Aprire un fermo (~10 secondi)
 1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.) Si apre la **pagina della macchina**, con lo storico degli interventi sotto.
-2. Tocca **Apri fermo** (il pulsante rosso in alto): controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e, se il fermo è iniziato prima, scegli −5 / −10 / −15 / −30 min. **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
+2. Tocca **Apri fermo** (il pulsante rosso in alto): controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e l'inizio: **Adesso**, oppure **Altro orario** se la macchina si è fermata prima (ora del turno in corso, o di quello appena finito entro 2 ore dal cambio turno; l'inizio viene segnato come *dichiarato*). **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
 
 ### Macchine FILLING (sterile): aprire prima di entrare, chiudere con gli orari del batch record
 In sterile il telefono non entra. Il fermo si gestisce così, ed è visibile a tutti come **fermo in corso** mentre il tecnico è dentro:
-1. **Prima di entrare**: apri la macchina (QR, **Fotografa QR** o **Scegli macchina a mano**) → **Apri fermo**, come in Packaging (lotto, −5/−10/−15/−30 min se è iniziato prima).
+1. **Prima di entrare**: apri la macchina (QR, **Fotografa QR** o **Scegli macchina a mano**) → **Apri fermo**, come in Packaging (lotto, Adesso o Altro orario).
 2. **All'uscita**: QR o fermo nella home → **Chiudi fermo**. In alto ci sono **Inizio** e **Fine** già scritti (apertura e adesso): **correggili con gli orari del batch record**, poi compila come sempre.
 3. Se gli orari vengono corretti, la riga ha **Orari = DICHIARATI**; l'ora vera di apertura nell'app resta come **nota** sulla cella Ora Inizio. Se non vengono toccati restano *tempo reale*.
+
+**Packaging, fermo dimenticato**: nella pagina della macchina, link **Ti sei dimenticato di aprirlo? Registra un fermo già finito** → inizio e fine a mano, poi il modulo di chiusura come sempre. Stesse regole degli orari dichiarati del Filling; nel passaggio di turno compare in **Da sistemare** come *Registrati dopo*, e nel riepilogo del lunedì il Packaging riporta *registrati dopo N su M*.
 
 **Fermo già finito senza averlo aperto** (es. urgenza): nella pagina della macchina, link **Fermo già finito? Registralo con gli orari del batch record** → inizio, fine e dati di chiusura in un colpo solo (Orari = DICHIARATI).
 
