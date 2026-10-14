@@ -1645,7 +1645,11 @@ function completaFermiCarta_() {
       const vera = x => x instanceof Date && x.getFullYear() >= 1950;
       const idOld = String(row[C.ID - 1]).trim(), stato = String(row[C.STATO - 1]).trim().toUpperCase();
       // da completare: senza ID, oppure chiusa ma con ore scritte come testo / senza codice Equipment / senza turno
-      if (idOld && (stato !== 'CHIUSO' || (vera(row[C.INIZIO - 1]) && vera(row[C.FINE - 1]) && String(row[C.EQ - 1]).trim() && String(row[C.TURNO - 1]).trim()))) return;
+      if (idOld && (stato !== 'CHIUSO' || (vera(row[C.INIZIO - 1]) && vera(row[C.FINE - 1]) && String(row[C.EQ - 1]).trim() && String(row[C.TURNO - 1]).trim()))) {
+        // storico importato dai fogli cartacei (ID …STORICO…): anche lui è "da carta"
+        if (/STORICO/i.test(idOld) && !String(row[C.ORARI - 1]).trim()) { sh.getRange(r, C.ORARI).setValue(ORA_CARTA).setBackground('#e8eef3'); fatte++; }
+        return;
+      }
       if (row[C.DATA - 1] === '' && row[C.INIZIO - 1] === '' && row[C.MACC - 1] === '') return; // riga vuota
       const g0 = dataOra_(row[C.DATA - 1], null) || (row[C.INIZIO - 1] instanceof Date && row[C.INIZIO - 1].getFullYear() >= 1950 ? row[C.INIZIO - 1] : null);
       const giorno = g0 ? new Date(g0.getFullYear(), g0.getMonth(), g0.getDate()) : null;
