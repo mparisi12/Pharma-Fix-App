@@ -33,7 +33,7 @@ Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi
 6. Controlla il **lotto**. Se il tipo intervento è **SOSTITUZIONE**, scrivi il **codice pezzo** (obbligatorio).
 7. **Chiudi fermo**.
 
-Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Chiedi correzione** e scrivi cosa va corretto: lo sistema il responsabile.
+Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Correggi il fermo**: la **prima** correzione la fai tu (non gli orari). Per correggere ancora → **Chiedi correzione** e scrivi cosa va cambiato: lo sistema il responsabile.
 
 Fermo aperto per sbaglio? **Chiudi** → in fondo, sotto la riga tratteggiata, **Annulla il fermo** (tocca due volte).
 

@@ -334,7 +334,7 @@ Foglio **Telefoni**: una riga per ogni coppia tecnico + telefono, con modello, p
 
 Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana).
 
-**Correzioni**: un fermo chiuso dall'app non si modifica. Chi l'ha registrato (o un coordinatore) apre il dettaglio del fermo → **Hai sbagliato qualcosa? Chiedi una correzione** e scrive cosa cambiare. La richiesta finisce nel foglio **Correzioni** (con la riga del foglio Fermi) e arriva un avviso su Telegram; sulla cella della descrizione compare una nota. Correggi a mano la riga in Fermi e metti **FATTA** nel foglio Correzioni.
+**Correzioni**: la **prima** correzione di un fermo chiuso la fa direttamente chi l'ha registrato (o un coordinatore): dettaglio del fermo → **Correggi il fermo** (categoria, tipo intervento, guasto, descrizione, lotto, pezzo; gli orari no). Resta nel foglio **Correzioni** come *Modifica diretta: campo: prima → dopo* (FATTA) e come nota sulla riga. **Dalla seconda in poi** (o se è già stata chiesta una correzione) l'app mostra solo **Hai sbagliato qualcosa? Chiedi una correzione** e scrive cosa cambiare. La richiesta finisce nel foglio **Correzioni** (con la riga del foglio Fermi) e arriva un avviso su Telegram; sulla cella della descrizione compare una nota. Correggi a mano la riga in Fermi e metti **FATTA** nel foglio Correzioni.
 
 ### 5.10 Sveglia dello script
 Google "addormenta" lo script quando nessuno lo usa per un po': al risveglio la prima risposta può metterci 20–40 secondi (l'app scrive *"Il foglio risponde lentamente"* e intanto si lavora lo stesso: i dati restano in coda).
@@ -407,7 +407,8 @@ Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), 
 Crea nel file Google un foglio chiamato **Programma**. Ogni volta che il programma cambia, copia **tutto** il foglio dell'Excel del programma (quello dell'anno, con le settimane e gli appunti) e incollalo in **A1** con **Incolla speciale → solo valori**, al posto del contenuto precedente. Lo script trova da solo la riga delle date e usa solo le righe di **riempimento** (*st1 rip pomate/gel* → ST1 TGM, *st1 rip liquidi* → ST1 MAR, *orl rip*, *st2/st3/st4/st5 rip*, *rip st6*) e di confezionamento (*spl1*, *spl2*); le righe *prep* e le altre le ignora. Se in colonna A scrivi direttamente il nome di una linea come in Equipment (es. *ST3*), vale quello.
 Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto è il primo numero di 6 cifre; una cella che inizia con **cf** è un cambio formato.
 - **Scheda macchina**: *In produzione oggi* (e domani) per la linea della macchina.
-- **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto).
+- **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto). Per le linee a ciclo continuo (cella F7 del foglio Avvisi, es. ST3) compaiono prima anche i lotti del giorno precedente.
+- Con un fermo aperto la scheda macchina non mostra il programma (in primo piano Chiudi fermo e Cosa provare).
 - **Menu del nome → Programma produzione**: tutte le linee oggi / domani / dopodomani, cambi formato in giallo.
 - **Passaggio di turno**: riga *📦 Domani cambi formato: …* (o *Oggi* per il turno che finisce al mattino), solo se ce ne sono.
 Prima delle 6 del mattino vale il programma del giorno prima (turno 3).
