@@ -1180,6 +1180,7 @@ function passaggioTurno(conMail, soloLinee) {
     if (senza.length) out.push('  Senza descrizione: ' + senza.length + ' (' + nomi(senza) + ')');
     if (dopo.length) out.push('  Registrati dopo: ' + dopo.length + ' (' + nomi(dopo) + ')');
   }
+  const rcf = rigaCambiFormato_(b); if (rcf) out.push('', rcf);
   out.push('', rigaAnomalie_(nuove, aperte, null));
   nuove.forEach(x => out.push('  urg. ' + x.urg + ' · ' + x.linea + ' ' + breve(x.linea, x.macc) + ' · ' + String(x.descr).slice(0, 50)));
   const titolo = 'PASSAGGIO TURNO ' + t + ' · ' + giorno + ' · ' + Utilities.formatDate(a, TZ, 'H') + '–' + Utilities.formatDate(b, TZ, 'H') + (soloLinee ? ' · solo ' + soloLinee.join(', ') : '');
@@ -1321,7 +1322,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {
@@ -1797,4 +1798,57 @@ function rigaTurno_(a, t) {
   });
   if (!dentro.length && !assenti.length) return '';
   return '👷 In turno: ' + (dentro.join(', ') || 'nessuno nel foglio Turni') + (assenti.length ? ' · assenti: ' + assenti.join(', ') : '');
+}
+
+/* =================== Programma produzione (foglio Programma) ===================
+   Si incolla TUTTO il foglio del programma (solo valori): riga con le date, colonna A con le righe del programma.
+   Si usano solo le righe di riempimento ("… rip …") e di confezionamento (spl1, spl2), abbinate alle linee di Equipment. */
+function lineaProg_(etichetta, linee) {
+  const s = String(etichetta || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  const diretto = linee.find(l => l.toLowerCase() === s); if (diretto) return diretto;
+  if (/\bprep\b/.test(s)) return '';
+  const trova = n => linee.find(l => l.toUpperCase() === n) || '';
+  if (/spl ?1\b/.test(s)) return trova('SPL1');
+  if (/spl ?2\b/.test(s)) return trova('SPL2');
+  if (!/\brip\b/.test(s)) return '';
+  if (/\borl\b/.test(s)) return trova('ORL');
+  const m = s.match(/\bst ?(\d)\b/); if (!m) return '';
+  if (m[1] === '1') return /pomat|gel|tgm/.test(s) ? trova('ST1 TGM') : /liquid|mar/.test(s) ? trova('ST1 MAR') : '';
+  return trova('ST' + m[1]);
+}
+function programmaTutto_(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheets().find(s => /^programma/i.test(s.getName()));
+  if (!sh || sh.getLastRow() < 3) return {};
+  const v = sh.getDataRange().getValues(), linee = [...new Set(equipment_(ss).map(e => String(e.linea).trim()))];
+  const data = x => x instanceof Date && x.getFullYear() >= 2000 ? x : null;
+  let hr = -1, best = 0; // riga delle date: quella con più date (nel file del programma è la 3)
+  v.slice(0, 10).forEach((r, i) => { const n = r.filter(data).length; if (n > best) { best = n; hr = i; } });
+  if (hr < 0 || best < 7) return {};
+  const date = v[hr].map(x => data(x) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : '');
+  const out = {};
+  v.slice(hr + 1).forEach(r => {
+    const l = lineaProg_(r[0], linee); if (!l) return;
+    const p = out[l] = out[l] || {};
+    r.forEach((x, i) => { if (i && date[i] && String(x).trim()) p[date[i]] = (p[date[i]] ? p[date[i]] + '\n\n' : '') + String(x).trim(); });
+  });
+  return out;
+}
+// Per l'app: da 3 giorni fa a 14 giorni avanti
+function programma_(ss) {
+  const t = programmaTutto_(ss), da = Utilities.formatDate(new Date(Date.now() - 3 * 864e5), TZ, 'yyyy-MM-dd'), a = Utilities.formatDate(new Date(Date.now() + 14 * 864e5), TZ, 'yyyy-MM-dd');
+  const out = {};
+  Object.keys(t).forEach(l => { const p = {}; Object.keys(t[l]).forEach(k => { if (k >= da && k <= a) p[k] = t[l][k]; }); if (Object.keys(p).length) out[l] = p; });
+  return out;
+}
+// Passaggio di turno: cambi formato del giorno che arriva (oggi se il turno finisce al mattino, domani altrimenti)
+function rigaCambiFormato_(b) {
+  let t; try { t = programmaTutto_(); } catch (e) { Logger.log(e); return ''; }
+  const mattino = Number(Utilities.formatDate(b, TZ, 'H')) < 12, g = new Date(b.getTime() + (mattino ? 0 : 864e5)), k = Utilities.formatDate(g, TZ, 'yyyy-MM-dd');
+  const cf = [];
+  Object.keys(t).sort().forEach(l => String(t[l][k] || '').split(/\n\s*\n/).forEach(x => {
+    x = x.replace(/\s+/g, ' ').trim(); if (/^cf\b/i.test(x)) cf.push(l + (x.replace(/^cf\b\s*/i, '') ? ' ' + x.replace(/^cf\b\s*/i, '').slice(0, 30) : ''));
+  }));
+  return cf.length ? '📦 ' + (mattino ? 'Oggi' : 'Domani') + ' cambi formato: ' + cf.join(' · ') : '';
 }
