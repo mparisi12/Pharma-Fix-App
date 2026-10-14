@@ -67,6 +67,9 @@ Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una
 
 Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook e moduli.
 
+### Programma produzione
+Nella scheda della macchina vedi cosa è in produzione oggi su quella linea; aprendo un fermo i lotti del giorno sono già pronti da toccare. Dal menu del tuo nome, **Programma produzione** mostra tutte le linee (oggi, domani, dopodomani) con i cambi formato in giallo.
+
 ### Turni
 Nel menu del tuo nome: **I miei turni** (i prossimi 14 giorni, con i cambi turno) e **Chi c'è** (chi è in turno oggi, domani e dopodomani, chi è assente o in ferie).
 
