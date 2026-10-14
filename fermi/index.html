@@ -124,7 +124,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .bigbtn.hero{flex-direction:column;gap:6px;min-height:46vh;max-height:330px;padding:22px 16px;border-radius:18px;box-shadow:0 6px 18px rgba(194,59,42,.28)}
 .bigbtn.hero .bt{font:700 44px/1 var(--display);letter-spacing:.05em}
 .bigbtn.hero .bs{font:500 15px/1.2 var(--body);letter-spacing:0;text-transform:none;opacity:.92}
-.bigbtn.hero.ok{justify-content:center;padding-inline:16px;min-height:28vh;box-shadow:0 6px 18px rgba(31,122,77,.28)}.bigbtn.hero.ok .timer{font:600 40px var(--mono)}
+.bigbtn.hero.ok{flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:2px 12px;padding:14px 18px;min-height:0;box-shadow:0 4px 12px rgba(31,122,77,.25)}.bigbtn.hero.ok .bt{font-size:30px}.bigbtn.hero.ok .timer{font:600 30px var(--mono)}.bigbtn.hero.ok .bs{flex-basis:100%;font-size:13px}
 .bigbtn.hero.home{min-height:30vh;margin-top:6px}
 .bigbtn.hero.busy{background:#5a6873;box-shadow:none;cursor:default;min-height:24vh}.bigbtn.hero.busy .bt{font-size:34px}.bigbtn.hero.busy .timer{font:600 34px var(--mono);color:#fff}
 .step.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}.step .lockhint{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}.step:not(.locked) .lockhint{display:none}
@@ -782,7 +782,7 @@ function renderEquip() {
   const docs = S.documenti.filter(d => vale(d.dove, eq));
   const nSch = docs.filter(d => /SCHED/.test(d.tipo)).length, nMan = docs.length - nSch;
   const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
-  const C = eq.code, shown = S.view.more || 20;
+  const C = eq.code, shown = S.view.more || 5;
   const qr = I.qr.replace('<svg', '<svg width="28" height="28"');
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
@@ -804,12 +804,12 @@ function renderEquip() {
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
-    ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi</button>' : ''}
+    ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi · ' + Math.min(10, hist.length - shown) + ' di ' + (hist.length - shown) + '</button>' : ''}
     ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
-  const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 20; renderEquip(); window.scrollTo(0, y); };
+  const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 10; renderEquip(); window.scrollTo(0, y); };
   $$('[data-int]').forEach(b => b.onclick = () => { const f = hist.find(x => x.id === b.dataset.int); if (f) intSheet(f, eq); });
   const pg = $('#pg'); if (pg && open) pg.onclick = e => {
     if (e.target.closest('[data-more]')) { pg.classList.add('all'); e.target.closest('[data-more]').remove(); return; }
