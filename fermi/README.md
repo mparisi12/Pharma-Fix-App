@@ -182,16 +182,16 @@ Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è *
 
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
-2. **Foto zona di intervento** → scatta → **tocca la foto per cerchiare** il punto in cui hai lavorato (tocca il cerchio per toglierlo).
-3. Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template). Sotto il guasto compaiono le **soluzioni verificate** più adatte per quella macchina (*Prova prima*): leggile prima di cercare altrove.
-4. **Altro (descrizione breve)**: obbligatoria se hai scelto ALTRO. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio.
+2. In alto il riepilogo: aperto alle, durata, lotto, aperto da. Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template; in ordine di frequenza su quella macchina, con il numero). Sotto il guasto compaiono le **soluzioni verificate** più adatte (*Prova prima*).
+3. **Foto della zona di intervento** (consigliata) → scatta → **tocca la foto per cerchiare** il punto (tocca il cerchio per toglierlo).
+4. **Descrizione breve**: **sempre obbligatoria**. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio. Con **Proponi come soluzione** (e il problema in una riga) la descrizione diventa anche una soluzione *da approvare* nel foglio Soluzioni (già verificata se chiude un coordinatore).
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
 6. **Codice pezzo sostituito**: compare solo se il tipo intervento è **SOSTITUZIONE**, e allora è obbligatorio.
 7. **Chiudi fermo**.
 
 Il fermo lo può chiudere (o annullare) **solo chi l'ha aperto**, oppure un coordinatore. Un fermo chiuso non si modifica dall'app: nel dettaglio c'è **Chiedi correzione** (vedi 5.9).
 
-Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
+Fermo aperto per sbaglio? **Chiudi** → in fondo, staccato dal pulsante verde, **Annulla il fermo** (tocca due volte).
 
 ### Scheda macchina, soluzioni, documenti, anomalie
 - **Pagina della macchina** (si apre dopo il QR o scegliendo la macchina): in alto il pulsante **Apri fermo** (Packaging), **Registra fermo** (Filling) o **Chiudi fermo** verde con il cronometro se un fermo è in corso; poi Soluzioni, Manuali, Schede, Anomalia e i numeri degli ultimi 30 giorni. **Scorrendo**: gli interventi degli ultimi 90 giorni dal più recente, divisi per giorno, con orari, durata (arancione oltre l'ora), guasto, descrizione, tecnico e lotto; 20 alla volta (**Mostra altri interventi**). Tocca un intervento per il dettaglio completo e la foto.
