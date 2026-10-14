@@ -267,6 +267,14 @@ textarea.field{min-height:64px;resize:vertical}
 .login h1{font:700 40px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0}
 .login p{color:var(--muted)}
 .login label{display:block;margin-top:16px}
+/* Programma produzione */
+.prog{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-top:10px;font-size:13px}
+.prog .ph{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.prog .pv{font-weight:600;font-size:14px;margin-top:2px}.prog .pn{color:var(--muted);font-size:12px;margin-top:4px}
+.pcf{display:inline-block;background:#fff16a;color:#7a5b00;font:700 11px var(--mono);border-radius:5px;padding:1px 6px;margin-right:4px}
+.plin{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.plin b{font:700 15px var(--display);letter-spacing:.04em;display:block}
+.plin .pi{font-size:13px;margin-top:2px}.plin.cf{border-color:#e0c400;background:#fffbd6}
+.lchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.lchips .chip{min-height:36px;font-size:13px}
 /* Chiusura fermo */
 .csum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
 .csum > div{background:var(--surface);padding:8px 10px;min-width:0}.csum b{display:block;font:600 16px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -331,7 +339,7 @@ textarea.field{min-height:64px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], turni: {},
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], turni: {}, programma: {},
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
@@ -453,6 +461,14 @@ const clsT = c => 'tc' + (/^[123GRFC]$/.test(c) ? c : c === 'A' ? 'A' : 'X');
 // Il turno "di adesso" per una persona: tra mezzanotte e le 6 vale il 3 del giorno prima
 const turnoAdesso = (nome, now = Date.now()) => { const h = new Date(now).getHours(); const ieri = turnoDi(nome, now - 864e5);
   if (h < 6 && ieri && ieri.c === '3') return '3'; const t = turnoDi(nome, now); return t ? t.c : ''; };
+// Programma produzione (foglio Programma): { LINEA: { "2026-10-14": "testo della cella" } }
+// Una cella può avere più lotti, separati da una riga vuota; il lotto è il primo numero di 6 cifre; "cf …" = cambio formato
+const progVoci = txt => String(txt || '').split(/\n\s*\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean)
+  .map(t => ({ t: /^cf\b/i.test(t) ? (t.replace(/^cf\b\s*/i, '') || 'cambio formato') : t, lotto: (t.match(/(?:^|\s)(\d{6})(?=\s|$)/) || [])[1] || '', cf: /^cf\b/i.test(t), prod: t.replace(/\s*\d{6}.*$/, '').trim() }));
+const progLinea = l => Object.keys(S.programma || {}).find(k => U(k) === U(l));
+const progDi = (linea, t) => { const k = progLinea(linea); return k ? progVoci(S.programma[k][dKey(t)]) : []; };
+// Giorno di produzione "di adesso": prima delle 6 vale ancora quello di ieri (turno 3)
+const giornoProd = (now = Date.now()) => new Date(now).getHours() < 6 ? now - 864e5 : now;
 // Vestizione per l'area sterile: scadenza per tecnico (foglio Vestizioni). Avviso da 60 giorni prima
 const VEST_AVVISO = 60;
 const vestDi = (nome = S.man) => S.vestizioni.find(v => U(v.man) === U(nome)) || null;
@@ -580,9 +596,9 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
-  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.turni = j.turni || {};
+  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.turni = j.turni || {}; S.programma = j.programma || {};
   S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, turni: S.turni });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, turni: S.turni, programma: S.programma });
 }
 async function refresh() {
   if (!MOCK && !getPin()) return;
@@ -779,6 +795,13 @@ function bindCommon() {
 }
 
 /* ================= Scheda macchina ================= */
+function progBox(eq) {
+  if (!progLinea(eq.linea)) return '';
+  const g = giornoProd(), oggi = progDi(eq.linea, g), dom = progDi(eq.linea, g + 864e5);
+  const v = l => l.length ? l.map(x => (x.cf ? '<span class="pcf">CF</span>' : '') + esc(x.t)).join('<br>') : '<span style="color:var(--muted);font-weight:400">nessuna produzione</span>';
+  return `<div class="prog"><div class="ph">${IK.cal.replace('<svg', '<svg width="14" height="14"')}In produzione oggi · ${esc(eq.linea)}</div><div class="pv">${v(oggi)}</div>
+    ${dom.length ? `<div class="pn">Domani: ${dom.map(x => (x.cf ? '<span class="pcf">CF</span>' : '') + esc(x.t)).join(' · ')}</div>` : ''}</div>`;
+}
 function renderEquip() {
   const eq = eqBy(S.view.code);
   if (!eq) { $('#view').innerHTML = `${topline('Macchina', '', 'home')}<div class="banner">Macchina "${esc(S.view.code)}" non trovata nel foglio Equipment.</div>`; bindCommon(); return; }
@@ -793,6 +816,7 @@ function renderEquip() {
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
+    ${progBox(eq)}
     ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
       ${provaPrima(eq, open, hist)}`
     : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
@@ -1170,6 +1194,7 @@ $('#manbtn').onclick = () => {
     ${boxVest()}
     ${Object.keys(S.turni || {}).length ? `<button class="mbtn" id="mturni">${IK.cal}I miei turni<span class="cnt">${(t => t ? esc(t.c === 'R' ? 'oggi riposo' : t.c === 'F' ? 'oggi ferie' : /^[123G]$/.test(t.c) ? 'oggi ' + (t.c === 'G' ? 'G' : 'T' + t.c) : 'oggi assente') : '')(turnoDi(S.man, Date.now()))}</span></button>
     <button class="mbtn" id="chice">${IK.team}Chi c'è<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
+    ${Object.keys(S.programma || {}).length ? `<button class="mbtn" id="mprog">${IK.cal}Programma produzione<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
     ${menuCompiti()}
     ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Vestizioni del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(S.vestizioni.filter(v => /warn|exp/.test(vestStato(v))).length) : ''}
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
@@ -1180,6 +1205,7 @@ $('#manbtn').onclick = () => {
   const vr = $('#vrep'); if (vr) vr.onclick = shVestizioni;
   const mt = $('#mturni'); if (mt) mt.onclick = shMieiTurni;
   const cc = $('#chice'); if (cc) cc.onclick = () => shChiCe(0);
+  const mp = $('#mprog'); if (mp) mp.onclick = () => shProgramma(0);
 };
 
 /* ================= Compiti ================= */
@@ -1194,6 +1220,18 @@ function shMieiTurni() {
   sheet(`<div class="sheet-h"><div><h3>I miei turni</h3><div class="hint" style="margin-top:4px">Prossimi 14 giorni · dal foglio Turni</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="list" style="margin-top:12px">${rows.join('')}</div><button class="linkbtn" id="tbk">‹ Indietro</button>`);
   $('#tbk').onclick = () => $('#manbtn').click();
+}
+function shProgramma(off) {
+  const t = oggi0() + off * 864e5 + 12 * 3600e3, d = new Date(t);
+  const linee = [...new Set(S.equipment.map(e => e.linea))], tutte = [...linee, ...Object.keys(S.programma).filter(k => !linee.some(l => U(l) === U(k)))];
+  const righe = tutte.map(l => ({ l, v: progDi(l, t) })).filter(x => x.v.length);
+  const cf = righe.filter(x => x.v.some(y => y.cf));
+  sheet(`<div class="sheet-h"><div><h3>Programma produzione</h3><div class="hint" style="margin-top:4px">${GG[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${cf.length ? ' · <b style="color:#7a5b00">cambi formato: ' + cf.map(x => esc(x.l)).join(', ') + '</b>' : ''}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="seg" id="pday" style="grid-template-columns:repeat(3,minmax(0,1fr))"><button data-o="0" aria-pressed="${off === 0}">OGGI</button><button data-o="1" aria-pressed="${off === 1}">DOMANI</button><button data-o="2" aria-pressed="${off === 2}">DOPODOMANI</button></div>
+    <div class="list" style="margin-top:12px">${righe.length ? righe.map(x => `<div class="plin${x.v.some(y => y.cf) ? ' cf' : ''}"><b>${esc(x.l)}</b>${x.v.map(y => `<div class="pi">${y.cf ? '<span class="pcf">CF</span>' : ''}${esc(y.t)}</div>`).join('')}</div>`).join('') : '<div class="empty">Nessuna produzione nel programma per questo giorno.</div>'}</div>
+    <button class="linkbtn" id="pbk">‹ Indietro</button>`);
+  $('#pday').onclick = e => { const b = e.target.closest('[data-o]'); if (b) shProgramma(+b.dataset.o); };
+  $('#pbk').onclick = () => $('#manbtn').click();
 }
 function shChiCe(off) {
   const t = oggi0() + off * 864e5 + 12 * 3600e3, d = new Date(t);
@@ -1354,10 +1392,13 @@ const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto 
 function openSheet(eq) {
   const O = { ora: false };
   const lotto = lastLotto(eq.linea), now0 = Date.now();
+  const lp = [...progDi(eq.linea, giornoProd(now0)), ...progDi(eq.linea, now0)].filter((x, i, a) => x.lotto && a.findIndex(y => y.lotto === x.lotto) === i);
   sheet(`<div class="sheet-h"><h3>Apri fermo</h3><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="pop-eq">${I.qr.replace('<svg', '<svg width="26" height="26" style="color:var(--crit);flex:none"')}<div style="min-width:0"><div class="ln">${esc(eq.linea)} · ${esc(nice(eq.macchina))}</div><div class="mc">${esc(eq.code)} · ${esc(areaLbl(eq.area))}</div></div></div>
-    <div class="group"><label class="label" for="lotto">Lotto in produzione</label><input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto">
-      ${lotto ? '<div class="hint">Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.</div>' : ''}</div>
+    <div class="group"><label class="label" for="lotto">Lotto in produzione</label>
+      ${lp.length ? `<div class="lchips" id="lch">${lp.map((x, i) => `<button class="chip" type="button" data-v="${esc(x.lotto)}" aria-pressed="${i === 0}">${esc(x.t)}</button>`).join('')}</div>` : ''}
+      <input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lp.length ? lp[0].lotto : lotto)}" placeholder="Numero lotto">
+      <div class="hint">${lp.length ? 'Dal programma di produzione di oggi: tocca il lotto giusto o scrivilo.' : lotto ? 'Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.' : ''}</div></div>
     <div class="group"><span class="label">Quando si è fermata?</span><div class="when" id="when">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${pad(new Date(now0).getHours())}:${pad(new Date(now0).getMinutes())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>si è fermata prima</small></button></div>
@@ -1366,6 +1407,7 @@ function openSheet(eq) {
     <button class="submit red" id="go" style="margin-top:16px">Apri fermo</button>
     <div class="center"><button class="linkbtn" data-x>Non ora · resta sulla scheda macchina</button></div>`, true);
   $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
+  const lch = $('#lch'); if (lch) singleChoice(lch, v => { $('#lotto').value = v; });
   singleChoice($('#when'), v => { O.ora = v === 'ora'; $('#orawrap').hidden = !O.ora; if (O.ora) $('#oraini').focus(); });
   $('#go').onclick = () => {
     const lv = $('#lotto').value.trim(), e = $('#oerr'), now = Date.now();
@@ -1516,7 +1558,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
-    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.turni = c.turni || {}; }
+    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.turni = c.turni || {}; S.programma = c.programma || {}; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
