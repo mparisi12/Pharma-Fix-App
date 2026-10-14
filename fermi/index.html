@@ -124,7 +124,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .bigbtn.hero{flex-direction:column;gap:6px;min-height:46vh;max-height:330px;padding:22px 16px;border-radius:18px;box-shadow:0 6px 18px rgba(194,59,42,.28)}
 .bigbtn.hero .bt{font:700 44px/1 var(--display);letter-spacing:.05em}
 .bigbtn.hero .bs{font:500 15px/1.2 var(--body);letter-spacing:0;text-transform:none;opacity:.92}
-.bigbtn.hero.ok{justify-content:center;padding-inline:16px;min-height:28vh;box-shadow:0 6px 18px rgba(31,122,77,.28)}.bigbtn.hero.ok .timer{font:600 40px var(--mono)}
+.bigbtn.hero.ok{flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:2px 12px;padding:14px 18px;min-height:0;box-shadow:0 4px 12px rgba(31,122,77,.25)}.bigbtn.hero.ok .bt{font-size:30px}.bigbtn.hero.ok .timer{font:600 30px var(--mono)}.bigbtn.hero.ok .bs{flex-basis:100%;font-size:13px}
 .bigbtn.hero.home{min-height:30vh;margin-top:6px}
 .bigbtn.hero.busy{background:#5a6873;box-shadow:none;cursor:default;min-height:24vh}.bigbtn.hero.busy .bt{font-size:34px}.bigbtn.hero.busy .timer{font:600 34px var(--mono);color:#fff}
 .step.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}.step .lockhint{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}.step:not(.locked) .lockhint{display:none}
@@ -267,6 +267,18 @@ textarea.field{min-height:64px;resize:vertical}
 .login h1{font:700 40px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0}
 .login p{color:var(--muted)}
 .login label{display:block;margin-top:16px}
+/* Pop-up centrale (apertura fermo) */
+.scrim.mid{align-items:center;padding:16px}
+.scrim.mid .sheet{border-radius:18px;max-width:440px;max-height:92%;padding:18px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.pop-eq{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.pop-eq .ln{font:700 20px/1.1 var(--display);letter-spacing:.03em}.pop-eq .mc{font-size:13px;color:var(--muted)}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.when button{border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 8px;font:700 18px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
+.when button small{display:block;font:500 12px var(--body);letter-spacing:0;text-transform:none;color:var(--muted);margin-top:2px}
+.when button[aria-pressed="true"]{border-color:var(--crit);background:var(--crit-soft);color:var(--crit)}
+.when button[aria-pressed="true"] small{color:var(--crit)}
+.lottobig{font:600 24px var(--mono);letter-spacing:.06em;text-align:center}
+@media (prefers-reduced-motion:no-preference){.scrim.mid .sheet{animation:pop .16s ease-out}@keyframes pop{from{transform:scale(.96);opacity:.5}}}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 </style>
 </head>
@@ -663,6 +675,8 @@ async function openScanner(onEq, msg) {
 // Dopo il QR: scheda macchina + subito apertura del fermo (o chiusura, se già aperto)
 function afterScan(eq) {
   S.view = {}; go({ name: 'equip', code: eq.code });
+  // macchina senza fermi in corso: si apre subito il pop-up "Apri fermo" (lotto + quando)
+  if (!allFermi().some(f => f.code === eq.code && f.stato === 'APERTO')) needMan(() => openSheet(eq));
 }
 function scanFromPhoto(cb = afterScan) {
   capture(img => {
@@ -717,7 +731,7 @@ function renderHome() {
   const miei = open.filter(f => U(apertoDa(f)) === U(S.man)), altri = open.filter(f => U(apertoDa(f)) !== U(S.man));
   $('#view').innerHTML = `
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
-    <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
+    <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
     <div class="center"><button class="linkbtn" id="manual">Problemi con il QR? Scegli la macchina a mano</button></div>
     ${coord ? `<h2>Fermi aperti · ${open.length}</h2>
     <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>`
@@ -729,7 +743,7 @@ function renderHome() {
     <h2>Chiusi oggi · ${today.length}</h2>
     <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
-  $('#manual').onclick = () => pickSheet(eq => go({ name: 'equip', code: eq.code }));
+  $('#manual').onclick = () => pickSheet(afterScan); // come dopo il QR: scheda macchina + pop-up Apri fermo
   $$('[data-hint]').forEach(b => b.onclick = () => { const f = today.find(x => x.id === b.dataset.hint); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); }); // dettaglio del fermo chiuso
   bindCommon();
 }
@@ -764,11 +778,10 @@ function renderEquip() {
   const all = allFermi().filter(f => f.code === eq.code);
   const open = all.find(f => f.stato === 'APERTO');
   const hist = all.filter(f => f.stato === 'CHIUSO' && f.end).sort((a, b) => b.start - a.start);
-  const nSol = allSoluzioni().filter(s => vale(s.dove, eq)).length;
   const docs = S.documenti.filter(d => vale(d.dove, eq));
   const nSch = docs.filter(d => /SCHED/.test(d.tipo)).length, nMan = docs.length - nSch;
   const ano = anoAperte(allAnomalie().filter(a => a.code === eq.code));
-  const C = eq.code, shown = S.view.more || 20;
+  const C = eq.code, shown = S.view.more || 5;
   const qr = I.qr.replace('<svg', '<svg width="28" height="28"');
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
@@ -781,8 +794,7 @@ function renderEquip() {
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
         ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>'
           : '<div class="center"><button class="linkbtn" id="regf">Ti sei dimenticato di aprirlo? Registra un fermo già finito</button></div>'}`}
-    <div class="tiles4">
-      <button class="tile4" data-go="sol" data-code="${esc(C)}">${I.sol}<b>SOLUZIONI</b>${nSol ? `<em class="n">${nSol}</em>` : ''}</button>
+    <div class="tiles4" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <button class="tile4" data-tab="man">${I.doc}<b>MANUALI</b>${nMan ? `<em class="n">${nMan}</em>` : ''}</button>
       <button class="tile4" data-tab="sch">${I.sch}<b>SCHEDE</b>${nSch ? `<em class="n">${nSch}</em>` : ''}</button>
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
@@ -790,18 +802,19 @@ function renderEquip() {
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
-    ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi</button>' : ''}
+    ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi · ' + Math.min(10, hist.length - shown) + ' di ' + (hist.length - shown) + '</button>' : ''}
     ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
-  const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 20; renderEquip(); window.scrollTo(0, y); };
+  const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 10; renderEquip(); window.scrollTo(0, y); };
   $$('[data-int]').forEach(b => b.onclick = () => { const f = hist.find(x => x.id === b.dataset.int); if (f) intSheet(f, eq); });
   const pg = $('#pg'); if (pg && open) pg.onclick = e => {
     if (e.target.closest('[data-more]')) { pg.classList.add('all'); e.target.closest('[data-more]').remove(); return; }
     const b = e.target.closest('[data-v]'); if (!b) return;
     PRE_G[open.id] = b.dataset.v; save('preg', PRE_G);
     pg.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); $('#pgsol').innerHTML = sugBox(eq, b.dataset.v, true); };
+  const pa = $('#ppadd'); if (pa) pa.onclick = () => needMan(() => { const g = $('#pg [aria-pressed="true"]'); solSheet(eq, { guasto: g ? g.dataset.v : null }); });
   bindCommon();
 }
 const GIORNI = ['DOMENICA', 'LUNEDÌ', 'MARTEDÌ', 'MERCOLEDÌ', 'GIOVEDÌ', 'VENERDÌ', 'SABATO'];
@@ -911,11 +924,12 @@ function provaPrima(eq, open, hist) {
   const sel = PRE_G[open.id] || (gl[0].n ? gl[0].g : '');
   return `<div class="provaprima"><div class="pp-h">${I.sol}<b>Cosa provare</b><span>scegli il guasto: le soluzioni verificate per questa macchina</span></div>
     <div class="chips" id="pg">${gl.map((x, i) => `<button class="chip${i >= 6 && x.g !== sel ? ' extra' : ''}" type="button" data-v="${esc(x.g)}" aria-pressed="${x.g === sel}">${esc(x.g.split(',')[0])}${x.n ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('')}${gl.length > 6 ? `<button class="chip ghost" type="button" data-more>+ altri ${gl.length - 6}</button>` : ''}</div>
-    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div></div>`;
+    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div>
+    <button class="morebtn" id="ppadd" type="button" style="margin-top:0">+ Aggiungi soluzione</button></div>`;
 }
 function sugBox(eq, guasto, vuoto) {
   const list = suggerite(eq, guasto);
-  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila: servirà al prossimo collega.</div>' : '';
+  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila qui sotto: servirà al prossimo collega.</div>' : '';
   return `<div class="sugg">${vuoto ? '' : `<div class="sugg-h">${I.sol}<b>Prova prima · soluzioni verificate</b></div>`}
     ${list.map(s => `<div class="sugg-i"><div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>${s.ricambi ? `<div class="hint" style="margin:0">Ricambi: ${esc(s.ricambi)}</div>` : ''}</div>`).join('')}</div>`;
 }
@@ -1073,8 +1087,8 @@ function anoSheet(id) {
 }
 
 /* ================= Fogli a comparsa ================= */
-function sheet(html) {
-  $('#sheet').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+function sheet(html, mid) {
+  $('#sheet').innerHTML = `<div class="scrim${mid ? ' mid' : ''}" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
   lockBg(true);
   $('#scrim').onclick = e => { if (e.target.id === 'scrim') closeSh(); };
   $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
@@ -1331,29 +1345,33 @@ const OFFSETS = [0]; // "Adesso"; per un inizio diverso c'è "Altro orario"
 const LOTTO_OK = v => /^\d{4,10}$/.test(String(v || '').trim());
 const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto il fermo non si può registrare.';
 function openSheet(eq) {
-  const O = { offset: 0 };
-  const lotto = lastLotto(eq.linea);
-  sheet(`<div class="sheet-h"><div><h3>Apri fermo</h3><div class="label" style="margin-top:4px">${esc(eq.linea)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
-    <div class="group"><label class="label" for="lotto">Lotto</label><input class="field" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto in produzione">
-      ${lotto ? '<div class="hint">Preso dall\'ultimo fermo su ' + esc(eq.linea) + ': controlla che sia ancora quello.</div>' : ''}</div>
-    <div class="group"><span class="label">Inizio fermo</span><div class="chips" id="offs">${OFFSETS.map(o => `<button class="chip" type="button" data-v="${o}" aria-pressed="${o === 0}">${o ? '−' + o + ' min' : 'Adesso'}</button>`).join('')}<button class="chip ghost" type="button" data-v="ora" aria-pressed="false">Altro orario</button></div>
-      <div id="orawrap" hidden style="margin-top:10px"><input class="field" type="time" id="oraini"><div class="hint">Ora in cui la macchina si è fermata. L'inizio viene segnato come <b>dichiarato</b>.</div></div></div>
-    <div class="hint" style="margin-top:12px">Manutentore: <b>${esc(S.man)}</b></div>
+  const O = { ora: false };
+  const lotto = lastLotto(eq.linea), now0 = Date.now();
+  sheet(`<div class="sheet-h"><h3>Apri fermo</h3><button class="x" data-x aria-label="Annulla">✕</button></div>
+    <div class="pop-eq">${I.qr.replace('<svg', '<svg width="26" height="26" style="color:var(--crit);flex:none"')}<div style="min-width:0"><div class="ln">${esc(eq.linea)} · ${esc(nice(eq.macchina))}</div><div class="mc">${esc(eq.code)} · ${esc(areaLbl(eq.area))}</div></div></div>
+    <div class="group"><label class="label" for="lotto">Lotto in produzione</label><input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lotto)}" placeholder="Numero lotto">
+      ${lotto ? '<div class="hint">Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.</div>' : ''}</div>
+    <div class="group"><span class="label">Quando si è fermata?</span><div class="when" id="when">
+      <button type="button" data-v="now" aria-pressed="true">Adesso<small>${pad(new Date(now0).getHours())}:${pad(new Date(now0).getMinutes())}</small></button>
+      <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>si è fermata prima</small></button></div>
+      <div id="orawrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="oraini"><div class="hint">L'inizio viene segnato come <b>dichiarato</b>.</div></div></div>
     <div class="err" id="oerr" hidden></div>
-    <button class="submit red" id="go">Apri fermo</button>`);
-  singleChoice($('#offs'), v => { O.offset = v === 'ora' ? 'ora' : +v; $('#orawrap').hidden = v !== 'ora'; if (v === 'ora') $('#oraini').focus(); });
+    <button class="submit red" id="go" style="margin-top:16px">Apri fermo</button>
+    <div class="center"><button class="linkbtn" data-x>Non ora · resta sulla scheda macchina</button></div>`, true);
+  $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
+  singleChoice($('#when'), v => { O.ora = v === 'ora'; $('#orawrap').hidden = !O.ora; if (O.ora) $('#oraini').focus(); });
   $('#go').onclick = () => {
     const lv = $('#lotto').value.trim(), e = $('#oerr'), now = Date.now();
     if (!LOTTO_OK(lv)) { e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
-    let ts = now - (O.offset === 'ora' ? 0 : O.offset) * 60000, dich;
-    if (O.offset === 'ora') { // inizio scritto a mano: nel turno in corso (o appena finito, entro 2 ore dal cambio turno)
+    let ts = now, dich;
+    if (O.ora) { // inizio scritto a mano: nel turno in corso (o appena finito, entro 2 ore dal cambio turno)
       ts = oraToTs($('#oraini').value, now); const t0 = limiteDichiarati(now);
-      const msg = ts == null ? 'Scrivi l\'ora di inizio del fermo.' : ts < t0 ? 'Si possono aprire solo fermi iniziati dalle ' + pad(new Date(t0).getHours()) + ':' + pad(new Date(t0).getMinutes()) + ' in poi.' : '';
+      const msg = ts == null ? 'Scrivi l\'ora in cui la macchina si è fermata.' : ts < t0 ? 'Si possono aprire solo fermi iniziati dalle ' + pad(new Date(t0).getHours()) + ':' + pad(new Date(t0).getMinutes()) + ' in poi.' : '';
       if (msg) { e.textContent = msg; e.hidden = false; return; }
       dich = true;
     }
     enqueue({ action: 'open', id: uid(), code: eq.code, linea: eq.linea, macchina: eq.macchina, lotto: lv, ts, turno: turnoOf(ts), manutentore: S.man, foto: '', dichiarato: dich });
-    closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + eq.macchina);
+    closeSh(); toast('Fermo aperto · ' + eq.linea + ' · ' + nice(eq.macchina));
   };
 }
 function guastiFor(eq) {
