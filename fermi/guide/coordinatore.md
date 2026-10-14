@@ -54,6 +54,9 @@ Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi g
 
 Per i tecnici, **Stampa etichette QR** non c'è più nel menu del nome: resta solo ai coordinatori.
 
+### Turni
+**Chi c'è** (menu del nome) mostra chi è in turno oggi, domani e dopodomani e chi è assente. Il passaggio di turno inizia con *In turno: …*. I compiti assegnati a un turno li vede chi quel giorno è davvero in quel turno (foglio Turni, aggiornato dal responsabile ogni mese).
+
 ### Vestizioni
 Nel menu del tuo nome, **Vestizioni del reparto**: tutti i tecnici ordinati per scadenza della vestizione sterile (scadute, in scadenza nei prossimi 60 giorni, valide) e chi non ha ancora una data. Le date le aggiorna il responsabile nel foglio Vestizioni. Il lunedì il riepilogo riporta chi è in scadenza o scaduto.
 
