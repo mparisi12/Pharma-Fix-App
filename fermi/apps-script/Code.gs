@@ -1103,7 +1103,8 @@ function riepilogoSettimanale() {
     const tot = s.reduce((x, f) => x + minDi_(f), 0), totP = p.reduce((x, f) => x + minDi_(f), 0), diff = tot - totP;
     out.push('', (area || 'AREA NON TROVATA') + ' · ' + nFermi_(s.length) + ' · ' + durTxt_(tot) +
       (p.length ? '  ' + (Math.abs(diff) < 1 ? '= come la sett. prima' : (diff > 0 ? '▲ +' : '▼ −') + durTxt_(Math.abs(diff))) : ''));
-    if (s.length) out.push('  MTTR ' + durTxt_(tot / s.length));
+    const dopo = area === 'FILLING' ? 0 : s.filter(f => String(f.orari) === 'DICHIARATI').length;
+    if (s.length) out.push('  MTTR ' + durTxt_(tot / s.length) + (dopo ? ' · registrati dopo ' + dopo + ' su ' + s.length : ''));
     out.push.apply(out, righeLinee_(s, area ? linee[area] : null));
     const g = {}; s.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' · ' + f.linea + ' ' + breve(f.linea, f.macc); const x = g[k] = g[k] || { n: 0, m: 0 }; x.n++; x.m += minDi_(f); });
     Object.keys(g).filter(k => g[k].n > 1).sort((x, y) => g[y].n - g[x].n || g[y].m - g[x].m).slice(0, 2)
@@ -1156,10 +1157,14 @@ function passaggioTurno(conMail, soloLinee) {
   out.push.apply(out, piuLunghi_(nel, breve, false));
   // Da sistemare: fermi lasciati aperti e fermi chiusi senza descrizione
   const senza = nel.filter(f => f.b && !String(f.altro || '').trim());
-  if (aperti.length || senza.length) {
+  // Packaging registrato dopo (orari scritti a mano): il fermo andava aperto col QR. In Filling è normale (sterile)
+  const dopo = nel.filter(f => f.area !== 'FILLING' && String(f.orari) === 'DICHIARATI');
+  const nomi = l => l.map(f => String(f.man || '?').split(' ')[0]).filter((x, i, q) => q.indexOf(x) === i).join(', ');
+  if (aperti.length || senza.length || dopo.length) {
     out.push('', '⚠️ DA SISTEMARE');
     aperti.forEach(f => out.push('  APERTO: ' + f.linea + ' ' + breve(f.linea, f.macc) + ' dalle ' + (f.a < a ? gm_(f.a) + ' ' : '') + hm_(f.a) + ' · ' + (f.man || '?')));
-    if (senza.length) out.push('  Senza descrizione: ' + senza.length + ' (' + senza.map(f => String(f.man || '?').split(' ')[0]).filter((x, i, l) => l.indexOf(x) === i).join(', ') + ')');
+    if (senza.length) out.push('  Senza descrizione: ' + senza.length + ' (' + nomi(senza) + ')');
+    if (dopo.length) out.push('  Registrati dopo: ' + dopo.length + ' (' + nomi(dopo) + ')');
   }
   out.push('', rigaAnomalie_(nuove, aperte, null));
   nuove.forEach(x => out.push('  urg. ' + x.urg + ' · ' + x.linea + ' ' + breve(x.linea, x.macc) + ' · ' + String(x.descr).slice(0, 50)));

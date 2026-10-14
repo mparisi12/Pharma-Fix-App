@@ -9,7 +9,7 @@ Il coordinatore usa l'app come i tecnici (vedi la *Guida per il tecnico*) e in p
 | 🔴 **Anomalia CRITICA** | Appena un tecnico segnala un'anomalia con urgenza 1 | Valuta subito: serve fermare la linea, chiamare un fornitore, ordinare un ricambio? Prendila in carico dall'app |
 | ⏱️ **Fermo APERTO DA…** | Un fermo resta aperto oltre le ore impostate (es. 2) | È un fermo lungo o qualcuno si è dimenticato di chiuderlo. Chiama il tecnico: se ha finito, lo chiude dall'app |
 | 🔁 **Guasto RIPETUTO** | Lo stesso guasto sulla stessa macchina si ripete (es. 3 volte in 7 giorni) | Non è più un caso: serve una soluzione vera (regolazione, ricambio, preventiva). Parlane con il responsabile |
-| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra: ore di fermo per Packaging e Filling divise per linea, i 3 fermi più lunghi, anomalie. È scritto **dai dati registrati**: in **Da sistemare** trovi i fermi lasciati aperti e quelli senza descrizione, con il nome; chiedi al tecnico di completare |
+| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra: ore di fermo per Packaging e Filling divise per linea, i 3 fermi più lunghi, anomalie. È scritto **dai dati registrati**: in **Da sistemare** trovi i fermi lasciati aperti, quelli senza descrizione e quelli di Packaging **registrati dopo** (non aperti col QR), con il nome; chiedi al tecnico di completare |
 | 🔔 **Riepilogo settimanale** | Lunedì alle 7 | Settimana separata **Packaging** e **Filling**: fermi, ore e confronto con la settimana prima, MTTR, ore di tutte le linee, guasti che si ripetono, fermi più lunghi, anomalie e compiti |
 
 Su ST3, finché è a ciclo continuo, il passaggio di turno arriva anche sabato e domenica (solo con i dati di ST3).
