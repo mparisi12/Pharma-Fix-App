@@ -25,16 +25,17 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno.
 
 ### Chiudere (~30 secondi)
-1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**.
-2. **Foto** della zona di intervento → **tocca la foto per cerchiare** il punto.
-3. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto**: ogni scelta sblocca la successiva.
-4. **Descrizione breve**: cosa hai fatto. Scrivila sempre, anche corta: finisce nel passaggio di turno.
-5. Controlla il **lotto**. Se il tipo intervento è **SOSTITUZIONE**, scrivi il **codice pezzo** (obbligatorio).
-6. **Chiudi fermo**.
+1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**. In alto vedi quando è stato aperto, da chi, la durata e il lotto.
+2. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto** (i guasti più frequenti di quella macchina sono in cima): ogni scelta sblocca la successiva.
+3. **Foto** della zona di intervento (consigliata) → **tocca la foto per cerchiare** il punto.
+4. **Descrizione breve** (**obbligatoria**): cosa hai trovato e cosa hai fatto, anche corta.
+5. Hai risolto qualcosa che può servire ai colleghi? Spunta **Proponi come soluzione** e scrivi il problema in una riga: diventa una soluzione (la approva il coordinatore).
+6. Controlla il **lotto**. Se il tipo intervento è **SOSTITUZIONE**, scrivi il **codice pezzo** (obbligatorio).
+7. **Chiudi fermo**.
 
 Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Chiedi correzione** e scrivi cosa va corretto: lo sistema il responsabile.
 
-Fermo aperto per sbaglio? **Chiudi** → in fondo **Annulla il fermo** (tocca due volte).
+Fermo aperto per sbaglio? **Chiudi** → in fondo, sotto la riga tratteggiata, **Annulla il fermo** (tocca due volte).
 
 Ti sei **dimenticato di aprirlo** e il fermo è già finito? Nella pagina della macchina tocca **Ti sei dimenticato di aprirlo? Registra un fermo già finito**, scrivi inizio e fine e compila come sempre. Si può fare solo per il turno in corso (o entro 2 ore dal cambio turno) e nel passaggio di turno compare tra i *Registrati dopo*: meglio aprirlo sempre col QR.
 
