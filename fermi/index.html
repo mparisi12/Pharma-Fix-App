@@ -339,7 +339,7 @@ textarea.field{min-height:64px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], turni: {}, programma: {},
+const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], turni: {}, programma: {}, continuo: [],
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
@@ -394,6 +394,7 @@ function allFermi() {
     } else if (op.action === 'close' && m.has(op.id)) {
       Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, ...(op.inizio ? { start: op.inizio } : {}), ...(op.dichiarato ? { orari: 'DICHIARATI' } : {}), lotto: op.lotto || m.get(op.id).lotto, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
     } else if (op.action === 'cancel') m.delete(op.id);
+    else if (op.action === 'modifica' && m.has(op.fermo)) Object.assign(m.get(op.fermo), { cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, lotto: op.lotto, pezzo: op.pezzo, nCorr: (m.get(op.fermo).nCorr || 0) + 1 });
   }
   return [...m.values()].sort((a, b) => b.start - a.start);
 }
@@ -583,7 +584,7 @@ async function sync() {
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
-        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a|corrett/.test(e.message)) { toast('Scartato: ' + e.message); }
         else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
@@ -596,9 +597,9 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
-  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.turni = j.turni || {}; S.programma = j.programma || {};
+  S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || [];
   S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, turni: S.turni, programma: S.programma });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, turni: S.turni, programma: S.programma, continuo: S.continuo });
 }
 async function refresh() {
   if (!MOCK && !getPin()) return;
@@ -816,7 +817,7 @@ function renderEquip() {
   $('#view').innerHTML = `
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
-    ${progBox(eq)}
+    ${open ? '' : progBox(eq)}
     ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
       ${provaPrima(eq, open, hist)}`
     : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
@@ -878,8 +879,10 @@ function intSheet(f, eq) {
     ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
     <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? (isFill(eq) ? 'Dichiarati (batch record)' : 'Scritti a mano (registrato dopo)') : f.orari === 'CARTACEO' ? 'Da foglio cartaceo' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}</div>
     ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}
-    ${puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
+    ${puoCorreggere(f) && !f.pending && !(f.nCorr > 0) ? `<div style="margin-top:12px"><button class="morebtn" id="modf">Correggi il fermo</button><div class="hint center">La prima correzione la fai tu. Le successive andranno chieste al responsabile.</div></div>`
+    : puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
       : `<div id="corrbox" style="margin-top:12px"><button class="linkbtn" id="corr" style="width:100%">Hai sbagliato qualcosa? Chiedi una correzione</button></div>`) : ''}`);
+  const mf = $('#modf'); if (mf) mf.onclick = () => needMan(() => modSheet(f, eq));
   const cb = $('#corr'); if (cb) cb.onclick = () => {
     $('#corrbox').innerHTML = `<div class="group"><label class="label" for="corrt">Cosa va corretto?</label><textarea class="field" id="corrt" placeholder="Es. il lotto giusto è 601096; il guasto era SENSORE, non FORMATO"></textarea></div>
       <div class="err" id="corre" hidden></div><button class="submit blue" id="corrgo">Invia richiesta</button>`;
@@ -891,6 +894,30 @@ function intSheet(f, eq) {
       CORR[f.id] = Date.now(); save('corr', CORR); closeSh(); toast('Richiesta inviata: il responsabile correggerà il fermo', 3500);
     });
   };
+}
+// Prima correzione: la fa direttamente chi ha registrato il fermo (o un coordinatore)
+function modSheet(f, eq) {
+  const M = { cat: U(f.cat) ? (S.liste['Categoria'] || []).find(x => U(x) === U(f.cat)) || f.cat : null, int: (S.liste['Tipo intervento'] || []).find(x => U(x) === U(f.int)) || f.int || null, guasto: f.guasto || null };
+  sheet(`<div class="sheet-h"><div><h3>Correggi il fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · ${fmtDT(f.start)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+    <div class="banner" style="margin-top:10px">Prima e unica correzione diretta: dopo, per cambiare ancora, dovrai chiederlo al responsabile. Gli orari non si cambiano da qui.</div>
+    <div class="group"><span class="label">Categoria</span><div class="chips" id="mcat">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>
+    <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="mint">${chips(S.liste['Tipo intervento'] || [], M.int)}</div></div>
+    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="mgua">${guaChips(eq, M.guasto)}</div></div>
+    <div class="group"><label class="label" for="malt">Descrizione breve</label><textarea class="field" id="malt">${esc(f.altro || '')}</textarea></div>
+    <div class="group"><label class="label" for="mlot">Lotto</label><input class="field" id="mlot" inputmode="numeric" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}"></div>
+    <div class="group" id="mpzg" ${U(M.int) === 'SOSTITUZIONE' ? '' : 'hidden'}><label class="label" for="mpz">Codice pezzo sostituito</label><input class="field" id="mpz" value="${esc(f.pezzo || '')}"></div>
+    <div class="err" id="merr" hidden></div>
+    <button class="submit blue" id="mgo">Salva la correzione</button>`);
+  singleChoice($('#mcat'), v => M.cat = v);
+  singleChoice($('#mint'), v => { M.int = v; $('#mpzg').hidden = U(v) !== 'SOSTITUZIONE'; });
+  singleChoice($('#mgua'), v => M.guasto = v);
+  $('#mgo').onclick = () => needMan(() => {
+    const e = $('#merr'), alt = $('#malt').value.trim(), lot = $('#mlot').value.trim(), pz = $('#mpz').value.trim();
+    const msg = !M.cat || !M.int || !M.guasto ? 'Scegli categoria, tipo intervento e tipo guasto.' : alt.length < 4 ? 'La descrizione è obbligatoria.' : !LOTTO_OK(lot) ? LOTTO_MSG : U(M.int) === 'SOSTITUZIONE' && !pz ? 'Con SOSTITUZIONE scrivi il codice del pezzo.' : '';
+    if (msg) { e.textContent = msg; e.hidden = false; return; }
+    enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, categoria: M.cat, intervento: M.int, guasto: M.guasto, altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
+    closeSh(); toast('Fermo corretto. Altre modifiche: Chiedi correzione', 3500);
+  });
 }
 // Correzioni: chi ha registrato il fermo (o un coordinatore) chiede la modifica, il responsabile la fa nel foglio
 const CORR = load('corr', {});
@@ -1392,13 +1419,15 @@ const LOTTO_MSG = 'Il numero di lotto è obbligatorio (solo cifre): senza lotto 
 function openSheet(eq) {
   const O = { ora: false };
   const lotto = lastLotto(eq.linea), now0 = Date.now();
-  const lp = [...progDi(eq.linea, giornoProd(now0)), ...progDi(eq.linea, now0)].filter((x, i, a) => x.lotto && a.findIndex(y => y.lotto === x.lotto) === i);
+  const cont = (S.continuo || []).some(c => U(c) === U(eq.linea)); // ciclo continuo (es. ST3): anche i lotti del giorno prima
+  const lp = [...(cont ? progDi(eq.linea, giornoProd(now0) - 864e5) : []), ...progDi(eq.linea, giornoProd(now0)), ...progDi(eq.linea, now0)]
+    .filter((x, i, a) => x.lotto && a.findIndex(y => y.lotto === x.lotto) === i);
   sheet(`<div class="sheet-h"><h3>Apri fermo</h3><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="pop-eq">${I.qr.replace('<svg', '<svg width="26" height="26" style="color:var(--crit);flex:none"')}<div style="min-width:0"><div class="ln">${esc(eq.linea)} · ${esc(nice(eq.macchina))}</div><div class="mc">${esc(eq.code)} · ${esc(areaLbl(eq.area))}</div></div></div>
     <div class="group"><label class="label" for="lotto">Lotto in produzione</label>
       ${lp.length ? `<div class="lchips" id="lch">${lp.map((x, i) => `<button class="chip" type="button" data-v="${esc(x.lotto)}" aria-pressed="${i === 0}">${esc(x.t)}</button>`).join('')}</div>` : ''}
       <input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lp.length ? lp[0].lotto : lotto)}" placeholder="Numero lotto">
-      <div class="hint">${lp.length ? 'Dal programma di produzione di oggi: tocca il lotto giusto o scrivilo.' : lotto ? 'Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.' : ''}</div></div>
+      <div class="hint">${lp.length ? 'Dal programma di produzione' + (cont ? ' di ieri e di oggi (ciclo continuo)' : ' di oggi') + ': tocca il lotto giusto o scrivilo.' : lotto ? 'Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.' : ''}</div></div>
     <div class="group"><span class="label">Quando si è fermata?</span><div class="when" id="when">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${pad(new Date(now0).getHours())}:${pad(new Date(now0).getMinutes())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>si è fermata prima</small></button></div>
@@ -1558,7 +1587,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
-    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.turni = c.turni || {}; S.programma = c.programma || {}; }
+    S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
