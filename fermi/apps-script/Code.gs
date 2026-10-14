@@ -1878,6 +1878,19 @@ function modificaFermo_(p) {
   const campi = [['Categoria', C.CAT, p.categoria], ['Tipo intervento', C.INT, p.intervento], ['Tipo guasto', C.GUASTO, p.guasto], ['Descrizione', C.ALTRO, p.altro],
     ['Lotto', C.LOTTO, p.lotto], ['Codice pezzo', C.PEZZO, String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' ? p.pezzo : '']];
   const diff = [];
+  // orari: se cambiati diventano DICHIARATI (fine non nel futuro, dopo l'inizio, al massimo 12 ore)
+  if (p.inizio && p.fine) {
+    const a = new Date(Number(p.inizio)), b = new Date(Number(p.fine)), a0 = v[C.INIZIO - 1], b0 = v[C.FINE - 1];
+    if (b.getTime() > Date.now() + 120000) throw new Error('Orario non valido: nel futuro');
+    if (b <= a) throw new Error('Orario non valido: la fine è prima dell\'inizio');
+    if (b - a > 12 * 3600e3) throw new Error('Orario non valido: fermo più lungo di 12 ore');
+    const hm = d => d instanceof Date ? Utilities.formatDate(d, TZ, 'dd/MM HH:mm') : '—';
+    if (!(a0 instanceof Date) || Math.abs(a0 - a) >= 60000 || !(b0 instanceof Date) || Math.abs(b0 - b) >= 60000) {
+      fsh.getRange(r, C.DATA, 1, 3).setValues([[dateOnly_(a), a, b]]);
+      fsh.getRange(r, C.TURNO).setValue(turno_(a)); fsh.getRange(r, C.ORARI).setValue('DICHIARATI');
+      diff.push('Orari: ' + hm(a0) + '–' + hm(b0) + ' → ' + hm(a) + '–' + hm(b));
+    }
+  }
   campi.forEach(([nome, col, nuovo]) => {
     if (nuovo == null) return;
     const vecchio = String(v[col - 1] == null ? '' : v[col - 1]).trim(), n = String(nuovo).trim();
