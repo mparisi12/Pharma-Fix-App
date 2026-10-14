@@ -403,6 +403,15 @@ Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), 
 - **Passaggio di turno**: prima riga *👷 In turno: …* con chi doveva esserci ed è assente.
 - **Controlla registrazioni**: segnala i fermi registrati da chi quel giorno risultava a riposo, in ferie o assente.
 
+### 5.17 Programma produzione
+Crea nel file Google un foglio chiamato **Programma**. Ogni volta che il programma cambia, copia **tutto** il foglio dell'Excel del programma (quello dell'anno, con le settimane e gli appunti) e incollalo in **A1** con **Incolla speciale → solo valori**, al posto del contenuto precedente. Lo script trova da solo la riga delle date e usa solo le righe di **riempimento** (*st1 rip pomate/gel* → ST1 TGM, *st1 rip liquidi* → ST1 MAR, *orl rip*, *st2/st3/st4/st5 rip*, *rip st6*) e di confezionamento (*spl1*, *spl2*); le righe *prep* e le altre le ignora. Se in colonna A scrivi direttamente il nome di una linea come in Equipment (es. *ST3*), vale quello.
+Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto è il primo numero di 6 cifre; una cella che inizia con **cf** è un cambio formato.
+- **Scheda macchina**: *In produzione oggi* (e domani) per la linea della macchina.
+- **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto).
+- **Menu del nome → Programma produzione**: tutte le linee oggi / domani / dopodomani, cambi formato in giallo.
+- **Passaggio di turno**: riga *📦 Domani cambi formato: …* (o *Oggi* per il turno che finisce al mattino), solo se ce ne sono.
+Prima delle 6 del mattino vale il programma del giorno prima (turno 3).
+
 ## 6. I dati in Excel
 
 - **Copia veloce**: dal Google Sheet **File → Scarica → Microsoft Excel (.xlsx)**.
