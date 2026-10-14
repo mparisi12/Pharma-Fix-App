@@ -161,8 +161,8 @@ La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la r
 L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo nome in alto → **Esci**.
 
 ### Aprire un fermo (~10 secondi)
-1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.) Si apre la **pagina della macchina**, con lo storico degli interventi sotto.
-2. Tocca **Apri fermo** (il pulsante rosso in alto): controlla il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e l'inizio: **Adesso**, oppure **Altro orario** se la macchina si è fermata prima (ora del turno in corso, o di quello appena finito entro 2 ore dal cambio turno; l'inizio viene segnato come *dichiarato*). **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
+1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.) Si apre la **pagina della macchina** e, se non c'è già un fermo in corso, subito sopra il riquadro centrale **Apri fermo** (dalla home il pulsante si chiama **APRI FERMO MACCHINA**).
+2. Nel riquadro controlla la macchina, il **lotto** (è già scritto quello dell'ultimo fermo sulla linea) e **Quando si è fermata?**: **ADESSO**, oppure **SCEGLI ORARIO** se la macchina si è fermata prima (ora del turno in corso, o di quello appena finito entro 2 ore dal cambio turno; l'inizio viene segnato come *dichiarato*). **Il lotto è obbligatorio** (solo cifre): senza, il fermo non si apre.
 3. **Apri fermo**. Il cronometro parte e il fermo compare nella home tra i **Fermi aperti**.
 
 ### Macchine FILLING (sterile): aprire prima di entrare, chiudere con gli orari del batch record
