@@ -66,6 +66,9 @@ Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una
 
 Il coordinatore vede chi l'ha fatto e quando. Il compito non sostituisce logbook e moduli.
 
+### Turni
+Nel menu del tuo nome: **I miei turni** (i prossimi 14 giorni, con i cambi turno) e **Chi c'è** (chi è in turno oggi, domani e dopodomani, chi è assente o in ferie).
+
 ### Vestizione sterile
 Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel menu del tuo nome compare un avviso giallo (e il pallino rosso sul nome): prenota la riqualifica con il responsabile. Se è scaduta l'avviso è rosso: **non entrare in sterile** finché non è rinnovata.
 
