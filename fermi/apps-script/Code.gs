@@ -1253,7 +1253,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1263,6 +1263,7 @@ function doPost(e) {
     else if (p.action === 'anomaliaStato') res = statoAnomalia_(p);
     else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
     else if (p.action === 'correzione') res = correzione_(p);
+    else if (p.action === 'modifica') res = modificaFermo_(p);
     else if (p.action === 'compito') res = addCompito_(p);
     else if (p.action === 'compitoStato') res = statoCompito_(p);
     else throw new Error('Azione sconosciuta');
@@ -1309,7 +1310,7 @@ function init_() {
   if (last > 1) {
     const vals = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
     const fotoC = sh.getRange(2, C.FOTO_C, last - 1, 1).getFormulas(); // link della foto di chiusura
-    const from = Date.now() - 90 * 864e5;
+    const from = Date.now() - 90 * 864e5, nCorr = correzioniPerFermo_(ss);
     vals.forEach((r, i) => {
       const start = r[C.INIZIO - 1] instanceof Date ? r[C.INIZIO - 1].getTime() : null;
       const stato = r[C.STATO - 1];
@@ -1319,10 +1320,10 @@ function init_() {
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
         start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1],
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
-        pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
+        pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 function equipment_(ss) {
@@ -1851,4 +1852,45 @@ function rigaCambiFormato_(b) {
     x = x.replace(/\s+/g, ' ').trim(); if (/^cf\b/i.test(x)) cf.push(l + (x.replace(/^cf\b\s*/i, '') ? ' ' + x.replace(/^cf\b\s*/i, '').slice(0, 30) : ''));
   }));
   return cf.length ? '📦 ' + (mattino ? 'Oggi' : 'Domani') + ' cambi formato: ' + cf.join(' · ') : '';
+}
+
+/* Correzione diretta: la PRIMA correzione di un fermo chiuso la fa chi l'ha registrato (o un coordinatore) dall'app;
+   dalla seconda in poi si chiede al responsabile (Chiedi correzione). Ogni modifica resta nel foglio Correzioni. */
+function correzioniPerFermo_(ss) {
+  const sh = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(SH_CORR), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues().forEach(r => { const k = String(r[0]); if (k) out[k] = (out[k] || 0) + 1; });
+  return out;
+}
+function modificaFermo_(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), fsh = ss.getSheetByName(SH_FERMI);
+  const r = findRow_(fsh, p.fermo);
+  if (!r) throw new Error('Fermo ' + p.fermo + ' non trovato');
+  let sh = ss.getSheetByName(SH_CORR);
+  if (sh && sh.getLastRow() > 1 && sh.getRange(2, 11, sh.getLastRow() - 1, 1).getValues().some(x => String(x[0]) === String(p.id))) return { dup: true };
+  const v = fsh.getRange(r, 1, 1, HEAD.length).getValues()[0];
+  if (String(v[C.STATO - 1]) !== 'CHIUSO') throw new Error('Si possono correggere solo fermi chiusi');
+  const io = String(p.manutentore || '').trim(), chi = [v[C.MAN - 1], v[C.APERTO_DA - 1]].map(x => String(x || '').trim().toUpperCase());
+  if (chi.indexOf(io.toUpperCase()) < 0 && !isCoordinatore_(io)) throw new Error('La correzione la può fare solo chi ha registrato il fermo o un coordinatore');
+  if ((correzioniPerFermo_(ss)[String(p.fermo)] || 0) > 0) throw new Error('Questo fermo è già stato corretto: per altre modifiche usa Chiedi correzione');
+  if (!String(p.altro || '').trim()) throw new Error('La descrizione è obbligatoria');
+  if (String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' && !String(p.pezzo || '').trim()) throw new Error('Con SOSTITUZIONE il codice pezzo è obbligatorio');
+  const campi = [['Categoria', C.CAT, p.categoria], ['Tipo intervento', C.INT, p.intervento], ['Tipo guasto', C.GUASTO, p.guasto], ['Descrizione', C.ALTRO, p.altro],
+    ['Lotto', C.LOTTO, p.lotto], ['Codice pezzo', C.PEZZO, String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' ? p.pezzo : '']];
+  const diff = [];
+  campi.forEach(([nome, col, nuovo]) => {
+    if (nuovo == null) return;
+    const vecchio = String(v[col - 1] == null ? '' : v[col - 1]).trim(), n = String(nuovo).trim();
+    if (vecchio === n) return;
+    if (col === C.LOTTO) fsh.getRange(r, col).setNumberFormat('@').setValue(lotto_(n)); else fsh.getRange(r, col).setValue(n);
+    diff.push(nome + ': ' + (vecchio || '—') + ' → ' + (n || '—'));
+  });
+  if (!diff.length) return { nulla: true };
+  if (!sh) { sh = ss.insertSheet(SH_CORR); sh.getRange(1, 1, 1, CORR_H.length).setValues([CORR_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true); sh.setFrozenRows(1); sh.setColumnWidth(8, 380); sh.setColumnWidth(10, 260); sh.hideColumns(11); }
+  const giorno = v[C.INIZIO - 1] instanceof Date ? v[C.INIZIO - 1] : v[C.DATA - 1];
+  sh.appendRow([new Date(Number(p.ts) || Date.now()), p.fermo, r, v[C.LINEA - 1], v[C.MACC - 1], giorno, io, 'Modifica diretta: ' + diff.join('; '), 'FATTA', 'prima correzione, fatta dall\'app', p.id]);
+  const n = sh.getLastRow();
+  sh.getRange(n, 1).setNumberFormat('dd/MM/yyyy HH:mm'); sh.getRange(n, 6).setNumberFormat('dd/MM/yyyy HH:mm'); sh.getRange(n, 9).setBackground('#dff1e7');
+  fsh.getRange(r, C.ALTRO).setNote('Corretto da ' + io + ' il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm') + ': ' + diff.join('; '));
+  return {};
 }
