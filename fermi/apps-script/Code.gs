@@ -225,6 +225,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
+    .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -423,6 +424,7 @@ function calcolaKpi_(vals, f) {
 }
 
 function aggiornaValoriKpi() {
+  try { completaFermiCarta_(); } catch (e) { Logger.log(e); } // righe ricopiate a mano: contano anche loro
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
@@ -1087,6 +1089,7 @@ function rigaAnomalie_(nuove, aperte, chiuse) {
 /* Riepilogo della settimana precedente (lun–dom) */
 function riepilogoSettimanale_() { if (repCfg_().settimanale) riepilogoSettimanale(); }
 function riepilogoSettimanale() {
+  try { completaFermiCarta_(); } catch (e) { Logger.log(e); }
   const oggi = dateOnly_(new Date()), dow = Number(Utilities.formatDate(oggi, TZ, 'u'));
   const fine = new Date(oggi.getTime() - (dow - 1) * 864e5), inizio = new Date(fine.getTime() - 7 * 864e5), prima = new Date(inizio.getTime() - 7 * 864e5);
   const areaDi = areaDi_(), breve = macchinaBreve_();
@@ -1104,7 +1107,8 @@ function riepilogoSettimanale() {
     out.push('', (area || 'AREA NON TROVATA') + ' · ' + nFermi_(s.length) + ' · ' + durTxt_(tot) +
       (p.length ? '  ' + (Math.abs(diff) < 1 ? '= come la sett. prima' : (diff > 0 ? '▲ +' : '▼ −') + durTxt_(Math.abs(diff))) : ''));
     const dopo = area === 'FILLING' ? 0 : s.filter(f => String(f.orari) === 'DICHIARATI').length;
-    if (s.length) out.push('  MTTR ' + durTxt_(tot / s.length) + (dopo ? ' · registrati dopo ' + dopo + ' su ' + s.length : ''));
+    const carta = s.filter(f => String(f.orari) === ORA_CARTA).length;
+    if (s.length) out.push('  MTTR ' + durTxt_(tot / s.length) + (dopo ? ' · registrati dopo ' + dopo + ' su ' + s.length : '') + (carta ? ' · da carta ' + carta : ''));
     out.push.apply(out, righeLinee_(s, area ? linee[area] : null));
     const g = {}; s.forEach(f => { if (!f.guasto) return; const k = f.guasto + ' · ' + f.linea + ' ' + breve(f.linea, f.macc); const x = g[k] = g[k] || { n: 0, m: 0 }; x.n++; x.m += minDi_(f); });
     Object.keys(g).filter(k => g[k].n > 1).sort((x, y) => g[y].n - g[x].n || g[y].m - g[x].m).slice(0, 2)
@@ -1605,3 +1609,76 @@ function compitiTutti_() {
 }
 const chiK_ = k => k.presoDa || k.a;
 
+
+/* =================== Fermi scritti a mano nel foglio (da carta) ===================
+   Righe aggiunte a mano nel foglio Fermi (senza ID fermo), es. ricopiate dai vecchi fogli cartacei.
+   Le completa perché contino come le altre (KPI, riepiloghi, storico nell'app):
+   data+ora vere, Stato CHIUSO, Linea e codice Equipment, Turno, ID, Orari = CARTACEO, formule.
+   Si lancia dal menu (con il resoconto) e da sola prima di KPI e riepilogo settimanale. */
+const ORA_CARTA = 'CARTACEO';
+function sistemaFermiCarta() {
+  const r = completaFermiCarta_();
+  const msg = r.fatte ? 'Fermi da carta completati: ' + r.fatte + '.' : 'Nessun fermo da completare.';
+  const det = r.problemi.length ? '\n\nDa sistemare a mano (poi rilancia):\n' + r.problemi.slice(0, 25).join('\n') + (r.problemi.length > 25 ? '\n… e altri ' + (r.problemi.length - 25) : '') : '';
+  try { SpreadsheetApp.getUi().alert(msg + det); } catch (e) { Logger.log(msg + det); }
+}
+function completaFermiCarta_() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { fatte: 0, problemi: ['foglio occupato, riprova tra poco'] };
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SH_FERMI), last = sh.getLastRow();
+    if (last < 2) return { fatte: 0, problemi: [] };
+    const v = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
+    const disp = sh.getRange(2, C.INIZIO, last - 1, 2).getDisplayValues(); // ore come si vedono (le sole ore del 1899 hanno fusi orari storici)
+    const eq = equipment_(ss), linee = Array.from(new Set(eq.map(e => e.linea)));
+    const U_ = s => String(s || '').trim().toUpperCase();
+    // ora scritta nel foglio: data vera, sola ora (Sheets la salva come 30/12/1899) o testo "14:20"
+    const ora = (x, testo, g) => {
+      if (x instanceof Date && x.getFullYear() >= 1950) return x;
+      const m = String(testo || x || '').trim().match(/(\d{1,2})[:.](\d{2})/);
+      return m ? new Date(g.getFullYear(), g.getMonth(), g.getDate(), Number(m[1]), Number(m[2])) : null;
+    };
+    let fatte = 0; const problemi = [];
+    v.forEach((row, i) => {
+      const r = i + 2;
+      if (String(row[C.ID - 1]).trim()) return;
+      if (row[C.DATA - 1] === '' && row[C.INIZIO - 1] === '' && row[C.MACC - 1] === '') return; // riga vuota
+      const g0 = dataOra_(row[C.DATA - 1], null) || (row[C.INIZIO - 1] instanceof Date && row[C.INIZIO - 1].getFullYear() >= 1950 ? row[C.INIZIO - 1] : null);
+      const giorno = g0 ? new Date(g0.getFullYear(), g0.getMonth(), g0.getDate()) : null;
+      const ini = giorno ? ora(row[C.INIZIO - 1], disp[i][0], giorno) : null;
+      let fin = giorno ? ora(row[C.FINE - 1], disp[i][1], giorno) : null;
+      if (fin && ini && fin <= ini) fin = new Date(fin.getTime() + 864e5); // a cavallo della mezzanotte
+      let code = String(row[C.EQ - 1]).trim(), linea = String(row[C.LINEA - 1]).trim();
+      const e0 = eq.find(x => U_(x.code) === U_(code));
+      if (e0) { code = e0.code; linea = linea || e0.linea; }
+      else {
+        if (linea) { const l = linee.find(x => U_(x) === U_(linea)); if (l) linea = l; }
+        // codice indovinato dal nome macchina, solo dentro la linea scritta (senza linea sarebbe un tiro a caso)
+        const g = linea ? indovinaCodice_(linea, row[C.MACC - 1], eq, linee) : '', e1 = eq.find(x => x.code === g);
+        code = e1 && e1.linea === linea ? e1.code : '';
+        const nm = s => U_(s).replace(/[^A-Z0-9]+/g, ' ').trim(), w = nm(row[C.MACC - 1]).split(' ')[0];
+        if (code && nm(e1.macchina) !== nm(row[C.MACC - 1]) && eq.filter(x => x.linea === linea && nm(x.macchina).split(' ')[0] === w).length > 1) code = ''; // es. 3 riordinatori sulla stessa linea
+      }
+      const manca = [!giorno && 'data', giorno && !ini && 'ora inizio', giorno && !fin && 'ora fine', !linea && 'linea', !code && 'macchina (codice Equipment)']
+        .filter(Boolean);
+      if (manca.length) { problemi.push('riga ' + r + ': manca ' + manca.join(', ') + (row[C.MACC - 1] ? ' (' + String(row[C.MACC - 1]).trim() + ')' : '')); return; }
+      if (fin - ini > 24 * 3600e3) { problemi.push('riga ' + r + ': fermo più lungo di 24 ore, controlla gli orari'); return; }
+      const e = eq.find(x => x.code === code);
+      const id = 'CARTA-' + Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [r, ini.getTime(), fin.getTime(), code, row[C.MAN - 1], Date.now()].join('|'))
+        .map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('').slice(0, 10).toUpperCase();
+      sh.getRange(r, C.DATA, 1, 3).setValues([[giorno, ini, fin]]);
+      sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy'); sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
+      if (!String(row[C.MACC - 1]).trim()) sh.getRange(r, C.MACC).setValue(e.macchina);
+      sh.getRange(r, C.LINEA, 1, 2).setValues([[linea, turno_(ini)]]);
+      sh.getRange(r, C.STATO, 1, 4).setValues([['CHIUSO', id, code, row[C.APERTO_DA - 1] || row[C.MAN - 1] || '']]);
+      sh.getRange(r, C.ORARI, 1, 2).setValues([[ORA_CARTA, new Date()]]); sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
+      if (row[C.LOTTO - 1] !== '') sh.getRange(r, C.LOTTO).setNumberFormat('@').setValue(lotto_(row[C.LOTTO - 1]));
+      sh.getRange(r, C.DUR).setFormula(F_('=IF(OR(C' + r + '="",D' + r + '=""),"",MOD(D' + r + '-C' + r + ',1))')).setNumberFormat('[h]:mm');
+      sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
+      sh.getRange(r, C.ORARI).setBackground('#e8eef3');
+      fatte++;
+    });
+    if (fatte) SpreadsheetApp.flush();
+    return { fatte: fatte, problemi: problemi };
+  } finally { lock.releaseLock(); }
+}
