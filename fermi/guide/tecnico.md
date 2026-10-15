@@ -26,6 +26,7 @@ Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi
 
 ### Chiudere (~30 secondi)
 1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**. In alto vedi quando è stato aperto, da chi, la durata e il lotto.
+   **Quando è ripartita?** **ADESSO**, oppure **SCEGLI ORARIO** se la macchina è ripartita prima e chiudi solo ora (l'orario viene segnato come dichiarato).
 2. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto** (i guasti più frequenti di quella macchina sono in cima): ogni scelta sblocca la successiva.
 3. **Foto** della zona di intervento (consigliata) → **tocca la foto per cerchiare** il punto.
 4. **Descrizione breve** (**obbligatoria**): cosa hai trovato e cosa hai fatto, anche corta.
