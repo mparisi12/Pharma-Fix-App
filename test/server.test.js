@@ -53,4 +53,13 @@ console.log('\nCoordinatori e manutentori');
   let err = ''; try { ctx.checkTecnico_('NERI Ugo'); } catch (e) { err = e.message; }
   ok(/non abilitato/.test(err), 'nome non in elenco Manutentori: rifiutato');
 }
+console.log('\nNomi negli avvisi');
+{
+  const { ctx } = nuovo(); const c = ctx.cognome_;
+  ok(c('DI STEFANO Marco') === 'DI STEFANO', 'DI STEFANO Marco → DI STEFANO');
+  ok(c('Di Stefano Marco') === 'Di Stefano', 'Di Stefano Marco → Di Stefano');
+  ok(c('DI Ruscio Paolo') === 'DI Ruscio', 'DI Ruscio Paolo → DI Ruscio');
+  ok(c('DE LUCA Anna') === 'DE LUCA' && c('ROSSI Mario') === 'ROSSI' && c('Rossi Mario') === 'Rossi', 'cognomi normali invariati');
+  ok(c('DI') === 'DI' && c('') === '?', 'casi limite');
+}
 fine('Script');
