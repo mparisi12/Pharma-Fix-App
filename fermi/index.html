@@ -1510,6 +1510,10 @@ function closeSheet(f, opt = {}) {
       <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : REG && !isFill(eq) ? 'Fermo non aperto in tempo: scrivi quando la macchina si è fermata e quando è ripartita. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
     ${REG ? '' : `<div class="csum"><div><span class="label">Aperto</span><b>${hhmm(f.start)}</b></div><div><span class="label">Durata</span><b class="timer" style="color:inherit;font:600 16px var(--mono)" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</b></div><div><span class="label">Lotto</span><b>${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '—')}</b></div></div>
     <div class="hint" style="margin-top:6px">Aperto da <b>${esc(apertoDa(f) || '—')}</b>${U(apertoDa(f)) !== U(S.man) ? ' · lo stai chiudendo tu (' + esc(S.man) + ')' : ''}</div>`}
+    ${ORE ? '' : `<div class="group"><span class="label">Quando è ripartita?</span><div class="when" id="cwhen">
+      <button type="button" data-v="now" aria-pressed="true">Adesso<small>${hhmm(Date.now())}</small></button>
+      <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>è ripartita prima</small></button></div>
+      <div id="cfwrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="cfin"><div class="hint">L'orario scritto a mano viene segnato come <b>dichiarato</b>.</div></div></div>`}
     <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
     <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Tipo intervento <i class="lockhint">· scegli prima la categoria</i></span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
     <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Tipo guasto <i class="lockhint">· scegli prima il tipo intervento</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="solsug"></div></div>
@@ -1525,6 +1529,7 @@ function closeSheet(f, opt = {}) {
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
     ${REG ? '' : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
   C.big = true; photoBox($('#phgrp'), C, 'Foto della zona di intervento');
+  C.fineOra = false; const cw = $('#cwhen'); if (cw) singleChoice(cw, v => { C.fineOra = v === 'ora'; $('#cfwrap').hidden = !C.fineOra; if (C.fineOra) $('#cfin').focus(); });
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pprob').value) $('#pprob').value = C.guasto && U(C.guasto) !== 'ALTRO' ? C.guasto.split(',')[0] + ': ' : ''; };
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
   const sblocca = id => { const el = $('#' + id); if (!el || !el.classList.contains('locked')) return; el.classList.remove('locked'); setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
@@ -1545,6 +1550,13 @@ function closeSheet(f, opt = {}) {
     const now = Date.now();
     let ini = f.start, fin = now;
     let dich = REG;
+    if (!msg && !ORE && C.fineOra) { // Packaging: fine fermo scritta a mano (è ripartita prima di chiudere nell'app)
+      fin = oraToTs($('#cfin').value, now);
+      if (fin == null) msg = 'Scrivi l\'ora in cui la macchina è ripartita.';
+      else if (fin <= f.start) msg = 'La fine deve essere dopo l\'inizio del fermo (' + hhmm(f.start) + ').';
+      else if (fin < t0) msg = 'Si possono chiudere solo fermi finiti dalle ' + hhmm(t0) + ' in poi: per orari più vecchi chiudi e usa Correggi il fermo.';
+      else dich = true;
+    }
     if (!msg && ORE) {
       ini = oraToTs($('#tini').value, now); fin = oraToTs($('#tfin').value, now);
       if (ini != null && fin != null && ini >= fin && fin - (ini - 864e5) <= 12 * 3600e3) ini -= 864e5; // fermo a cavallo della mezzanotte

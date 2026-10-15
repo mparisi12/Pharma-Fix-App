@@ -182,7 +182,7 @@ Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è *
 
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
-2. In alto il riepilogo: aperto alle, durata, lotto, aperto da. Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template; in ordine di frequenza su quella macchina, con il numero). Sotto il guasto compaiono le **soluzioni verificate** più adatte (*Prova prima*).
+2. In alto il riepilogo: aperto alle, durata, lotto, aperto da; poi **Quando è ripartita?** **ADESSO** o **SCEGLI ORARIO** (fine scritta a mano = *dichiarata*; solo turno in corso o entro 2 ore dal cambio turno). Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template; in ordine di frequenza su quella macchina, con il numero). Sotto il guasto compaiono le **soluzioni verificate** più adatte (*Prova prima*).
 3. **Foto della zona di intervento** (consigliata) → scatta → **tocca la foto per cerchiare** il punto (tocca il cerchio per toglierlo).
 4. **Descrizione breve**: **sempre obbligatoria**. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio. Con **Proponi come soluzione** (e il problema in una riga) la descrizione diventa anche una soluzione *da approvare* nel foglio Soluzioni (già verificata se chiude un coordinatore).
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
