@@ -1148,6 +1148,16 @@ function piuLunghi_(lista, breve, conData) {
   return ch.length ? ['', '🔝 PIÙ LUNGHI'].concat(ch.map(f => '  ' + (conData ? gm_(f.a) + ' ' : '') + f.linea + ' ' + breve(f.linea, f.macc) + ' · ' +
     (f.guasto || 'guasto non indicato') + ' · ' + durTxt_(minDi_(f)) + (f.orari === 'DICHIARATI' ? ' [dich.]' : ''))) : [];
 }
+// Cognome da "COGNOME Nome": tutte le parole in maiuscolo all'inizio (DI MAIO, DE LUCA, LA ROSA…)
+// Le particelle (Di, De, La, Del, D'…) restano attaccate alla parola dopo anche se scritte in minuscolo: "Di Stefano Mario" → Di Stefano
+const PARTICELLE_ = /^(DI|DE|DA|DEL|DELLA|DELLE|DEGLI|DEI|DELLO|DAL|DALLA|DALLE|LA|LE|LO|LI|D'|DELL'|VAN|VON|MC|MAC|SAN|SANTA)$/i;
+function cognome_(s) {
+  const w = String(s || '').trim().split(/\s+/).filter(Boolean);
+  const c = []; for (const x of w) { if (/[A-ZÀ-Ý]/.test(x) && x === x.toUpperCase()) c.push(x); else break; }
+  if (!c.length && w.length) c.push(w[0]);
+  while (c.length < w.length && PARTICELLE_.test(c[c.length - 1])) c.push(w[c.length]); // "DI" da solo non è un cognome
+  return c.join(' ') || '?';
+}
 function rigaAnomalie_(nuove, aperte, chiuse) {
   const crit = aperte.filter(x => x.urg === 1).length;
   return '🔺 ANOMALIE · ' + (nuove.length === 1 ? '1 nuova' : nuove.length + ' nuove') + (chiuse != null ? ' · ' + chiuse + (chiuse === 1 ? ' chiusa' : ' chiuse') : '') +
@@ -1233,7 +1243,7 @@ function passaggioTurno(conMail, soloLinee) {
   const senza = nel.filter(f => f.b && !String(f.altro || '').trim());
   // Packaging registrato dopo (orari scritti a mano): il fermo andava aperto col QR. In Filling è normale (sterile)
   const dopo = nel.filter(f => f.area !== 'FILLING' && String(f.orari) === 'DICHIARATI');
-  const nomi = l => l.map(f => String(f.man || '?').split(' ')[0]).filter((x, i, q) => q.indexOf(x) === i).join(', ');
+  const nomi = l => l.map(f => cognome_(f.man)).filter((x, i, q) => q.indexOf(x) === i).join(', ');
   if (aperti.length || senza.length || dopo.length) {
     out.push('', '⚠️ DA SISTEMARE');
     aperti.forEach(f => out.push('  APERTO: ' + f.linea + ' ' + breve(f.linea, f.macc) + ' dalle ' + (f.a < a ? gm_(f.a) + ' ' : '') + hm_(f.a) + ' · ' + (f.man || '?')));
@@ -1242,7 +1252,6 @@ function passaggioTurno(conMail, soloLinee) {
   }
   const rcf = rigaCambiFormato_(b); if (rcf) out.push('', rcf);
   out.push('', rigaAnomalie_(nuove, aperte, null));
-  nuove.forEach(x => out.push('  urg. ' + x.urg + ' · ' + x.linea + ' ' + breve(x.linea, x.macc) + ' · ' + String(x.descr).slice(0, 50)));
   const titolo = 'PASSAGGIO TURNO ' + t + ' · ' + giorno + ' · ' + Utilities.formatDate(a, TZ, 'H') + '–' + Utilities.formatDate(b, TZ, 'H') + (soloLinee ? ' · solo ' + soloLinee.join(', ') : '');
   mail_('Passaggio di turno', titolo, out.join('\n'), { noMail: !conMail });
 }
@@ -1836,7 +1845,7 @@ function vestizioni_(ss) {
 function rigaVestizioni_() {
   let v; try { v = vestizioni_(SpreadsheetApp.getActiveSpreadsheet()); } catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
-  const corto = x => x.man.split(' ')[0] + ' ' + gm_(new Date(x.scad));
+  const corto = x => cognome_(x.man) + ' ' + gm_(new Date(x.scad));
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
@@ -1892,7 +1901,7 @@ const codTurno_ = v => { const p = String(v || '').trim().split(' '); return { c
 // Riga del passaggio di turno: chi era in quel turno e chi doveva esserci ma era assente
 function rigaTurno_(a, t) {
   let tt; try { tt = turniTutti_(); } catch (e) { Logger.log(e); return ''; }
-  const k = Utilities.formatDate(a, TZ, 'yyyy-MM-dd'), n = t.replace('T', ''), corto = s => s.split(' ')[0];
+  const k = Utilities.formatDate(a, TZ, 'yyyy-MM-dd'), n = t.replace('T', ''), corto = s => cognome_(s);
   const dentro = [], assenti = [];
   Object.keys(tt).sort().forEach(nome => {
     const x = codTurno_(tt[nome][k]); if (!x.c) return;
