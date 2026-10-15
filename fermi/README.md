@@ -440,6 +440,16 @@ Prima delle 6 del mattino vale il programma del giorno prima (turno 3).
   - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea il foglio KPI; va reinserito solo il valore delle ore di funzionamento.
   - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti, Soluzioni, Documenti, Anomalie, Telefoni), aggiunge le colonne nuove di Fermi e trasforma le aree Sterile/Secondario in Filling/Packaging e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
+- **Prima di pubblicare** una modifica: lancia i test automatici nella cartella `test` del repository (vedi il suo README). Usano dati inventati e non toccano il foglio.
+
+### Come si aggiornano i dati sui telefoni
+Ogni telefono chiede i dati una volta al minuto mandando la **versione** che ha già. Se non è cambiato niente lo script risponde solo "uguale" (pochi byte, nessun foglio letto). La versione cambia:
+- quando arriva qualcosa dall'app (fermo, compito, documento…): gli altri telefoni lo vedono entro un minuto;
+- quando qualcuno modifica il foglio **a mano** (incollare turni o programma, correggere una riga);
+- comunque ogni **15 minuti**, per sicurezza (righe cancellate, funzioni lanciate dal menu, cambio di giorno).
+
+I dati calcolati restano pronti nella memoria dello script: con tanti telefoni il foglio si legge una volta sola per ogni modifica.
+
 ---
 
 ## 8. Problemi frequenti
