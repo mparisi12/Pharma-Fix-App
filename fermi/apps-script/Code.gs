@@ -243,7 +243,7 @@ function onOpen() {
 
 function onEdit(e) {
   try {
-    if (e.range.getSheet().getName() !== SH_KPI) return;
+    if (e.range.getSheet().getName() !== SH_KPI) { bumpVer_(); return; } // modifica a mano: i telefoni si aggiornano
     if (['B2', 'B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
   } catch (x) { Logger.log(x); }
 }
@@ -514,13 +514,13 @@ function solColonne_(sh) {
 }
 function coordinatori_() {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE);
-  const leggi = () => { const lv = sh.getDataRange().getValues(); // tutte le colonne che si chiamano Coordinatori / Coordinatore (anche con spazi)
+  const leggi = (fresco) => { const lv = fresco ? sh.getDataRange().getValues() : listeVal_(); // tutte le colonne che si chiamano Coordinatori / Coordinatore (anche con spazi)
     const cols = lv[0].map((h, i) => /^\s*coordinator[ei]\s*$/i.test(String(h)) ? i : -1).filter(i => i >= 0);
     return { lv: lv, cols: cols }; };
   let x = leggi();
   if (!x.cols.length) { // colonna creata da sola la prima volta (con il lucchetto: niente doppioni se più telefoni aprono l'app insieme)
     const lock = LockService.getScriptLock();
-    try { lock.waitLock(10000); x = leggi(); if (!x.cols.length) sh.getRange(1, x.lv[0].length + 1).setValue('Coordinatori').setFontWeight('bold'); }
+    try { lock.waitLock(10000); x = leggi(true); if (!x.cols.length) { sh.getRange(1, x.lv[0].length + 1).setValue('Coordinatori').setFontWeight('bold'); LISTE_MEMO = null; } }
     catch (e) { Logger.log(e); } finally { try { lock.releaseLock(); } catch (e) {} }
     return [];
   }
@@ -548,7 +548,6 @@ function righe_(ss, nome, n) {
   return sh.getRange(2, 1, sh.getLastRow() - 1, n).getValues().filter(r => r[0] !== '' || r[2] !== '');
 }
 const ts_ = v => v instanceof Date ? v.getTime() : (dataOra_(v, null) ? dataOra_(v, null).getTime() : null);
-const linkDi_ = (sh, r, c) => { const rt = sh.getRange(r, c).getRichTextValue(); return (rt && rt.getLinkUrl()) || String(sh.getRange(r, c).getValue() || ''); };
 
 function archivio_(ss) {
   const solSh = ss.getSheetByName(SH_SOL); if (solSh) solColonne_(solSh);
@@ -1294,7 +1293,7 @@ function doGet(e) {
   try {
     checkKey_(e.parameter.key);
     const action = e.parameter.action || 'init';
-    if (action === 'init') return json_(init_());
+    if (action === 'init') return initCache_(e.parameter.v);
     if (action === 'ping') return json_({ ok: true });
     if (action === 'login') { // nome + telefono: il telefono deve essere quello del tecnico
       const lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -1330,6 +1329,7 @@ function doPost(e) {
     else if (p.action === 'compitoStato') res = statoCompito_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
+    bumpVer_(); // i telefoni scaricano i dati nuovi al prossimo giro
     return json_(Object.assign({ ok: true }, res));
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
@@ -1344,25 +1344,62 @@ function checkKey_(k) {
 }
 // Solo i nomi presenti nella colonna Manutentori del foglio Liste possono registrare fermi
 function checkTecnico_(nome) {
-  const lv = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_LISTE).getDataRange().getValues();
+  const lv = listeVal_();
   const col = lv[0].indexOf('Manutentori');
   const ok = col >= 0 && lv.slice(1).some(r => String(r[col]).trim() !== '' && String(r[col]).trim() === String(nome || '').trim());
   if (!ok) throw new Error('Manutentore non abilitato: ' + nome);
 }
+/* ---------- Versione dei dati e copia pronta ----------
+   Ogni telefono chiede i dati ogni minuto mandando la versione che ha. Se nel frattempo non è cambiato niente
+   risponde solo { same: true } (pochi byte, nessun foglio letto). La versione cambia quando arriva qualcosa dall'app
+   (doPost), quando qualcuno modifica il foglio a mano (onEdit) e comunque ogni VER_MIN minuti (per sicurezza:
+   cambi di giorno, righe cancellate, funzioni lanciate dal menu). I dati calcolati restano pronti nella cache
+   dello script, così con molti telefoni il foglio si legge una volta sola per versione. */
+const VER_MIN = 15;
+function dataVer_() {
+  const props = PropertiesService.getScriptProperties();
+  let v = props.getProperty('DATA_VER');
+  if (!v) { v = String(Date.now()); props.setProperty('DATA_VER', v); }
+  return v + '-' + Math.floor(Date.now() / (VER_MIN * 60000));
+}
+function bumpVer_() { try { const p = PropertiesService.getScriptProperties(); p.setProperty('DATA_VER', String(Math.max(Date.now(), Number(p.getProperty('DATA_VER')) + 1 || 0))); } catch (e) { Logger.log(e); } }
+function initCache_(vApp) {
+  const ver = dataVer_();
+  if (vApp && String(vApp) === ver) return json_({ ok: true, same: true, ver: ver, serverTime: Date.now() });
+  const cache = CacheService.getScriptCache(), k = 'init:' + ver;
+  let txt = null;
+  try { txt = cacheGet_(cache, k); } catch (e) { Logger.log(e); }
+  if (!txt) {
+    txt = JSON.stringify(Object.assign(init_(), { ver: ver }));
+    try { cachePut_(cache, k, txt); } catch (e) { Logger.log(e); }
+  }
+  return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
+}
+// La cache tiene al massimo 100 KB per voce: il testo va compresso e spezzato in pezzi
+function cachePut_(cache, k, txt) {
+  const b = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(txt, 'application/json')).getBytes()), N = 90000;
+  const n = Math.ceil(b.length / N), o = {};
+  for (let i = 0; i < n; i++) o[k + ':' + i] = b.substr(i * N, N);
+  o[k] = String(n);
+  cache.putAll(o, VER_MIN * 60 + 120);
+}
+function cacheGet_(cache, k) {
+  const n = Number(cache.get(k)); if (!n) return null;
+  const keys = []; for (let i = 0; i < n; i++) keys.push(k + ':' + i);
+  const m = cache.getAll(keys), parts = keys.map(x => m[x]);
+  if (parts.some(x => !x)) return null;
+  return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(parts.join('')), 'application/x-gzip')).getDataAsString();
+}
+
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function init_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) { // una volta sola dopo l'aggiornamento
-    const lock = LockService.getScriptLock();
-    try { if (lock.tryLock(5000)) { if (!PropertiesService.getScriptProperties().getProperty('LOTTI_TESTO')) sistemaLotti(); } } catch (e) { Logger.log(e); }
-    finally { try { lock.releaseLock(); } catch (e) {} }
-  }
   const equipment = equipment_(ss);
   // Liste
-  const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues();
+  const lv = listeVal_(ss);
   const liste = {};
   lv[0].forEach((h, i) => { if (h) liste[h] = lv.slice(1).map(r => String(r[i]).trim()).filter(Boolean); });
   // Fermi: aperti + chiusi ultimi 90 giorni
@@ -1388,9 +1425,13 @@ function init_() {
   return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
+// Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
+let EQ_MEMO = null, LISTE_MEMO = null;
+const listeVal_ = ss => LISTE_MEMO || (LISTE_MEMO = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(SH_LISTE).getDataRange().getValues());
 function equipment_(ss) {
+  if (EQ_MEMO) return EQ_MEMO;
   const eqv = ss.getSheetByName(SH_EQ).getDataRange().getValues().slice(1);
-  return eqv.filter(r => r[0] && String(r[4]).toUpperCase() !== 'NO')
+  return EQ_MEMO = eqv.filter(r => r[0] && String(r[4]).toUpperCase() !== 'NO')
     .map(r => ({ code: String(r[0]).trim(), linea: String(r[1]), area: String(r[2]), macchina: String(r[3]) }));
 }
 
@@ -1467,6 +1508,7 @@ function lotto_(v) {
 // Lotti scritti come numero dalle versioni precedenti: tornano testo a 6 cifre (012345). Gira da solo una volta.
 const LOTTO_CIFRE = 6;
 function sistemaLotti() {
+  bumpVer_();
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
   let n = 0;
   if (last >= 2) {
@@ -1595,7 +1637,6 @@ function compitiSheet_(ss) {
   sh.getRange(2, K.STATO, 999, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(K_STATI, true).build());
   return sh;
 }
-const ora_ = () => Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
 const turnoDi_ = a => ((String(a || '').match(/^\s*turno\s+(T[123])\s*$/i) || [])[1] || '').toUpperCase();
 function entro_(v) {
   if (v instanceof Date) return dateOnly_(v);
@@ -1610,7 +1651,7 @@ function addCompito_(p) {
   const titolo = String(p.titolo || '').trim(), a = String(p.a || '').trim();
   if (!titolo) throw new Error('Il titolo del compito è obbligatorio');
   const turno = turnoDi_(a);
-  const tecnici = (() => { const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues(), c = lv[0].indexOf('Manutentori');
+  const tecnici = (() => { const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
     return c < 0 ? [] : lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean); })();
   if (!turno && !tecnici.some(t => t.toUpperCase() === a.toUpperCase())) throw new Error('Tecnico non valido per il compito: ' + a);
   const entro = entro_(p.entro);
@@ -1681,7 +1722,6 @@ function compitiTutti_() {
     aperto: k.stato === 'DA FARE' || k.stato === 'IN CORSO',
     ritardo: (k.stato === 'DA FARE' || k.stato === 'IN CORSO') ? !!k.entro && oggi > k.entro : k.stato === 'FATTO' && !!k.entro && !!k.fatto && dateOnly_(new Date(k.fatto)).getTime() > k.entro }));
 }
-const chiK_ = k => k.presoDa || k.a;
 
 
 /* =================== Fermi scritti a mano nel foglio (da carta) ===================
@@ -1691,7 +1731,7 @@ const chiK_ = k => k.presoDa || k.a;
    Si lancia dal menu (con il resoconto) e da sola prima di KPI e riepilogo settimanale. */
 const ORA_CARTA = 'CARTACEO';
 function sistemaFermiCarta() {
-  const r = completaFermiCarta_();
+  const r = completaFermiCarta_(); bumpVer_();
   const msg = r.fatte ? 'Fermi da carta completati: ' + r.fatte + '.' : 'Nessun fermo da completare.';
   const det = r.problemi.length ? '\n\nDa sistemare a mano (poi rilancia):\n' + r.problemi.slice(0, 25).join('\n') + (r.problemi.length > 25 ? '\n… e altri ' + (r.problemi.length - 25) : '') : '';
   try { SpreadsheetApp.getUi().alert(msg + det); } catch (e) { Logger.log(msg + det); }
@@ -1770,7 +1810,7 @@ function vestSheet_(ss) {
     sh = ss.getSheetByName(SH_VEST); if (sh) return sh;
     sh = ss.insertSheet(SH_VEST);
     sh.getRange(1, 1, 1, VEST_H.length).setValues([VEST_H]).setFontWeight('bold').setBackground('#dfe7ec');
-    const lv = ss.getSheetByName(SH_LISTE).getDataRange().getValues(), c = lv[0].indexOf('Manutentori');
+    const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
     const nomi = c < 0 ? [] : [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].sort();
     if (nomi.length) sh.getRange(2, 1, nomi.length, 1).setValues(nomi.map(n => [n]));
     sh.getRange('B2:B').setNumberFormat('dd/MM/yyyy'); sh.getRange('B2:C').setBackground('#fff3d6');
