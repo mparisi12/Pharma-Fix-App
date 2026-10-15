@@ -302,10 +302,14 @@ Una riga per documento:
 
 | Colonna | Cosa scrivere |
 |---|---|
-| **Dove** | Codice QR della macchina (`ST3-04`), oppure la linea (`ST3`) per tutta la linea, oppure `TUTTE` |
+| **Dove** | Si sceglie dall'elenco (suggerisce mentre scrivi): codice QR della macchina (`ST3-04`), la linea (`ST3`) per tutta la linea, oppure `TUTTE`. **Vuoto = TUTTE.** L'elenco viene dal foglio Equipment (solo macchine attive) e si aggiorna da solo; per forzarlo: menu Pharma-Fix → *Aggiorna elenchi foglio Documenti* |
 | **Tipo** | `MANUALE`, `SCHEMA`, `SCHEDA FORMATO` o `ALTRO` (le *Schede formato* vanno nella seconda scheda dell'app) |
 | **Titolo** / **Descrizione** | Quello che vede il tecnico (es. *Schema elettrico* · *rev. 3*) |
 | **Link** | Link al file su Drive/SharePoint: in Drive tasto destro → Condividi → *Chiunque nell'organizzazione con il link* → Copia link |
+
+Anche **Tipo** ha il suo elenco. Le colonne ID e Data si possono lasciare vuote.
+
+**Dall'app (solo coordinatori):** Documenti → *+ Aggiungi documento* → tipo, vale per (questa macchina / tutta la linea / tutte le linee, oppure un'altra dall'elenco), titolo, descrizione facoltativa e il **link** del file già condiviso su Drive. La riga si scrive da sola nel foglio Documenti.
 
 Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mostra solo il link, quindi lo apre solo chi ha già i permessi.
 
