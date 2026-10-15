@@ -226,6 +226,7 @@ function onOpen() {
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
     .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
+    .addItem('Aggiorna elenchi foglio Documenti', 'aggiornaElenchiDocumenti')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -555,14 +556,74 @@ function archivio_(ss) {
   const sol = righe_(ss, SH_SOL, SOL_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), linea: String(r[3]), macchina: String(r[4]),
     guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]),
     stato: String(r[11] || '').trim().toUpperCase() || 'VERIFICATA' })).filter(x => x.stato !== 'SCARTATA');
-  const doc = righe_(ss, SH_DOC, DOC_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), tipo: String(r[3]).trim().toUpperCase(),
-    titolo: String(r[4]), descr: String(r[5]), link: String(r[6]) }));
+  try { docElenchi_(ss); } catch (e) { Logger.log(e); }
+  const dSh = ss.getSheetByName(SH_DOC);
+  const doc = (dSh && dSh.getLastRow() > 1 ? dSh.getRange(2, 1, dSh.getLastRow() - 1, DOC_H.length).getValues() : [])
+    .filter(r => String(r[4]).trim() || String(r[6]).trim()) // basta titolo o link: ID e Dove possono restare vuoti
+    .map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim() || 'TUTTE', tipo: String(r[3]).trim().toUpperCase() || 'MANUALE',
+      titolo: String(r[4]).trim() || 'Documento', descr: String(r[5]), link: String(r[6]).trim() }));
   const from = Date.now() - 30 * 864e5;
   const ano = righe_(ss, SH_ANO, ANO_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), code: String(r[2]), linea: String(r[3]), macchina: String(r[4]),
     urgenza: Number(r[5]) || 3, descr: String(r[6]), serve: String(r[7]), foto: String(r[8]), da: String(r[9]), stato: String(r[10] || 'APERTA').toUpperCase(),
     gestita: String(r[11]), chiusa: ts_(r[12]), note: String(r[13]) }))
     .filter(a => a.stato !== 'CHIUSA' || (a.chiusa || a.ts || 0) >= from);
   return { soluzioni: sol, documenti: doc, anomalie: ano };
+}
+
+/* Documenti: nella colonna "Dove" si sceglie da un elenco (con suggerimenti mentre scrivi): TUTTE, le linee e i codici
+   del foglio Equipment (solo attivi). Vuoto = TUTTE. L'elenco sta nel foglio nascosto Elenco_Dove e si aggiorna da solo
+   quando cambia Equipment (all'apertura dell'app). Anche "Tipo" ha il suo elenco. */
+const SH_ELENCO = 'Elenco_Dove', DOC_TIPI = ['MANUALE', 'SCHEMA', 'SCHEDA FORMATO', 'ALTRO'];
+function docDove_(ss) {
+  const eq = equipment_(ss);
+  const linee = [...new Set(eq.map(e => e.linea.trim()).filter(Boolean))].sort();
+  return ['TUTTE'].concat(linee, eq.map(e => e.code).sort());
+}
+function docElenchi_(ss, forza) {
+  const props = PropertiesService.getScriptProperties();
+  const elenco = docDove_(ss), firma = 'v1|' + elenco.join('|');
+  let sh = ss.getSheetByName(SH_DOC);
+  if (!sh) { creaFogliArchivio_(ss); sh = ss.getSheetByName(SH_DOC); }
+  if (!forza && props.getProperty('DOC_ELENCO') === firma && ss.getSheetByName(SH_ELENCO)) return false;
+  let el = ss.getSheetByName(SH_ELENCO);
+  if (!el) { el = ss.insertSheet(SH_ELENCO); el.hideSheet(); }
+  el.clearContents();
+  el.getRange(1, 1).setValue('Dove (generato dallo script dal foglio Equipment: non modificare)');
+  el.getRange(2, 1, elenco.length, 1).setNumberFormat('@').setValues(elenco.map(x => [x]));
+  const n = Math.max(sh.getMaxRows() - 1, 999);
+  sh.getRange(2, 3, n, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(el.getRange(2, 1, elenco.length, 1), true).setAllowInvalid(false)
+    .setHelpText('Scegli TUTTE, una linea o un codice macchina del foglio Equipment. Vuoto = TUTTE.').build());
+  sh.getRange(2, 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(DOC_TIPI, true).setAllowInvalid(false).build());
+  props.setProperty('DOC_ELENCO', firma);
+  return true;
+}
+// Menu: rifà subito gli elenchi (se hai cambiato Equipment e vuoi vederli senza aprire l'app)
+function aggiornaElenchiDocumenti() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  docElenchi_(ss, true);
+  ss.toast('Elenchi del foglio Documenti aggiornati: ' + docDove_(ss).length + ' voci in "Dove".', 'Pharma-Fix', 6);
+}
+
+// Nuovo documento dall'app (solo coordinatori): il file sta su Drive, qui arriva il link
+function addDocumento_(p) {
+  if (!isCoordinatore_(p.manutentore)) throw new Error('Solo i coordinatori possono aggiungere documenti');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SH_DOC);
+  if (!sh) { creaFogliArchivio_(ss); sh = ss.getSheetByName(SH_DOC); }
+  if (p.id && sh.getLastRow() > 1 && sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(String(p.id)).matchEntireCell(true).findNext()) return { dup: true };
+  const elenco = docDove_(ss), dove = String(p.dove || '').trim() || 'TUTTE';
+  const ok = elenco.find(x => x.toUpperCase() === dove.toUpperCase());
+  if (!ok) throw new Error('"' + dove + '" non è nel foglio Equipment: scegli TUTTE, una linea o un codice macchina');
+  const tipo = String(p.tipo || '').trim().toUpperCase();
+  if (DOC_TIPI.indexOf(tipo) < 0) throw new Error('Tipo non valido');
+  const titolo = String(p.titolo || '').trim(), link = String(p.link || '').trim();
+  if (!titolo) throw new Error('Scrivi il titolo');
+  if (!/^https?:\/\/\S+$/i.test(link)) throw new Error('Incolla un link valido (https://…)');
+  sh.appendRow([p.id || ('D' + Date.now()), new Date(Number(p.ts) || Date.now()), ok, tipo, titolo, String(p.descr || '').trim(), link, p.manutentore]);
+  sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd/MM/yyyy HH:mm');
+  return { ok: true };
 }
 
 function saveFile_(b64, name, mime) {
@@ -1264,6 +1325,7 @@ function doPost(e) {
     else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
     else if (p.action === 'correzione') res = correzione_(p);
     else if (p.action === 'modifica') res = modificaFermo_(p);
+    else if (p.action === 'documento') res = addDocumento_(p);
     else if (p.action === 'compito') res = addCompito_(p);
     else if (p.action === 'compitoStato') res = statoCompito_(p);
     else throw new Error('Azione sconosciuta');
