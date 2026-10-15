@@ -48,7 +48,7 @@ function carica(sheets) {
     }
   };
   vm.createContext(ctx);
-  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;', ctx);
+  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;this.PARTICELLE_=PARTICELLE_;', ctx);
   return { ctx, ss, props, cache };
 }
 
