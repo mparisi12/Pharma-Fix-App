@@ -1,0 +1,13 @@
+{
+  "name": "pharma-fix-test",
+  "private": true,
+  "description": "Test automatici di Pharma-Fix (script + app). Dati inventati.",
+  "scripts": {
+    "test": "node server.test.js && node app.test.js",
+    "server": "node server.test.js",
+    "app": "node app.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}
