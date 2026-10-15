@@ -489,6 +489,12 @@ const VEST_AVVISO = 60;
 const vestDi = (nome = S.man) => S.vestizioni.find(v => U(v.man) === U(nome)) || null;
 const vestGiorni = v => Math.round((new Date(v.scad).setHours(0, 0, 0, 0) - oggi0()) / 864e5);
 const vestStato = v => !v || !v.scad ? '' : vestGiorni(v) < 0 ? 'exp' : vestGiorni(v) <= VEST_AVVISO ? 'warn' : 'ok';
+// Pallino sul nome: si spegne quando apri il profilo, si riaccende entrando in una nuova soglia (60 → 14 → 7 gg → scaduta)
+const VEST_SOGLIE = [14, 7];
+const vestLivello = v => { const st = vestStato(v); if (!/warn|exp/.test(st)) return ''; if (st === 'exp') return 'exp'; const g = vestGiorni(v), s = VEST_SOGLIE.filter(x => g <= x); return String(s.length ? Math.min(...s) : VEST_AVVISO); };
+const vestKey = v => v ? U(v.man) + '|' + v.scad + '|' + vestLivello(v) : '';
+const vestDaVedere = (v = vestDi()) => !!vestLivello(v) && (load('vestVisto', {})[U(S.man)] !== vestKey(v));
+function vestSegnaVisto(v = vestDi()) { if (!vestLivello(v)) return; const m = load('vestVisto', {}); m[U(S.man)] = vestKey(v); save('vestVisto', m); }
 const ggTxt = n => n === 0 ? 'oggi' : n === 1 ? 'domani' : 'tra ' + n + ' giorni';
 const anoAperte = list => list.filter(a => a.stato !== 'CHIUSA').sort((a, b) => a.urgenza - b.urgenza || b.ts - a.ts);
 // "Dove" di soluzioni e documenti: codice macchina, nome linea o TUTTE
@@ -780,7 +786,7 @@ function renderSync() {
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
 }
-function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length + (/warn|exp/.test(vestStato(vestDi())) ? 1 : 0) : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
+function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length + (vestDaVedere() ? 1 : 0) : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
 const topline = (title, sub, back) => `<div class="topline"><button class="back" data-back="${esc(back || 'home')}" aria-label="Indietro">${I.back}</button>
   <div style="flex:1;min-width:0"><div class="ptitle">${esc(title)}</div>${sub ? `<div class="code" style="margin-top:3px">${esc(sub)}</div>` : ''}</div></div>`;
 function bindBack() { $$('[data-back]').forEach(b => b.onclick = () => { const v = b.dataset.back; go(v.startsWith('equip:') ? { name: 'equip', code: v.slice(6) } : { name: v }); }); }
@@ -1305,6 +1311,7 @@ $('#lform').onsubmit = async e => {
 function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null); closeSh(); showLogin(); }
 function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
+  if (vestDaVedere()) { vestSegnaVisto(); renderHeader(); }
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="hint" style="margin:2px 0 6px">${isCoord() ? 'Coordinatore' : 'Tecnico'} · turno ${turnoOf(Date.now())}</div>
     ${boxVest()}
