@@ -1060,12 +1060,12 @@ function renderDoc() {
     .sort((a, b) => String(a.dove).localeCompare(String(b.dove)) || String(a.titolo).localeCompare(String(b.titolo)));
   $('#view').innerHTML = `
     ${topline('Documenti', eq ? eq.code + ' · ' + eq.macchina : 'Tutte le macchine', eq ? 'equip:' + eq.code : 'home')}
+    ${isCoord() ? `<button class="addbtn" id="adddoc" style="margin:10px 0 0;padding:12px">+ Aggiungi documento</button>` : ''}
     <div class="seg" id="tabs"><button data-t="man" aria-pressed="${tab === 'man'}">MANUALI E SCHEMI</button><button data-t="sch" aria-pressed="${tab === 'sch'}">SCHEDE FORMATO</button></div>
     ${eq ? `<div class="chips filters" id="sc"><button class="chip" data-v="mac" aria-pressed="${scope === 'mac'}">Questa macchina</button><button class="chip" data-v="lin" aria-pressed="${scope === 'lin'}">Tutta la linea ${esc(linea)}</button></div>`
       : `<div class="ctxbar"><div><div class="t1">Tutte le macchine</div><div class="hint" style="margin:0">Scansiona il QR della macchina o sceglila</div></div><button class="qrbtn" id="scanm" aria-label="Scansiona QR">${I.qr}QR</button><button class="linkbtn" id="pickm">Scegli</button></div>`}
     <div class="search">${I.search}<input id="q" type="search" placeholder="Cerca un documento" value="${esc(S.view.q || '')}" aria-label="Cerca"></div>
-    <div class="list" style="margin-top:12px">${list.length ? list.map(docRow).join('') : `<div class="empty">Nessun documento${eq ? ' collegato a questa macchina' : ''}.${isCoord() ? '' : ' Li aggiunge il coordinatore.'}</div>`}</div>
-    ${isCoord() ? `<button class="addbtn" id="adddoc">+ Aggiungi documento</button>` : ''}`;
+    <div class="list" style="margin-top:12px">${list.length ? list.map(docRow).join('') : `<div class="empty">Nessun documento${eq ? ' collegato a questa macchina' : ''}.${isCoord() ? '' : ' Li aggiunge il coordinatore.'}</div>`}</div>`;
   $('#tabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { S.view.tab = b.dataset.t; renderDoc(); } };
   const sc = $('#sc'); if (sc) sc.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { S.view.scope = b.dataset.v; renderDoc(); } };
   const pm = $('#pickm'); if (pm) pm.onclick = () => pickSheet(e => go({ name: 'doc', code: e.code, tab }));
