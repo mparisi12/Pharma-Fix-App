@@ -2085,7 +2085,10 @@ function kpiRisorseCalcola_(ss, filtri) {
     if (d && d >= per.from && d < per.toEnd && st === 'VERIFICATA' && r[10]) { const n = String(r[10]).trim().toUpperCase(); sol[n] = (sol[n] || 0) + 1; } });
   const kt = {}; try { compitiTutti_().forEach(k => { if (k.stato === 'FATTO' && k.fatto >= per.from.getTime() && k.fatto < per.toEnd.getTime() && k.fattoDa) {
     const n = String(k.fattoDa).trim().toUpperCase(); kt[n] = kt[n] || { f: 0, t: 0 }; kt[n].f++; if (!k.ritardo) kt[n].t++; } }); } catch (e) { Logger.log(e); }
-  const nomi = [...new Set(nel.map(f => String(f.man).trim()).filter(Boolean))];
+  // i coordinatori (colonna Coordinatori del foglio Liste) non compaiono: intervenire non è il loro ruolo principale.
+  // I loro interventi restano nel calcolo delle mediane del reparto.
+  const coord = coordinatori_().map(x => x.toUpperCase());
+  const nomi = [...new Set(nel.map(f => String(f.man).trim()).filter(Boolean))].filter(n => coord.indexOf(n.toUpperCase()) < 0);
   const rows = nomi.map(n => {
     const fs = nel.filter(f => String(f.man).trim() === n), N = n.toUpperCase();
     const rel = fs.filter(f => med[f.k] > 0).map(f => f.m / med[f.k]);
