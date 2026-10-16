@@ -442,6 +442,16 @@ Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto
 - **Passaggio di turno**: riga *📦 Domani cambi formato: …* (o *Oggi* per il turno che finisce al mattino), solo se ce ne sono.
 Prima delle 6 del mattino vale il programma del giorno prima (turno 3).
 
+### 5.18 KPI Risorse (foglio KPI Risorse)
+Indicatori per tecnico, per responsabile e coordinatori: servono per decidere affiancamenti e formazione, non per fare classifiche (prima di usarli per valutare le persone sentire HR: art. 4 Statuto dei Lavoratori).
+- **Crearlo / aggiornarlo:** menu **Pharma-Fix → Aggiorna KPI Risorse**. Si ricalcola da solo quando cambi i filtri in alto (Periodo, Area, Minimo interventi confrontabili; Dal/Al per *Personalizzato*).
+- **MTTR relativo:** ogni intervento diviso per la mediana dello **stesso guasto sulla stessa macchina** nel periodo (almeno 3 interventi); per il tecnico vale la mediana dei suoi rapporti. 1,00 = come il reparto; verde ≤ 0,85, giallo ≥ 1,20; "—" sotto il minimo.
+- **Interventi per turno:** interventi nei giorni presenti nel foglio Turni diviso i turni lavorati (1/2/3/G).
+- **Ricorrenza entro 24h:** % degli interventi dopo cui lo stesso guasto torna sulla stessa macchina entro 24 ore. In fondo c'è anche per tipo di guasto (nei cambi formato è normale che sia più alta).
+- **Registrati in tempo** (Packaging, fermo aperto col QR e non scritto dopo), **Con descrizione**, **Anomalie segnalate**, **Soluzioni approvate**, **Compiti fatti in tempo**.
+- **Quadrante:** Riferimento / Da coinvolgere di più / Carico alto: verificare tempi / Affiancamento – formazione (MTTR relativo rispetto a 1,00 e interventi per turno rispetto alla mediana).
+- **Matrice competenze:** interventi per tecnico e linea; la riga *Esperti* conta chi ne ha almeno 5 e segna ⚠ le linee che conosce bene una sola persona (o nessuna).
+
 ## 6. I dati in Excel
 
 - **Copia veloce**: dal Google Sheet **File → Scarica → Microsoft Excel (.xlsx)**.

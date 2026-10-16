@@ -31,6 +31,7 @@ class Sheet {
   }
 }
 Sheet.prototype.insertRowsAfter = function () { return this; };
+Sheet.prototype.setRowHeight = function () { return this; };
 Sheet.prototype.insertColumnBefore = function (c) { this.rows.forEach(r => { while (r.length < c - 1) r.push(''); r.splice(c - 1, 0, ''); }); return this; };
 Sheet.prototype.setConditionalFormatRules = function (r) { this.cf = r; };
 for (const m of ['hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
