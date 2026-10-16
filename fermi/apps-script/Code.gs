@@ -223,6 +223,7 @@ function onOpen() {
     .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
     .addItem('Aggiorna KPI Risorse', 'aggiornaKpiRisorse')
+    .addItem('Alleggerisci foglio Programma (colonne vuote)', 'alleggerisciProgramma')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
@@ -240,6 +241,8 @@ function onOpen() {
     .addItem('Prova riepilogo settimanale', 'riepilogoSettimanale')
     .addItem('Prova passaggio di turno', 'provaPassaggioTurno')
     .addItem('Fai un backup adesso', 'backupFoglio')
+    .addSeparator()
+    .addItem('Versione dello script', 'infoVersione')
     .addToUi();
 }
 
@@ -2037,6 +2040,9 @@ function rigaVestizioni_() {
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
 }
 
+// Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
+const VERSIONE_SCRIPT = '16/10/2026 23:45';
+function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
    sulla STESSA macchina nel periodo (MTTR relativo, 1,00 = come il reparto). Filtri in alto (periodo, area, minimo);
@@ -2118,7 +2124,7 @@ function aggiornaKpiRisorse() {
   const filtri = { periodo: String(f[0][0] || 'Ultimi 90 giorni'), area: String(f[0][3] || 'Tutte'), min: Number(f[0][6]) > 0 ? Number(f[0][6]) : 5, dal: f[1][0], al: f[1][3] };
   const K = kpiRisorseCalcola_(ss, filtri);
   sh.getRange(KR_T - 1, 1, Math.max(sh.getMaxRows() - KR_T + 2, 1), Math.max(sh.getMaxColumns(), 16)).clear();
-  sh.getRange(KR_T - 1, 1).setValue('Periodo ' + Utilities.formatDate(K.per.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(K.per.to, TZ, 'dd/MM/yyyy') + ' · ' + nFermi_(K.nFermi) + ' chiusi · aggiornato ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm')).setFontColor('#5f6368');
+  sh.getRange(KR_T - 1, 1).setValue('Periodo ' + Utilities.formatDate(K.per.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(K.per.to, TZ, 'dd/MM/yyyy') + ' · ' + nFermi_(K.nFermi) + ' chiusi · aggiornato ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm') + ' · script ' + VERSIONE_SCRIPT).setFontColor('#5f6368');
   let r = KR_T;
   sh.getRange(r, 1, 1, KR_H.length).setValues([KR_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true).setVerticalAlignment('bottom');
   const pc = x => x === null ? '—' : x, nr = K.rows.length;
@@ -2313,10 +2319,29 @@ function lineaProg_(etichetta, linee) {
   if (m[1] === '1') return /pomat|gel|tgm/.test(s) ? trova('ST1 TGM') : /liquid|mar/.test(s) ? trova('ST1 MAR') : '';
   return trova('ST' + m[1]);
 }
+/* Il foglio Programma incollato da Excel si porta dietro migliaia di colonne e righe vuote ma formattate
+   (es. 16.000 colonne): il file diventa enorme e lento. Qui si tolgono quelle oltre l'ultima con un valore. */
+function pulisciProgramma_(sh) {
+  try {
+    const lc = sh.getLastColumn(), mc = sh.getMaxColumns(), lr = sh.getLastRow(), mr = sh.getMaxRows();
+    let fatto = false;
+    if (mc > lc + 5) { sh.deleteColumns(lc + 6, mc - lc - 5); fatto = true; }
+    if (mr > lr + 20) { sh.deleteRows(lr + 21, mr - lr - 20); fatto = true; }
+    return fatto;
+  } catch (e) { Logger.log(e); return false; }
+}
+function alleggerisciProgramma() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheets().find(s => /^programma/i.test(s.getName()));
+  if (!sh) { ss.toast('Foglio Programma non trovato.', 'Pharma-Fix', 6); return; }
+  const prima = sh.getMaxColumns() + ' colonne × ' + sh.getMaxRows() + ' righe';
+  pulisciProgramma_(sh);
+  ss.toast('Foglio Programma alleggerito: da ' + prima + ' a ' + sh.getMaxColumns() + ' × ' + sh.getMaxRows() + '.', 'Pharma-Fix', 8);
+}
 function programmaTutto_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheets().find(s => /^programma/i.test(s.getName()));
   if (!sh || sh.getLastRow() < 3) return {};
+  if (sh.getMaxColumns() > sh.getLastColumn() + 50) pulisciProgramma_(sh);
   const v = sh.getDataRange().getValues(), linee = [...new Set(equipment_(ss).map(e => String(e.linea).trim()))];
   const data = x => x instanceof Date && x.getFullYear() >= 2000 ? x : null;
   let hr = -1, best = 0; // riga delle date: quella con più date (nel file del programma è la 3)
