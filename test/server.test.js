@@ -181,4 +181,19 @@ console.log('\nPassaggio turno e riepilogo: fermi per reparto');
   ok(/ST3 · Filling 3h 10′ \(1\) ▲\+1h · Packaging 2h 5′ \(1\) ▼−20′/.test(m), 'riepilogo: ST3 · Filling ▲+1h · Packaging ▼−20′ rispetto alla settimana prima');
   ok(/SPL2 · Packaging 1h \(1\)$/m.test(m) && /Packaging registrati dopo: 1 su 2/.test(m), 'senza confronto se la settimana prima non c\'erano fermi; registrati dopo solo Packaging');
 }
+console.log('\nKPI Risorse');
+{
+  const { ctx, sheets } = nuovo();
+  const t = Date.now() - 12 * 864e5, F = (man, g, min, h, extra) => Object.assign({ a: new ctx.DD(t + h * 3600e3), b: new ctx.DD(t + h * 3600e3 + min * 60000), stato: 'CHIUSO', linea: 'ST3', macc: 'ASTUCCIATRICE', guasto: g, man, altro: 'ok', orari: '', eq: 'ST3-04' }, extra || {});
+  const fermi = [];
+  for (let i = 0; i < 6; i++) { fermi.push(F('ROSSI Mario', 'FORMATO', 10, i * 30)); fermi.push(F('VERDI Anna', 'FORMATO', 20, i * 30 + 5)); fermi.push(F('BIANCHI Luca', 'FORMATO', 40, i * 30 + 10, { orari: 'DICHIARATI', altro: '' })); }
+  fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 200, { linea: 'ST2', eq: 'ST3-02' })); fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 210, { linea: 'ST2', eq: 'ST3-02' }));
+  ctx.fermiTutti_ = () => fermi; ctx.completaFermiCarta_ = () => ({}); ctx.anomalieTutte_ = () => [{ ts: new ctx.DD(t), da: 'ROSSI Mario' }]; ctx.compitiTutti_ = () => []; ctx.turniTutti_ = () => ({});
+  const K = ctx.aggiornaKpiRisorse(), R = n => K.rows.find(x => x.n === n);
+  ok(Math.abs(R('ROSSI Mario').rel - 0.5) < 1e-9 && Math.abs(R('BIANCHI Luca').rel - 2) < 1e-9 && R('VERDI Anna').rel === 1, 'MTTR relativo rispetto alla mediana dello stesso guasto sulla stessa macchina');
+  ok(R('BIANCHI Luca').tempo === 0 && R('ROSSI Mario').desc === 1 && R('ROSSI Mario').ano === 1, 'registrati in tempo, descrizione, anomalie segnalate');
+  ok(R('BIANCHI Luca').ric > 0, 'ricorrenza: lo stesso guasto torna entro 24h');
+  ok(K.esperti[K.linee.indexOf('ST3')] === 3, 'matrice: 3 esperti su ST3');
+  ok(sheets['KPI Risorse'] && sheets['KPI Risorse'].rows[6][0] === 'Tecnico', 'foglio KPI Risorse creato con la tabella');
+}
 fine('Script');
