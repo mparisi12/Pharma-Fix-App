@@ -1108,14 +1108,17 @@ const REP_RIGHE = [
   ['Passaggio di turno anche per mail: SI / NO', 'NO'],
   ['Backup settimanale del foglio (domenica sera): SI / NO', 'SI'],
   ['Backup da conservare (quanti)', 8],
-  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3']
+  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3'],
+  ['Preavviso scadenza vestizione sterile (giorni prima)', 60],
+  ['Preavviso scadenza convalide GMP (giorni prima)', 60]
 ];
 function repCfg_() {
   const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
   let nuovo = false;
   if (String(sh.getRange(1, 5).getValue()) !== REP_RIGHE[0][0]) { sh.getRange(1, 5, REP_RIGHE.length, 2).setValues(REP_RIGHE); nuovo = true; }
-  else if (String(sh.getRange(REP_RIGHE.length, 5).getValue()) !== REP_RIGHE[REP_RIGHE.length - 1][0]) { // righe aggiunte in seguito
-    sh.getRange(REP_RIGHE.length, 5, 1, 2).setValues([REP_RIGHE[REP_RIGHE.length - 1]]); nuovo = true;
+  else { // righe aggiunte in seguito: scrive le etichette nuove e il valore di partenza solo dove la cella è vuota
+    const cur = sh.getRange(1, 5, REP_RIGHE.length, 2).getValues();
+    REP_RIGHE.forEach((r, i) => { if (String(cur[i][0]) !== r[0]) { sh.getRange(i + 1, 5).setValue(r[0]); if (cur[i][1] === '') sh.getRange(i + 1, 6).setValue(r[1]); nuovo = true; } });
   }
   if (nuovo) {
     sh.getRange(1, 5, 1, 2).setFontWeight('bold').setBackground('#dfe7ec');
@@ -1125,7 +1128,8 @@ function repCfg_() {
   const v = sh.getRange(2, 6, REP_RIGHE.length - 1, 1).getValues().map(r => r[0]);
   const si = x => !/^no$/i.test(String(x).trim());
   return { settimanale: si(v[0]), turno: si(v[1]), turnoMail: /^si$/i.test(String(v[2]).trim()), backup: si(v[3]), tieni: Number(v[4]) || 8,
-    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean) };
+    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean),
+    avvVest: Number(v[6]) > 0 ? Number(v[6]) : VEST_AVVISO, avvConv: Number(v[7]) > 0 ? Number(v[7]) : VEST_AVVISO };
 }
 function attivaReport() {
   repCfg_();
@@ -1475,7 +1479,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = repCfg_(); return { vest: c.avvVest, conv: c.avvConv }; } catch (e) { return { vest: VEST_AVVISO, conv: VEST_AVVISO }; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1909,7 +1913,8 @@ function rigaVestizioni_() {
   let v; try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = vestizioni_(ss).filter(x => no.indexOf(x.man.toUpperCase()) < 0); } catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + gm_(new Date(x.scad));
-  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
+  const avv = (() => { try { return repCfg_().avvVest; } catch (e) { return VEST_AVVISO; } })();
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
 }
@@ -1972,7 +1977,8 @@ function rigaConvalide_() {
   catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
-  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
+  const avv = (() => { try { return repCfg_().avvConv; } catch (e) { return VEST_AVVISO; } })();
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length && !manca.length) return '';
   return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '') +
     (manca.length ? ' · mancanti: ' + manca.map(x => cognome_(x.man) + ' ' + x.cats.join(' ')).join(', ') : '');
