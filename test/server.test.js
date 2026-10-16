@@ -110,17 +110,33 @@ console.log('\nArea sterile: esonerati e convalide mancanti');
   ok(m.length === 1 && m[0].man === 'CACIOPPO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
   ok(/mancanti: CACIOPPO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
 }
-console.log('\nPreavviso scadenze (foglio Avvisi)');
+console.log('\nFoglio Vestizioni: impostazioni e convalide');
 {
-  const { ctx, sheets } = nuovo();
-  const av = new Sheet('Avvisi', [['Avvisi', 'Valore']]);
-  sheets.Avvisi = av; ctx.avvisiSheet_ = () => av;
-  let c = ctx.repCfg_();
-  ok(c.avvVest === 60 && c.avvConv === 60, 'valori di partenza: 60 giorni');
-  ok(av.rows.some(r => /convalide GMP/.test(r[4] || '')), 'righe di preavviso aggiunte nel foglio Avvisi');
-  const i = av.rows.findIndex(r => /convalide GMP/.test(r[4] || '')); av.rows[i][5] = 90;
-  c = ctx.repCfg_(); ok(c.avvConv === 90 && c.avvVest === 60, 'preavviso convalide cambiato a 90, vestizione resta 60');
-  av.rows = av.rows.slice(0, 7).map(r => r.slice()); av.rows[6][5] = 'ST3,ST6'; // foglio vecchio, senza le righe nuove
-  c = ctx.repCfg_(); ok(c.avvConv === 60 && c.continuo.join() === 'ST3,ST6', 'foglio vecchio: aggiunge le righe nuove senza toccare quelle esistenti');
+  const { Sheet: Sh, carica: car } = require('./fake-sheets');
+  const sheets = {}; let { ctx } = car(sheets);
+  const D = (y, m, d) => new ctx.DD(y, m - 1, d), isD = x => Object.prototype.toString.call(x) === '[object Date]';
+  Object.assign(sheets, {
+    Liste: new Sh('Liste', [['Manutentori'], ['ORZI Matteo'], ['CACIOPPO Riccardo'], ['RONCONI Fabio']]),
+    Vestizioni: new Sh('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'],
+      ['ORZI Matteo', D(2025, 10, 28), 13], ['CACIOPPO Riccardo', D(2026, 5, 28), 13], ['RONCONI Fabio', D(2026, 1, 10), '']]),
+    Convalide: new Sh('Convalide', [['x', 'Convalida Sterile Matteo Orzi', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
+      ['x', 'Convalida Sterile Matteo Orzi', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente']]),
+    Avvisi: new Sh('Avvisi', [['Avvisi', 'Valore', '', '', 'Report automatici', 'Valore'], ['', '', '', '', 'Preavviso scadenza vestizione sterile (giorni prima)', 45], ['', '', '', '', 'Preavviso scadenza convalide GMP (giorni prima)', 90]])
+  });
+  sheets.Vestizioni.rows[3][6] = 'NO'; // RONCONI esonerato (colonna G già scritta a mano, senza intestazione)
+  sheets.Vestizioni.rows[0][6] = 'Area sterile (SI/NO)';
+  const c = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet()), V = sheets.Vestizioni.rows;
+  ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cSet === 11, 'colonne: G area sterile, H/I convalide, K–L impostazioni');
+  ok(c.durata === 13 && c.avvV === 45 && c.avvC === 90, 'impostazioni: durata 13 (la più usata), preavvisi presi dal foglio Avvisi');
+  ok(!sheets.Avvisi.rows.some(r => /Preavviso/.test(r[4] || '')), 'righe di preavviso tolte dal foglio Avvisi');
+  ok(isD(V[1][7]) && V[1][7].getDate() === 22 && V[2][7] === 'MANCA' && V[3][7] === 'esonerato', 'Cat. G: data / MANCA / esonerato');
+  ok(/\$L\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($L$2)');
+  ok((sheets.Vestizioni.cf || []).length === 5, 'colori: esonerati, vestizione scaduta/in preavviso, convalide scadute/in preavviso');
+  V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'RONCONI Fabio');
+  ok(r.mesi === 13, 'durata vuota: vale lo standard');
+  // nuova categoria nello scadenziario: colonna nuova prima del riquadro Impostazioni
+  sheets.Convalide.rows.push(['x', 'Convalida Sterile Matteo Orzi', '2027/01/01', 'Categoria F - pulizia']);
+  ({ ctx } = car(sheets)); const c2 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  ok(c2.cCat.F === 10 && c2.cSet === 12 && V[0][11] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonna aggiunta, Impostazioni spostate a destra');
 }
 fine('Script');
