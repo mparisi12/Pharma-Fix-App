@@ -2046,7 +2046,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '16/10/2026 23:55';
+const VERSIONE_SCRIPT = '17/10/2026 00:05';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2122,6 +2122,34 @@ function kpiRisorseCalcola_(ss, filtri) {
   const guasti = Object.keys(pg).sort((x, y) => pg[y].n - pg[x].n).slice(0, 10).map(g => ({ g: g, n: pg[g].n, r: pg[g].r / pg[g].n }));
   return { per: per, rows: rows, linee: linee, mat: mat, esperti: esperti, guasti: guasti, nFermi: nel.length };
 }
+// Grafico a quadranti: X = MTTR relativo, Y = interventi per turno; una serie per tecnico (il nome è nella legenda),
+// più due linee grigie di riferimento (MTTR 1,00 e mediana degli interventi per turno). Dati nel foglio nascosto KPI_Risorse_dati.
+function krGrafico_(ss, sh, K) {
+  sh.getCharts().forEach(c => sh.removeChart(c));
+  const pts = K.rows.filter(r => r.rel !== null && r.xt !== null);
+  let d = ss.getSheetByName('KPI_Risorse_dati');
+  if (!d) { d = ss.insertSheet('KPI_Risorse_dati'); d.hideSheet(); }
+  d.clear();
+  if (pts.length < 2) { sh.getRange(KR_T - 1, 16).setValue('Grafico a quadranti: servono almeno 2 tecnici con MTTR relativo e turni (foglio Turni).').setFontColor('#5f6368'); return; }
+  const xs = pts.map(p => p.rel), ys = pts.map(p => p.xt);
+  const x0 = Math.max(0, Math.floor(Math.min(0.5, ...xs) * 10) / 10), x1 = Math.ceil(Math.max(1.5, ...xs) * 10) / 10, y1 = Math.ceil(Math.max(...ys) * 1.15 * 10) / 10 || 1;
+  const med = medianaKr_(ys), nS = pts.length + 2, rows = [];
+  rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['MTTR 1,00', 'Mediana interventi/turno']));
+  pts.forEach((p, i) => { const r = new Array(nS + 1).fill(''); r[0] = Math.round(p.rel * 100) / 100; r[i + 1] = Math.round(p.xt * 100) / 100; rows.push(r); });
+  [[1, 0, pts.length + 1], [1, y1, pts.length + 1], [x0, med, pts.length + 2], [x1, med, pts.length + 2]].forEach(([x, y, c]) => { const r = new Array(nS + 1).fill(''); r[0] = x; r[c] = y; rows.push(r); });
+  d.getRange(1, 1, rows.length, nS + 1).setValues(rows);
+  const serie = {}; pts.forEach((p, i) => { serie[i] = { pointSize: 9, lineWidth: 0 }; });
+  serie[pts.length] = { pointSize: 0, lineWidth: 1, color: '#9aa0a6', visibleInLegend: false };
+  serie[pts.length + 1] = { pointSize: 0, lineWidth: 1, color: '#9aa0a6', visibleInLegend: false };
+  const ch = sh.newChart().asScatterChart().addRange(d.getRange(1, 1, rows.length, nS + 1)).setNumHeaders(1)
+    .setOption('title', 'Quadranti · in alto a sinistra Riferimenti · in alto a destra Carico alto · in basso a sinistra Da coinvolgere · in basso a destra Affiancamento')
+    .setOption('hAxis', { title: 'MTTR relativo  (← più veloce · più lento →)', viewWindow: { min: x0, max: x1 } })
+    .setOption('vAxis', { title: 'Interventi per turno', viewWindow: { min: 0, max: y1 } })
+    .setOption('legend', { position: 'right' }).setOption('series', serie)
+    .setOption('width', 900).setOption('height', 480)
+    .setPosition(KR_T, KR_H.length + 2, 0, 0).build();
+  sh.insertChart(ch);
+}
 function aggiornaKpiRisorse() {
   try { completaFermiCarta_(); } catch (e) { Logger.log(e); }
   const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = krSheet_(ss);
@@ -2173,6 +2201,7 @@ function aggiornaKpiRisorse() {
   sh.getRange(r, 1, 1, 3).setValues([['Tipo guasto', 'Interventi', 'Ricorrenza 24h']]).setFontWeight('bold').setBackground('#dfe7ec');
   if (K.guasti.length) { sh.getRange(r + 1, 1, K.guasti.length, 3).setValues(K.guasti.map(g => [g.g, g.n, g.r])); sh.getRange(r + 1, 3, K.guasti.length, 1).setNumberFormat('0%'); }
   sh.setColumnWidth(1, 220); for (let c = 2; c <= KR_H.length; c++) sh.setColumnWidth(c, c === KR_H.length ? 210 : 105);
+  try { krGrafico_(ss, sh, K); } catch (e) { Logger.log(e); }
   sh.setRowHeight(KR_T, 54);
   return K;
 }
