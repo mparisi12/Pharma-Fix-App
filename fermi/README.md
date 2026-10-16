@@ -158,7 +158,9 @@ Riferimento completo. Per i tecnici c'è la versione corta: *Guida per il tecnic
 All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
 La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la rete); poi non lo chiede più, finché il responsabile non lo cambia.
 **Ogni nome è legato al telefono personale del tecnico**: il primo telefono con cui entri diventa il tuo. Con il nome di un collega, o da un telefono nuovo, l'app risponde *"Telefono non autorizzato"* finché il responsabile non approva.
-L'accesso dura un turno (9 ore). Se passi il telefono a un collega: tocca il tuo nome in alto → **Esci**.
+L'accesso resta finché si usa l'app: ogni apertura lo rinnova, si rifà solo dopo 30 giorni senza aprirla o con **Esci** (tocca il tuo nome in alto). Codice reparto e accesso hanno anche una copia nell'archivio del telefono, così non si perdono se il browser svuota la memoria.
+
+**iPhone:** usare sempre l'app dall'icona sulla **schermata Home** e il pulsante **QR dentro l'app**. Safari e Chrome aperti normalmente (anche dal QR inquadrato con la fotocamera) hanno una memoria separata che iOS cancella dopo pochi giorni: lì l'app mostra un avviso giallo.
 
 ### Aprire un fermo (~10 secondi)
 1. **Scansiona QR** e inquadra l'etichetta sulla macchina. (In alternativa: fotocamera normale del telefono sul QR, oppure **Fotografa QR**, oppure **Scegli macchina a mano**.) Si apre la **pagina della macchina** e, se non c'è già un fermo in corso, subito sopra il riquadro centrale **Apri fermo** (dalla home il pulsante si chiama **APRI FERMO MACCHINA**).
