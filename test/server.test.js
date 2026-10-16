@@ -77,4 +77,24 @@ console.log('\nMenu a tendina del foglio Fermi');
   ok(sheets.Elenchi_Fermi.rows.slice(1).map(r => r[0]).includes('ASTUCCIATRICE') && !sheets.Elenchi_Fermi.rows.slice(1).map(r => r[0]).includes('DISMESSA'), 'macchine attive da Equipment');
   ok(ctx.fermiConvalida_(ss) === false, 'se non cambia niente non rifà il lavoro');
 }
+console.log('\nConvalide GMP');
+{
+  const { ctx, sheets } = nuovo();
+  sheets.Liste.rows = [['Manutentori', 'Coordinatori'], ['ORZI Matteo', 'VERDI Anna'], ['DI STEFANO Alessio', ''], ['GRECO Nicolò', ''], ['VERDI Anna', '']];
+  sheets.Convalide = new Sheet('Convalide', [[], ['Codice processo (link)', 'Oggetto', 'Scadenza', 'Item'],
+    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico Servizi Tecnici', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico Servizi Tecnici', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente \t'],
+    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico', '2025/01/01', 'Categoria H - vecchia'],
+    ['SC 2', 'Convalida Sterile Alessio Di Stefano Meccanico Servizi Tecnici', new ctx.DD(2027, 2, 31), 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 3', 'Convalida Sterile Nicolo Greco Meccanico', '22/10/2026', 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 4', 'Convalida Mario Sconosciuto Meccanico', '2027/01/01', 'Categoria G - x']]);
+  const r = ctx.convalide_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  const f = (m, c) => r.list.find(x => x.man === m && x.cat === c);
+  ok(f('ORZI Matteo', 'G') && new Date(f('ORZI Matteo', 'G').scad).getDate() === 22, 'nome invertito riconosciuto (Matteo Orzi → ORZI Matteo), data 2026/10/22');
+  ok(new Date(f('ORZI Matteo', 'H').scad).getMonth() === 10, 'più righe stessa categoria: vale la scadenza più lontana');
+  ok(f('ORZI Matteo', 'H').desc === 'Intervento Meccanico di sostituzione componente', 'descrizione dalla colonna Item');
+  ok(!!f('DI STEFANO Alessio', 'G'), 'cognome con particella e data come Date');
+  ok(!!f('GRECO Nicolò', 'G'), 'accenti: Nicolo = Nicolò, data 22/10/2026');
+  ok(r.ignote.length === 1 && /Sconosciuto/.test(r.ignote[0]), 'nomi non trovati in Manutentori segnalati');
+}
 fine('Script');
