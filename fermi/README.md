@@ -412,7 +412,11 @@ Le convalide per gli interventi GMP in area sterile (Cat. G regolazione, Cat. H 
 - Incolla lo scadenziario **così com'è** (solo valori) nel foglio **Convalide**: servono Oggetto (con il nome della persona), Scadenza e Item ("Categoria G - …"). Quando esce quello nuovo, incolli di nuovo tutto.
 - Lo script riconosce la persona confrontando l'Oggetto con l'elenco **Manutentori** (anche "Nome Cognome" al contrario e senza accenti). Se la stessa persona ha più righe per la stessa categoria vale la scadenza più lontana. I nomi non riconosciuti compaiono in fondo a *Scadenze del reparto*.
 - **Chi lavora in sterile:** nel foglio **Vestizioni** c'è la colonna *Area sterile (SI/NO)*. **NO** = esonerato: niente vestizione né convalide, non compare negli elenchi e non riceve avvisi. Vuoto = SI: se una categoria non si trova nello scadenziario risulta **MANCA** (vale come scaduta).
-- **Preavviso:** nel foglio **Avvisi** (celle gialle E–F) ci sono *Preavviso scadenza vestizione sterile* e *Preavviso scadenza convalide GMP* (giorni prima, di partenza 60). Valgono per app, pallino e riepilogo settimanale.
+- **Foglio Vestizioni, cosa aggiunge lo script** (le colonne le trova per nome, l'ordine non conta):
+  - *Area sterile (SI/NO)*: la compili tu;
+  - *Scadenza Cat. G*, *Scadenza Cat. H*… (viola): le scrive lo script dal foglio Convalide (data, **MANCA** o *esonerato*), non modificarle;
+  - riquadro **Impostazioni** a destra: *Durata standard vestizione (mesi)* (vale quando la colonna Durata è vuota), *Preavviso vestizione* e *Preavviso convalide GMP* (giorni prima della scadenza). Valgono per app, pallino e riepilogo;
+  - colori: giallo = in preavviso, rosso = scaduta o MANCA, grigio = esonerato.
 - **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (60 giorni) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
 - **Coordinatore:** *Scadenze del reparto* (al posto di Vestizioni del reparto): tabella per persona con vestizione e categorie, filtri Da rinnovare / Scadute, tocca un nome per il dettaglio.
 - **Riepilogo settimanale:** riga *🧾 CONVALIDE GMP* con quelle in scadenza e scadute.
