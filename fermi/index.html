@@ -888,7 +888,7 @@ function renderEquip() {
     ${open ? '' : progBox(eq)}
     ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
       ${provaPrima(eq, open, hist)}`
-    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="ck"><span class="pre">Premi qui per</span><span class="bt">Chiudi fermo</span></span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso da</span></button>
+    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="ck"><span class="pre">Premi qui per</span><span class="bt">Chiudere fermo</span></span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso da</span></button>
       <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
       ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
