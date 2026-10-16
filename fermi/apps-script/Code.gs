@@ -2046,7 +2046,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 00:05';
+const VERSIONE_SCRIPT = '17/10/2026 00:20';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2122,33 +2122,48 @@ function kpiRisorseCalcola_(ss, filtri) {
   const guasti = Object.keys(pg).sort((x, y) => pg[y].n - pg[x].n).slice(0, 10).map(g => ({ g: g, n: pg[g].n, r: pg[g].r / pg[g].n }));
   return { per: per, rows: rows, linee: linee, mat: mat, esperti: esperti, guasti: guasti, nFermi: nel.length };
 }
-// Grafico a quadranti: X = MTTR relativo, Y = interventi per turno; una serie per tecnico (il nome è nella legenda),
-// più due linee grigie di riferimento (MTTR 1,00 e mediana degli interventi per turno). Dati nel foglio nascosto KPI_Risorse_dati.
+// Grafico a quadranti. Entrambi gli assi sono "rispetto al reparto" (1 = come il reparto) e in scala logaritmica centrata su 1:
+// così le due linee di riferimento passano esattamente al centro e i 4 quadranti hanno la stessa grandezza.
+// X = MTTR relativo, Y = interventi per turno ÷ mediana del reparto. Una serie per tecnico (nome in legenda).
+// Sotto il grafico, gli stessi 4 quadranti in celle colorate con i nomi. Dati nel foglio nascosto KPI_Risorse_dati.
+const KR_Q = [['Riferimento', '↖ RIFERIMENTI · più veloci e più presenti', '#dff1e7'], ['Carico alto: verificare tempi', '↗ CARICO ALTO · più presenti ma più lenti', '#fde9a9'],
+  ['Da coinvolgere di più', '↙ DA COINVOLGERE · veloci ma meno presenti', '#e3edf3'], ['Affiancamento / formazione', '↘ AFFIANCAMENTO · più lenti e meno presenti', '#fbe4e0']];
 function krGrafico_(ss, sh, K) {
   sh.getCharts().forEach(c => sh.removeChart(c));
-  const pts = K.rows.filter(r => r.rel !== null && r.xt !== null);
+  const pts = K.rows.filter(r => r.rel !== null && r.xt !== null && r.xt > 0);
   let d = ss.getSheetByName('KPI_Risorse_dati');
   if (!d) { d = ss.insertSheet('KPI_Risorse_dati'); d.hideSheet(); }
   d.clear();
-  if (pts.length < 2) { sh.getRange(KR_T - 1, 16).setValue('Grafico a quadranti: servono almeno 2 tecnici con MTTR relativo e turni (foglio Turni).').setFontColor('#5f6368'); return; }
-  const xs = pts.map(p => p.rel), ys = pts.map(p => p.xt);
-  const x0 = Math.max(0, Math.floor(Math.min(0.5, ...xs) * 10) / 10), x1 = Math.ceil(Math.max(1.5, ...xs) * 10) / 10, y1 = Math.ceil(Math.max(...ys) * 1.15 * 10) / 10 || 1;
-  const med = medianaKr_(ys), nS = pts.length + 2, rows = [];
-  rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['MTTR 1,00', 'Mediana interventi/turno']));
-  pts.forEach((p, i) => { const r = new Array(nS + 1).fill(''); r[0] = Math.round(p.rel * 100) / 100; r[i + 1] = Math.round(p.xt * 100) / 100; rows.push(r); });
-  [[1, 0, pts.length + 1], [1, y1, pts.length + 1], [x0, med, pts.length + 2], [x1, med, pts.length + 2]].forEach(([x, y, c]) => { const r = new Array(nS + 1).fill(''); r[0] = x; r[c] = y; rows.push(r); });
+  const C0 = KR_H.length + 2;
+  if (pts.length < 2) { sh.getRange(KR_T - 1, C0).setValue('Grafico a quadranti: servono almeno 2 tecnici con MTTR relativo e turni (foglio Turni).').setFontColor('#5f6368'); return; }
+  const med = medianaKr_(pts.map(p => p.xt)), Y = p => p.xt / med;
+  const k = Math.max(1.6, ...pts.map(p => Math.max(p.rel, 1 / p.rel, Y(p), 1 / Y(p)))) * 1.25; // stesso margine sui due lati di 1
+  const nS = pts.length + 2, rows = [];
+  rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['linea 1', 'linea 2']));
+  pts.forEach((p, i) => { const r = new Array(nS + 1).fill(''); r[0] = Math.round(p.rel * 100) / 100; r[i + 1] = Math.round(Y(p) * 100) / 100; rows.push(r); });
+  [[1, 1 / k, pts.length + 1], [1, k, pts.length + 1], [1 / k, 1, pts.length + 2], [k, 1, pts.length + 2]].forEach(([x, y, c]) => { const r = new Array(nS + 1).fill(''); r[0] = x; r[c] = y; rows.push(r); });
   d.getRange(1, 1, rows.length, nS + 1).setValues(rows);
-  const serie = {}; pts.forEach((p, i) => { serie[i] = { pointSize: 9, lineWidth: 0 }; });
-  serie[pts.length] = { pointSize: 0, lineWidth: 1, color: '#9aa0a6', visibleInLegend: false };
-  serie[pts.length + 1] = { pointSize: 0, lineWidth: 1, color: '#9aa0a6', visibleInLegend: false };
+  const serie = {}; pts.forEach((p, i) => { serie[i] = { pointSize: 10, lineWidth: 0 }; });
+  serie[pts.length] = { pointSize: 0, lineWidth: 2, color: '#5f6368', visibleInLegend: false };
+  serie[pts.length + 1] = { pointSize: 0, lineWidth: 2, color: '#5f6368', visibleInLegend: false };
+  const tick = [0.25, 0.5, 0.75, 1, 1.5, 2, 4].filter(t => t >= 1 / k && t <= k);
   const ch = sh.newChart().asScatterChart().addRange(d.getRange(1, 1, rows.length, nS + 1)).setNumHeaders(1)
-    .setOption('title', 'Quadranti · in alto a sinistra Riferimenti · in alto a destra Carico alto · in basso a sinistra Da coinvolgere · in basso a destra Affiancamento')
-    .setOption('hAxis', { title: 'MTTR relativo  (← più veloce · più lento →)', viewWindow: { min: x0, max: x1 } })
-    .setOption('vAxis', { title: 'Interventi per turno', viewWindow: { min: 0, max: y1 } })
+    .setOption('title', '↖ Riferimenti   ↗ Carico alto   ↙ Da coinvolgere   ↘ Affiancamento')
+    .setOption('hAxis', { title: 'MTTR relativo · 1 = come il reparto  (← più veloce · più lento →)', logScale: true, viewWindow: { min: 1 / k, max: k }, ticks: tick, gridlines: { color: '#eeeeee' } })
+    .setOption('vAxis', { title: 'Interventi per turno · 1 = mediana del reparto  (↑ più presente)', logScale: true, viewWindow: { min: 1 / k, max: k }, ticks: tick, gridlines: { color: '#eeeeee' } })
     .setOption('legend', { position: 'right' }).setOption('series', serie)
-    .setOption('width', 900).setOption('height', 480)
-    .setPosition(KR_T, KR_H.length + 2, 0, 0).build();
+    .setOption('width', 760).setOption('height', 560)
+    .setPosition(KR_T, C0, 0, 0).build();
   sh.insertChart(ch);
+  // i 4 quadranti in celle colorate, sotto il grafico
+  const r0 = KR_T + 29;
+  sh.getRange(r0 - 1, C0).setValue('QUADRANTI').setFontWeight('bold');
+  KR_Q.forEach((q, i) => {
+    const nomi = K.rows.filter(r => r.q === q[0]).map(r => cognome_(r.n) + ' (' + String(Math.round(r.rel * 100) / 100).replace('.', ',') + ' · ' + String(Math.round(r.xt * 100) / 100).replace('.', ',') + ')');
+    sh.getRange(r0 + Math.floor(i / 2), C0 + (i % 2)).setValue(q[1] + '\n' + (nomi.join('\n') || '—')).setBackground(q[2]).setWrap(true).setVerticalAlignment('top').setFontSize(10);
+  });
+  sh.setColumnWidth(C0, 300); sh.setColumnWidth(C0 + 1, 300); sh.setRowHeight(r0, 110); sh.setRowHeight(r0 + 1, 110);
+  sh.getRange(r0 + 2, C0).setValue('Tra parentesi: MTTR relativo · interventi per turno. Linee del grafico: 1 = come il reparto.').setFontStyle('italic').setFontColor('#5f6368');
 }
 function aggiornaKpiRisorse() {
   try { completaFermiCarta_(); } catch (e) { Logger.log(e); }
