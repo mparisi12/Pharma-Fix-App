@@ -208,7 +208,7 @@ console.log('\nKPI Risorse');
   const g0 = new ctx.DD(t); const T = {}; ['ROSSI Mario', 'BIANCHI Luca'].forEach(n => { T[n] = {}; for (let i = 0; i < 10; i++) { const d = new ctx.DD(t + i * 864e5); T[n][ctx.Utilities.formatDate(d, '', 'yyyy-MM-dd')] = '1'; } });
   ctx.turniTutti_ = () => T; ctx.aggiornaKpiRisorse();
   const ch = (sheets['KPI Risorse'].charts || [])[0], dati = (sheets.KPI_Risorse_dati || { rows: [[]] }).rows;
-  ok(ch && /Riferimenti/.test(ch.opt.title) && ch.opt.hAxis.logScale && Math.abs(ch.opt.hAxis.viewWindow.min * ch.opt.hAxis.viewWindow.max - 1) < 1e-9 && dati[0].slice().sort().join('|') === ['MTTR relativo', 'ROSSI', 'BIANCHI', 'linea 1', 'linea 2'].sort().join('|'), 'grafico a quadranti: una serie per tecnico + linee di riferimento');
+  ok(ch && /Riferimenti/.test(ch.opt.title) && ch.opt.hAxis.logScale && Math.abs(ch.opt.hAxis.viewWindow.min * ch.opt.hAxis.viewWindow.max - 1) < 1e-9 && dati[0].slice().sort().join('|') === ['MTTR relativo', 'ROSSI', 'BIANCHI', '1 = come il reparto'].sort().join('|'), 'grafico a quadranti: una serie per tecnico + linee di riferimento');
   ctx.aggiornaKpiRisorse(); ok((sheets['KPI Risorse'].charts || []).length === 1, 'ricalcolando non si duplicano i grafici');
   const celle = sheets['KPI Risorse'].rows.flat().filter(v => typeof v === 'string' && /^(↖|↗|↙|↘) /.test(v));
   ok(celle.length === 4 && celle.some(v => /ROSSI/.test(v)), 'i 4 quadranti in celle colorate con i nomi');
