@@ -190,10 +190,13 @@ console.log('\nKPI Risorse');
   fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 200, { linea: 'ST2', eq: 'ST3-02' })); fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 210, { linea: 'ST2', eq: 'ST3-02' }));
   ctx.fermiTutti_ = () => fermi; ctx.completaFermiCarta_ = () => ({}); ctx.anomalieTutte_ = () => [{ ts: new ctx.DD(t), da: 'ROSSI Mario' }]; ctx.compitiTutti_ = () => []; ctx.turniTutti_ = () => ({});
   const K = ctx.aggiornaKpiRisorse(), R = n => K.rows.find(x => x.n === n);
-  ok(Math.abs(R('ROSSI Mario').rel - 0.5) < 1e-9 && Math.abs(R('BIANCHI Luca').rel - 2) < 1e-9 && R('VERDI Anna').rel === 1, 'MTTR relativo rispetto alla mediana dello stesso guasto sulla stessa macchina');
+  ok(Math.abs(R('ROSSI Mario').rel - 0.5) < 1e-9 && Math.abs(R('BIANCHI Luca').rel - 2) < 1e-9, 'MTTR relativo rispetto alla mediana dello stesso guasto sulla stessa macchina (anche con gli interventi dei coordinatori)');
   ok(R('BIANCHI Luca').tempo === 0 && R('ROSSI Mario').desc === 1 && R('ROSSI Mario').ano === 1, 'registrati in tempo, descrizione, anomalie segnalate');
   ok(R('BIANCHI Luca').ric > 0, 'ricorrenza: lo stesso guasto torna entro 24h');
-  ok(K.esperti[K.linee.indexOf('ST3')] === 3, 'matrice: 3 esperti su ST3');
+  ok(K.esperti[K.linee.indexOf('ST3')] === 2, 'matrice: 2 esperti su ST3 (coordinatrice esclusa)');
   ok(sheets['KPI Risorse'] && sheets['KPI Risorse'].rows[6][0] === 'Tecnico', 'foglio KPI Risorse creato con la tabella');
+  fermi.push(F('VERDI Anna', 'FORMATO', 20, 300)); // VERDI Anna è coordinatrice nel foglio Liste
+  const K2 = ctx.aggiornaKpiRisorse();
+  ok(!K2.rows.some(x => x.n === 'VERDI Anna'), 'i coordinatori non compaiono nella scheda');
 }
 fine('Script');
