@@ -1475,7 +1475,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1854,6 +1854,24 @@ function completaFermiCarta_() {
    Foglio Vestizioni: una riga per tecnico con data dell'ultima vestizione e durata in mesi (vuota = 12).
    L'app avvisa il tecnico da VEST_AVVISO giorni prima della scadenza; i coordinatori vedono tutto il reparto. */
 const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], VEST_AVVISO = 60;
+// Colonna "Area sterile (SI/NO)" del foglio Vestizioni: NO = esonerato (niente vestizione né convalide, non compare negli elenchi).
+// Vuoto = SI. Chi è SI e non ha una convalida nello scadenziario risulta "mancante" (come scaduta).
+const VEST_STER = 'Area sterile (SI/NO)';
+function vestColSterile_(sh) {
+  const h = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), VEST_H.length)).getValues()[0];
+  const i = h.findIndex(x => /sterile/i.test(String(x)));
+  if (i >= 0) return i + 1;
+  let c = h.length; while (c > 0 && String(h[c - 1]).trim() === '') c--; c = Math.max(c, VEST_H.length) + 1; // prima colonna libera dopo le intestazioni
+  sh.getRange(1, c).setValue(VEST_STER).setFontWeight('bold').setBackground('#dfe7ec')
+    .setNote('NO = esonerato dall\'area sterile: non serve vestizione né convalida GMP e non compare negli elenchi. Vuoto = SI.');
+  sh.getRange(2, c, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SI', 'NO'], true).setAllowInvalid(false).build());
+  return c;
+}
+function esonerati_(ss) {
+  const sh = vestSheet_(ss); if (!sh || sh.getLastRow() < 2) return [];
+  const c = vestColSterile_(sh);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, c).getValues().filter(r => String(r[0]).trim() && /^no$/i.test(String(r[c - 1]).trim())).map(r => String(r[0]).trim());
+}
 function vestSheet_(ss) {
   let sh = ss.getSheetByName(SH_VEST);
   if (sh) return sh;
@@ -1871,6 +1889,7 @@ function vestSheet_(ss) {
     sh.getRange('E2').setFormula(F_('=ARRAYFORMULA(IF(D2:D="","",D2:D-TODAY()))'));
     sh.getRange('D2:D').setNumberFormat('dd/MM/yyyy'); sh.getRange('E2:E').setNumberFormat('0');
     sh.setFrozenRows(1); sh.setColumnWidth(1, 220); sh.setColumnWidth(6, 300);
+    vestColSterile_(sh);
     return sh;
   } catch (e) { Logger.log(e); return ss.getSheetByName(SH_VEST); }
   finally { try { lock.releaseLock(); } catch (e) {} }
@@ -1887,7 +1906,7 @@ function vestizioni_(ss) {
   }).filter(Boolean);
 }
 function rigaVestizioni_() {
-  let v; try { v = vestizioni_(SpreadsheetApp.getActiveSpreadsheet()); } catch (e) { Logger.log(e); return ''; }
+  let v; try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = vestizioni_(ss).filter(x => no.indexOf(x.man.toUpperCase()) < 0); } catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + gm_(new Date(x.scad));
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
@@ -1940,13 +1959,23 @@ function convalideTutte_(ss) {
   return { list: Object.keys(best).map(k => best[k]).sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)), ignote: ignote };
 }
 function convalide_(ss) { const x = convalideTutte_(ss); return { list: x.list, ignote: x.ignote.slice(0, 30) }; }
+function convMancanti_(ss, list) {
+  const no = esonerati_(ss).map(x => x.toUpperCase()), cats = [...new Set(list.map(x => x.cat))].sort();
+  const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori'); if (c < 0 || !cats.length) return [];
+  const nomi = [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].filter(n => no.indexOf(n.toUpperCase()) < 0);
+  const out = []; nomi.forEach(n => { const m = cats.filter(k => !list.some(x => x.man.toUpperCase() === n.toUpperCase() && x.cat === k)); if (m.length) out.push({ man: n, cats: m }); });
+  return out;
+}
 function rigaConvalide_() {
-  let v; try { v = convalideTutte_(SpreadsheetApp.getActiveSpreadsheet()).list; } catch (e) { Logger.log(e); return ''; }
+  let v, manca = [];
+  try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = convalideTutte_(ss).list.filter(x => no.indexOf(x.man.toUpperCase()) < 0); manca = convMancanti_(ss, v); }
+  catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
-  if (!inScad.length && !scadute.length) return '';
-  return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '');
+  if (!inScad.length && !scadute.length && !manca.length) return '';
+  return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '') +
+    (manca.length ? ' · mancanti: ' + manca.map(x => cognome_(x.man) + ' ' + x.cats.join(' ')).join(', ') : '');
 }
 
 /* =================== Turni (dal foglio Turni) ===================
