@@ -32,6 +32,10 @@ class Sheet {
 }
 Sheet.prototype.insertRowsAfter = function () { return this; };
 Sheet.prototype.setRowHeight = function () { return this; };
+Sheet.prototype.getCharts = function () { return this.charts || []; };
+Sheet.prototype.removeChart = function (c) { this.charts = (this.charts || []).filter(x => x !== c); };
+Sheet.prototype.insertChart = function (c) { (this.charts = this.charts || []).push(c); };
+Sheet.prototype.newChart = function () { const o = { opt: {} }; const b = new Proxy({}, { get: (t, k) => k === 'build' ? () => o : k === 'setOption' ? (a, v) => { o.opt[a] = v; return b; } : (...a) => { o[k] = a; return b; } }); return b; };
 Sheet.prototype.insertColumnBefore = function (c) { this.rows.forEach(r => { while (r.length < c - 1) r.push(''); r.splice(c - 1, 0, ''); }); return this; };
 Sheet.prototype.setConditionalFormatRules = function (r) { this.cf = r; };
 for (const m of ['hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
