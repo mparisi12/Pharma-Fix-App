@@ -1861,7 +1861,9 @@ const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (m
    - riquadro "Impostazioni" a destra: durata standard della vestizione (mesi, se la colonna Durata è vuota),
      preavviso vestizione e preavviso convalide GMP (giorni prima della scadenza). */
 const VEST_STER = 'Area sterile (SI/NO)', CONV_NOME_ = { G: 'regolazione', H: 'sostituzione' };
-const VEST_SET = [['Durata standard vestizione (mesi)', 12], ['Preavviso vestizione (giorni prima)', 60], ['Preavviso convalide GMP (giorni prima)', 60]];
+const VEST_SET = [['Durata standard vestizione (mesi)', 12], ['Preavviso vestizione (giorni prima)', 60], ['Preavviso convalide GMP (giorni prima)', 60],
+  ['Durata standard convalide interventi (mesi)', 12]];
+const VEST_SET_RE = [/^durata standard vestizione/i, /^preavviso vestizione/i, /^preavviso convalide/i, /^durata standard convalide/i];
 let VEST_MEMO = null;
 function vestSetup_(ss) {
   if (VEST_MEMO) return VEST_MEMO;
@@ -1889,9 +1891,17 @@ function vestSetup_(ss) {
     }
     // Colonne delle convalide
     const conv = convalideTutte_(ss).list, cats = [...new Set(conv.map(x => x.cat))].sort(), cCat = {};
+    const cUlt = {};
     cats.forEach(k => {
       cCat[k] = trova(new RegExp('^scadenza cat\\.?\\s*' + k + '\\b', 'i')) ||
-        nuovaCol('Scadenza Cat. ' + k + (CONV_NOME_[k] ? '\n' + CONV_NOME_[k] : ''), '#e6e0f3', 'Scritta dallo script dal foglio Convalide (scadenziario): non modificare.');
+        nuovaCol('Scadenza Cat. ' + k + (CONV_NOME_[k] ? '\n' + CONV_NOME_[k] : ''), '#e6e0f3', 'Scritta dallo script: la più lontana tra scadenziario (foglio Convalide) e ultima convalida + durata standard. Non modificare.');
+    });
+    cats.forEach(k => {
+      cUlt[k] = trova(new RegExp('^ultima convalida cat\\.?\\s*' + k + '\\b', 'i'));
+      if (!cUlt[k]) {
+        cUlt[k] = nuovaCol('Ultima convalida Cat. ' + k, '#dfe7ec', 'Facoltativa: data in cui è stata fatta la convalida. Scadenza = questa data + durata standard convalide (Impostazioni), se è più lontana di quella dello scadenziario.');
+        sh.getRange(2, cUlt[k], Math.max(sh.getMaxRows() - 1, 1), 1).setNumberFormat('dd/MM/yyyy').setBackground('#fff3d6');
+      }
     });
     // Impostazioni (la prima volta: valori presi dal foglio Avvisi se c'erano, durata = quella più usata nella colonna Durata)
     if (!cSet) {
@@ -1914,39 +1924,60 @@ function vestSetup_(ss) {
       sh.setColumnWidth(cSet, 300);
       leggi();
     }
-    const sv = sh.getRange(2, cSet + 1, VEST_SET.length, 1).getValues().map(r => Number(r[0]));
-    const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO };
+    // Impostazioni cercate per nome (riga 2 in giù); quelle nuove vanno nella prima riga libera
+    const blocco = sh.getRange(2, cSet, 12, 2).getValues(), riga = [];
+    VEST_SET_RE.forEach((re, i) => {
+      let r = blocco.findIndex(x => re.test(String(x[0]).trim()));
+      if (r < 0) { r = blocco.findIndex(x => !String(x[0]).trim()); if (r < 0) r = blocco.length - 1;
+        sh.getRange(2 + r, cSet, 1, 2).setValues([[VEST_SET[i][0], VEST_SET[i][1]]]); blocco[r] = [VEST_SET[i][0], VEST_SET[i][1]];
+        sh.getRange(2 + r, cSet).setBackground('#dfe7ec').setFontWeight('bold'); sh.getRange(2 + r, cSet + 1).setBackground('#fff3d6').setFontWeight('bold'); }
+      riga[i] = 2 + r;
+    });
+    const sv = riga.map(r => Number(blocco[r - 2][1]));
+    const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO, durC: sv[3] > 0 ? sv[3] : 12 };
     const L = c => sh.getRange(1, c).getA1Notation().replace(/\d+$/, ''), abs = r => '$' + L(cSet + 1) + '$' + r;
     // Scadenza (colonna D) con la durata standard
-    const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(2) + ',C2:C),DAY(B2:B))))';
-    if (String(sh.getRange('D2').getFormula()).indexOf(abs(2)) < 0) sh.getRange('D2').setFormula(F_(fD));
-    // Valori delle convalide per persona
-    const n = sh.getLastRow() - 1;
+    const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(riga[0]) + ',C2:C),DAY(B2:B))))';
+    if (String(sh.getRange('D2').getFormula()).indexOf(abs(riga[0])) < 0) sh.getRange('D2').setFormula(F_(fD));
+    // Convalide effettive: la scadenza più lontana tra scadenziario e "ultima convalida + durata standard"
+    const n = sh.getLastRow() - 1, eff = conv.map(x => Object.assign({}, x));
+    if (n > 0) cats.forEach(k => {
+      const v = sh.getRange(2, 1, n, 1).getValues(), u = sh.getRange(2, cUlt[k], n, 1).getValues();
+      v.forEach((r, i) => {
+        const nm = String(r[0]).trim(), d = u[i][0] instanceof Date ? u[i][0] : dataConv_(u[i][0]); if (!nm || !d) return;
+        const sc = new Date(d.getFullYear(), d.getMonth() + set.durC, d.getDate()).getTime();
+        const x = eff.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase());
+        if (x) { if (sc > x.scad) { x.scad = sc; x.da = 'ultima convalida'; } }
+        else eff.push({ man: nm, cat: k, desc: (conv.find(c => c.cat === k) || {}).desc || '', scad: sc, da: 'ultima convalida' });
+      });
+    });
+    const conv2 = eff;
     if (n > 0 && cats.length) {
       const nomi = sh.getRange(2, 1, n, cSter).getValues();
       cats.forEach(k => {
         const rng = sh.getRange(2, cCat[k], n, 1), cur = rng.getValues();
         const nuovo = nomi.map(r => { const nm = String(r[0]).trim(); if (!nm) return ['']; if (/^no$/i.test(String(r[cSter - 1]).trim())) return ['esonerato'];
-          const x = conv.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase()); return [x ? new Date(x.scad) : 'MANCA']; });
+          const x = conv2.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase()); return [x ? new Date(x.scad) : 'MANCA']; });
         const t = v => v instanceof Date ? v.getTime() : String(v);
         if (nuovo.some((v, i) => t(v[0]) !== t(cur[i][0]))) rng.setValues(nuovo).setNumberFormat('dd/MM/yyyy').setBackground('#f5f2fb');
       });
     }
     // Colori: giallo in preavviso, rosso scaduta / MANCA, grigio esonerati (rifatti solo quando cambiano le colonne)
-    const firma = 'cf1|' + cSter + '|' + cSet + '|' + cats.map(k => k + cCat[k]).join(',');
+    const firma = 'cf2|' + cSter + '|' + cSet + '|' + riga.join('.') + '|' + cats.map(k => k + cCat[k]).join(',');
     const props = PropertiesService.getScriptProperties();
     if (props.getProperty('VEST_CF') !== firma) {
       const R = (f, bg, fg, rngs) => { let b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(F_(f)).setRanges(rngs); if (bg) b = b.setBackground(bg); if (fg) b = b.setFontColor(fg); return b.build(); };
       const last = Math.max(cSter, ...cats.map(k => cCat[k])), righe = Math.max(sh.getMaxRows() - 1, 1), S = L(cSter);
       const rD = [sh.getRange(2, 4, righe, 1)], rC = cats.map(k => sh.getRange(2, cCat[k], righe, 1)), c1 = cats.length ? L(cCat[cats[0]]) : 'A';
       const regole = [R('=TRIM($' + S + '2)="NO"', '#f1f3f4', '#9aa0a6', [sh.getRange(2, 1, righe, last)]),
-        R('=AND($D2<>"",$D2<TODAY())', '#f6c7bf', '#a3271a', rD), R('=AND($D2<>"",$D2-TODAY()<=' + abs(3) + ')', '#fde9a9', '#6b4600', rD)];
+        R('=AND($D2<>"",$D2<TODAY())', '#f6c7bf', '#a3271a', rD), R('=AND($D2<>"",$D2-TODAY()<=' + abs(riga[1]) + ')', '#fde9a9', '#6b4600', rD)];
       if (rC.length) regole.push(R('=OR(' + c1 + '2="MANCA",AND(ISNUMBER(' + c1 + '2),' + c1 + '2<TODAY()))', '#f6c7bf', '#a3271a', rC),
-        R('=AND(ISNUMBER(' + c1 + '2),' + c1 + '2-TODAY()<=' + abs(4) + ')', '#fde9a9', '#6b4600', rC));
+        R('=AND(ISNUMBER(' + c1 + '2),' + c1 + '2-TODAY()<=' + abs(riga[2]) + ')', '#fde9a9', '#6b4600', rC));
       sh.setConditionalFormatRules(regole);
       props.setProperty('VEST_CF', firma);
     }
-    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC };
+    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cUlt: cUlt, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC, durC: set.durC,
+      conv: conv2.sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)) };
   } finally { if (preso) try { lock.releaseLock(); } catch (e) {} }
 }
 function esonerati_(ss) {
@@ -2041,7 +2072,9 @@ function convalideLeggi_(ss) {
   });
   return { list: Object.keys(best).map(k => best[k]).sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)), ignote: ignote };
 }
-function convalide_(ss) { const x = convalideTutte_(ss); return { list: x.list, ignote: x.ignote.slice(0, 30) }; }
+// Convalide effettive (scadenziario + ultima convalida dal foglio Vestizioni)
+function convalideEff_(ss) { let c = null; try { c = vestSetup_(ss); } catch (e) { Logger.log(e); } return c && c.conv ? c.conv : convalideTutte_(ss).list; }
+function convalide_(ss) { const x = convalideTutte_(ss); return { list: convalideEff_(ss), ignote: x.ignote.slice(0, 30) }; }
 function convMancanti_(ss, list) {
   const no = esonerati_(ss).map(x => x.toUpperCase()), cats = [...new Set(list.map(x => x.cat))].sort();
   const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori'); if (c < 0 || !cats.length) return [];
@@ -2051,7 +2084,7 @@ function convMancanti_(ss, list) {
 }
 function rigaConvalide_() {
   let v, manca = [];
-  try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = convalideTutte_(ss).list.filter(x => no.indexOf(x.man.toUpperCase()) < 0); manca = convMancanti_(ss, v); }
+  try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = convalideEff_(ss).filter(x => no.indexOf(x.man.toUpperCase()) < 0); manca = convMancanti_(ss, v); }
   catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
