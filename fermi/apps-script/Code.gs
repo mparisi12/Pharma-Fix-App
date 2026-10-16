@@ -227,6 +227,7 @@ function onOpen() {
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
     .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
     .addItem('Aggiorna elenchi foglio Documenti', 'aggiornaElenchiDocumenti')
+    .addItem('Aggiorna menu a tendina foglio Fermi', 'aggiornaTendineFermi')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -556,6 +557,7 @@ function archivio_(ss) {
     guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]),
     stato: String(r[11] || '').trim().toUpperCase() || 'VERIFICATA' })).filter(x => x.stato !== 'SCARTATA');
   try { docElenchi_(ss); } catch (e) { Logger.log(e); }
+  try { fermiConvalida_(ss); } catch (e) { Logger.log(e); }
   const dSh = ss.getSheetByName(SH_DOC);
   const doc = (dSh && dSh.getLastRow() > 1 ? dSh.getRange(2, 1, dSh.getLastRow() - 1, DOC_H.length).getValues() : [])
     .filter(r => String(r[4]).trim() || String(r[6]).trim()) // basta titolo o link: ID e Dove possono restare vuoti
@@ -603,6 +605,47 @@ function aggiornaElenchiDocumenti() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   docElenchi_(ss, true);
   ss.toast('Elenchi del foglio Documenti aggiornati: ' + docDove_(ss).length + ' voci in "Dove".', 'Pharma-Fix', 6);
+}
+
+/* Foglio Fermi: menu a tendina (convalida dati) per chi scrive o corregge a mano, come nel vecchio template.
+   E Manutentore, G Categoria, H Tipo intervento → colonne del foglio Liste (solo valori dell'elenco);
+   F Macchina → macchine attive del foglio Equipment; I Tipo guasto → tutti i tipi del foglio Guasti (TUTTE + macchine).
+   Su F e I un valore fuori elenco è solo segnalato (triangolino), perché i fermi da carta hanno nomi liberi.
+   Macchine e guasti stanno nel foglio nascosto Elenchi_Fermi, che si aggiorna da solo quando cambiano Equipment o Guasti. */
+const SH_EL_FERMI = 'Elenchi_Fermi';
+function fermiConvalida_(ss, forza) {
+  const sh = ss.getSheetByName(SH_FERMI), li = ss.getSheetByName(SH_LISTE); if (!sh || !li) return false;
+  const macc = [...new Set(equipment_(ss).map(e => String(e.macchina).trim()).filter(Boolean))].sort();
+  const g = guasti_(ss), tipi = [...new Set(Object.keys(g).flatMap(k => g[k]).map(x => x.toUpperCase()))].sort();
+  const testa = listeVal_(ss)[0].map(h => String(h).trim());
+  const colL = nome => testa.findIndex(h => h.toUpperCase() === nome.toUpperCase()) + 1;
+  const righe = Math.max(sh.getMaxRows(), sh.getLastRow() + 500);
+  const props = PropertiesService.getScriptProperties();
+  const firma = 'v1|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|');
+  if (!forza && props.getProperty('FERMI_DV') === firma && ss.getSheetByName(SH_EL_FERMI)) return false;
+  if (sh.getMaxRows() < righe) sh.insertRowsAfter(sh.getMaxRows(), righe - sh.getMaxRows());
+  let el = ss.getSheetByName(SH_EL_FERMI);
+  if (!el) { el = ss.insertSheet(SH_EL_FERMI); el.hideSheet(); }
+  el.clearContents();
+  el.getRange(1, 1, 1, 2).setValues([['Macchine (da Equipment)', 'Tipi di guasto (da Guasti)']]);
+  if (macc.length) el.getRange(2, 1, macc.length, 1).setNumberFormat('@').setValues(macc.map(x => [x]));
+  if (tipi.length) el.getRange(2, 2, tipi.length, 1).setNumberFormat('@').setValues(tipi.map(x => [x]));
+  const dv = (rng, rigido, aiuto) => SpreadsheetApp.newDataValidation().requireValueInRange(rng, true).setAllowInvalid(!rigido).setHelpText(aiuto).build();
+  const metti = (col, regola) => sh.getRange(2, col, righe - 1, 1).setDataValidation(regola);
+  [['Manutentori', C.MAN], ['Categoria', C.CAT], ['Tipo intervento', C.INT]].forEach(([nome, col]) => {
+    const c = colL(nome); if (!c) return;
+    metti(col, dv(li.getRange(2, c, li.getMaxRows() - 1, 1), true, 'Scegli dall\'elenco "' + nome + '" del foglio Liste.'));
+  });
+  if (macc.length) metti(C.MACC, dv(el.getRange(2, 1, macc.length, 1), false, 'Macchine del foglio Equipment.'));
+  if (tipi.length) metti(C.GUASTO, dv(el.getRange(2, 2, tipi.length, 1), false, 'Tipi di guasto del foglio Guasti.'));
+  props.setProperty('FERMI_DV', firma);
+  return true;
+}
+// Menu: rimette subito i menu a tendina del foglio Fermi
+function aggiornaTendineFermi() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  fermiConvalida_(ss, true);
+  ss.toast('Menu a tendina del foglio Fermi aggiornati (colonne E–I).', 'Pharma-Fix', 6);
 }
 
 // Nuovo documento dall'app (solo coordinatori): il file sta su Drive, qui arriva il link
