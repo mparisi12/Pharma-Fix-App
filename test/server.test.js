@@ -56,6 +56,7 @@ console.log('\nCoordinatori e manutentori');
     const { ctx: c2, sheets: sh2 } = nuovo(); sh2.Liste.rows = [['Manutentori', 'Coordinatori'], ['ROSSI Mario', 'PARISI Mirko']];
     let e2 = ''; try { c2.checkTecnico_('PARISI Mirko'); } catch (e) { e2 = e.message; }
     ok(!e2, 'coordinatore non presente tra i Manutentori: può entrare');
+    ok(c2.tecniciTutti_(c2.SpreadsheetApp.getActiveSpreadsheet()).join() === 'ROSSI Mario,PARISI Mirko', 'i coordinatori contano anche come tecnici (compiti, vestizioni, convalide)');
   }
 }
 console.log('\nNomi negli avvisi');

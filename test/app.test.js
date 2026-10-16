@@ -68,6 +68,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
 
   console.log('\nCompiti');
   await p.evaluate(() => go({ name: 'home' })); await p.click('#manbtn'); await p.click('#rep'); await attesa(300); await p.click('#kass'); await attesa(300);
+  ok(!!(await p.$('#ka [data-v="VERDI Anna"]')), 'si possono assegnare compiti anche ai coordinatori');
   await p.click('#ka [data-v="ROSSI Mario"]'); await p.fill('#kt', 'Controllo cinghia prova'); await p.click('#kok'); await attesa(2000);
   ok(posts.some(o => o.action === 'compito' && o.a === 'ROSSI Mario'), 'compito assegnato');
   ok(!(await p.isVisible('#kvedi')), 'chi assegna non vede il popup');
