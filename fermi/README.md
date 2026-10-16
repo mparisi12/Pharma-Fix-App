@@ -449,6 +449,7 @@ Indicatori per tecnico (i **coordinatori** della colonna Coordinatori del foglio
 - **Interventi per turno:** interventi nei giorni presenti nel foglio Turni diviso i turni lavorati (1/2/3/G).
 - **Ricorrenza entro 24h:** % degli interventi dopo cui lo stesso guasto torna sulla stessa macchina entro 24 ore. In fondo c'è anche per tipo di guasto (nei cambi formato è normale che sia più alta).
 - **Registrati in tempo** (Packaging, fermo aperto col QR e non scritto dopo), **Con descrizione**, **Anomalie segnalate**, **Soluzioni approvate**, **Compiti fatti in tempo**.
+- **Grafico a quadranti** (a destra della tabella): ogni tecnico è un punto (nome nella legenda), X = MTTR relativo, Y = interventi per turno, linee grigie a 1,00 e alla mediana. In alto a sinistra i Riferimenti, in basso a destra chi va affiancato.
 - **Quadrante:** Riferimento / Da coinvolgere di più / Carico alto: verificare tempi / Affiancamento – formazione (MTTR relativo rispetto a 1,00 e interventi per turno rispetto alla mediana).
 - **Matrice competenze:** interventi per tecnico e linea; la riga *Esperti* conta chi ne ha almeno 5 e segna ⚠ le linee che conosce bene una sola persona (o nessuna).
 
