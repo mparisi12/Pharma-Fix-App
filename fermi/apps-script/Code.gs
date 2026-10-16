@@ -2046,7 +2046,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 00:40';
+const VERSIONE_SCRIPT = '17/10/2026 00:50';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2141,12 +2141,16 @@ function krGrafico_(ss, sh, K) {
   const nS = pts.length + 2, rows = [];
   rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['┃ MTTR come il reparto', '━ interventi come la mediana']));
   pts.forEach((p, i) => { const r = new Array(nS + 1).fill(''); r[0] = Math.round(p.rel * 100) / 100; r[i + 1] = Math.round(Y(p) * 100) / 100; rows.push(r); });
-  // le due linee di riferimento: due serie separate (Google Sheets ordina i punti per X, una serie sola non disegna la croce)
-  [[1, 1 / k, nS - 1], [1, k, nS - 1], [1 / k, 1, nS], [k, 1, nS]].forEach(([x, y, c]) => { const r = new Array(nS + 1).fill(''); r[0] = x; r[c] = y; rows.push(r); });
+  // la croce dei quadranti: Google Sheets nel grafico a dispersione non disegna le linee impostate dallo script,
+  // quindi ogni linea è fatta di tanti punti piccoli e fitti (da 1/k a k, equidistanti in scala logaritmica)
+  const N = 120;
+  for (let i = 0; i <= N; i++) { const v = Math.pow(k, 2 * i / N - 1);
+    const a = new Array(nS + 1).fill(''); a[0] = 1; a[nS - 1] = v; rows.push(a);
+    const b = new Array(nS + 1).fill(''); b[0] = v; b[nS] = 1; rows.push(b); }
   d.getRange(1, 1, rows.length, nS + 1).setValues(rows);
   const serie = {}; pts.forEach((p, i) => { serie[i] = { pointSize: 10, lineWidth: 0 }; });
-  serie[pts.length] = { pointSize: 0, lineWidth: 2, color: '#9e9e9e' };
-  serie[pts.length + 1] = { pointSize: 0, lineWidth: 2, color: '#9e9e9e' };
+  serie[pts.length] = { pointSize: 3, lineWidth: 0, color: '#757575' };
+  serie[pts.length + 1] = { pointSize: 3, lineWidth: 0, color: '#757575' };
   const tick = [0.2, 0.4, 0.6, 0.8, 1, 2, 4].filter(t => t >= 1 / k && t <= k);
   const ch = sh.newChart().asScatterChart().addRange(d.getRange(1, 1, rows.length, nS + 1)).setNumHeaders(1)
     .setOption('title', '↖ Riferimenti   ↗ Carico alto   ↙ Da coinvolgere   ↘ Affiancamento')
