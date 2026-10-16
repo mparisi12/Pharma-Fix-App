@@ -387,6 +387,14 @@ I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai t
 - In **Compiti del reparto**: aperti, in ritardo, fatti negli ultimi 7 giorni, riepilogo **per persona** (tocca un nome per vedere il suo storico). L'app mostra gli ultimi 90 giorni; tutto lo storico è nel foglio.
 - I compiti sono un **promemoria gestionale**: non sostituiscono logbook e moduli. Se il lavoro va documentato, il tecnico scrive il riferimento al logbook nella nota.
 
+### 5.13b Menu a tendina nel foglio Fermi
+Per chi scrive o corregge i fermi a mano nel foglio, le colonne hanno il menu a tendina (come nel vecchio template):
+- **E Manutentore**, **G Categoria**, **H Tipo intervento**: solo i valori delle colonne *Manutentori*, *Categoria*, *Tipo intervento* del foglio **Liste**;
+- **F Macchina**: le macchine attive del foglio **Equipment**;
+- **I Tipo guasto**: tutti i tipi scritti nel foglio **Guasti** (TUTTE + le singole macchine).
+
+Su F e I un valore fuori elenco viene accettato ma segnato col triangolino rosso (i fermi da carta hanno nomi liberi). Le tendine si aggiornano da sole quando cambi Liste, Equipment o Guasti (entro 15 minuti); per farlo subito: menu **Pharma-Fix → Aggiorna menu a tendina foglio Fermi**. Lo script tiene gli elenchi nel foglio nascosto *Elenchi_Fermi*.
+
 ### 5.14 Fermi ricopiati a mano (da fogli cartacei)
 Se qualcuno usa ancora i fogli di carta, puoi ricopiare i fermi direttamente nel foglio **Fermi**, anche in mezzo alle righe dell'app. Compila almeno:
 **Data**, **Ora Inizio**, **Ora Fine** (anche solo l'ora, es. 14:20), **Manutentore**, **Linea** (colonna M) e **Macchina** (o, meglio, il codice QR nella colonna **Equipment**), più categoria, tipo intervento, guasto, descrizione e lotto se li hai.
