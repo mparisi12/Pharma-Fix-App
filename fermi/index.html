@@ -125,6 +125,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .bigbtn.hero .bt{font:700 44px/1 var(--display);letter-spacing:.05em}
 .bigbtn.hero .bs{font:500 15px/1.2 var(--body);letter-spacing:0;text-transform:none;opacity:.92}
 .bigbtn.hero.ok{flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:2px 12px;padding:14px 18px;min-height:0;box-shadow:0 4px 12px rgba(31,122,77,.25)}.bigbtn.hero.ok .bt{font-size:30px}.bigbtn.hero.ok .timer{font:600 30px var(--mono)}.bigbtn.hero.ok .bs{flex-basis:100%;font-size:13px}
+.bigbtn.hero.ok .ck{display:flex;flex-direction:column;align-items:flex-start;gap:4px}.bigbtn.hero.ok .pre{font:600 14px/1 var(--body);letter-spacing:.08em;opacity:.95}
+.bigbtn.hero.ok .bs{order:-1;flex-basis:auto;display:none}
 .bigbtn.hero.home{min-height:30vh;margin-top:6px}
 .bigbtn.hero.busy{background:#5a6873;box-shadow:none;cursor:default;min-height:24vh}.bigbtn.hero.busy .bt{font-size:34px}.bigbtn.hero.busy .timer{font:600 34px var(--mono);color:#fff}
 .step.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}.step .lockhint{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}.step:not(.locked) .lockhint{display:none}
@@ -886,7 +888,7 @@ function renderEquip() {
     ${open ? '' : progBox(eq)}
     ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
       ${provaPrima(eq, open, hist)}`
-    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="bt">Chiudi fermo</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso · tocca per chiudere</span></button>
+    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="ck"><span class="pre">Premi qui per</span><span class="bt">Chiudere fermo</span></span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso da</span></button>
       <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
       ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
@@ -901,6 +903,7 @@ function renderEquip() {
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
     ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi · ' + Math.min(10, hist.length - shown) + ' di ' + (hist.length - shown) + '</button>' : ''}
+    <div class="center" style="margin-top:18px"><button class="linkbtn" id="ppadd" style="font-size:14px;color:var(--muted)">Conosci una soluzione per questa macchina? Aggiungila</button></div>
     ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
@@ -1056,12 +1059,11 @@ function provaPrima(eq, open, hist) {
   const sel = PRE_G[open.id] || (gl[0].n ? gl[0].g : '');
   return `<div class="provaprima"><div class="pp-h">${I.sol}<b>Cosa provare</b><span>scegli il guasto: le soluzioni verificate per questa macchina</span></div>
     <div class="chips" id="pg">${gl.map((x, i) => `<button class="chip${i >= 6 && x.g !== sel ? ' extra' : ''}" type="button" data-v="${esc(x.g)}" aria-pressed="${x.g === sel}">${esc(x.g.split(',')[0])}${x.n ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('')}${gl.length > 6 ? `<button class="chip ghost" type="button" data-more>+ altri ${gl.length - 6}</button>` : ''}</div>
-    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div>
-    <button class="morebtn" id="ppadd" type="button" style="margin-top:0">+ Aggiungi soluzione</button></div>`;
+    <div id="pgsol">${sel ? sugBox(eq, sel, true) : '<div class="hint" style="margin:0">Tocca il guasto che vedi sulla macchina.</div>'}</div></div>`;
 }
 function sugBox(eq, guasto, vuoto) {
   const list = suggerite(eq, guasto);
-  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando hai risolto, aggiungila qui sotto: servirà al prossimo collega.</div>' : '';
+  if (!list.length) return vuoto ? '<div class="hint" style="margin:0">Nessuna soluzione verificata per questo guasto. Quando chiudi il fermo potrai proporre la tua: servirà al prossimo collega.</div>' : '';
   return `<div class="sugg">${vuoto ? '' : `<div class="sugg-h">${I.sol}<b>Prova prima · soluzioni verificate</b></div>`}
     ${list.map(s => `<div class="sugg-i"><div class="prob">${esc(s.problema)}</div><div class="sol">${esc(s.soluzione)}</div>${s.ricambi ? `<div class="hint" style="margin:0">Ricambi: ${esc(s.ricambi)}</div>` : ''}</div>`).join('')}</div>`;
 }
