@@ -20,11 +20,13 @@ class Sheet {
       if (k === 'setValues') return v => { v.forEach((row, i) => row.forEach((x, j) => { sh.rows[r - 1 + i] = sh.rows[r - 1 + i] || []; sh.rows[r - 1 + i][c - 1 + j] = x; })); return R; };
       if (k === 'setValue') return x => { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) { sh.rows[r - 1 + i] = sh.rows[r - 1 + i] || []; sh.rows[r - 1 + i][c - 1 + j] = x; } return R; };
       if (k === 'createTextFinder') return id => ({ matchEntireCell: () => ({ findNext: () => { for (let i = 0; i < nr; i++) if (String((sh.rows[r - 1 + i] || [])[c - 1]) === String(id)) return { getRow: () => r + i }; return null; } }) });
+      if (k === 'setDataValidation') return v => { (sh.dv = sh.dv || []).push({ r, c, nr, nc, v }); return R; };
       return () => R;
     } });
     return R;
   }
 }
+Sheet.prototype.insertRowsAfter = function () { return this; };
 for (const m of ['hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
 
 function carica(sheets) {
@@ -35,7 +37,7 @@ function carica(sheets) {
   const p2 = n => String(n).padStart(2, '0');
   const ctx = {
     console, Logger: { log() {} },
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, newDataValidation: () => any(), flush() {} },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ss, newDataValidation: () => { const o = {}; const b = new Proxy({}, { get: (t, k) => k === 'build' ? () => o : (...a) => { o[k] = a; return b; } }); return b; }, flush() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
     CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, getAll: ks => Object.fromEntries(ks.map(k => [k, cache[k]])), putAll: o => Object.assign(cache, o) }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
@@ -48,7 +50,7 @@ function carica(sheets) {
     }
   };
   vm.createContext(ctx);
-  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;this.PARTICELLE_=PARTICELLE_;', ctx);
+  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;this.PARTICELLE_=PARTICELLE_;this.C=C;', ctx);
   return { ctx, ss, props, cache };
 }
 

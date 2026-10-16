@@ -62,4 +62,19 @@ console.log('\nNomi negli avvisi');
   ok(c('DE LUCA Anna') === 'DE LUCA' && c('ROSSI Mario') === 'ROSSI' && c('Rossi Mario') === 'Rossi', 'cognomi normali invariati');
   ok(c('DI') === 'DI' && c('') === '?', 'casi limite');
 }
+console.log('\nMenu a tendina del foglio Fermi');
+{
+  const { ctx, sheets } = nuovo();
+  sheets.Liste.rows[0] = ['Categoria', 'Tipo intervento', 'Manutentori', 'Coordinatori'];
+  sheets.Fermi = new Sheet('Fermi', [['Lotto']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE'], ['ST3-04', '', 'GUIDE', 'formato']]);
+  const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  ok(ctx.fermiConvalida_(ss) === true, 'prima volta: tendine create');
+  const col = c => (sheets.Fermi.dv || []).find(d => d.c === c);
+  ok([5, 6, 7, 8, 9].every(c => col(c) && col(c).r === 2), 'colonne E, F, G, H, I con la tendina');
+  ok(col(5).v.setAllowInvalid[0] === false && col(9).v.setAllowInvalid[0] === true, 'E rigida (solo elenco), I solo segnalata');
+  ok(JSON.stringify(sheets.Elenchi_Fermi.rows.slice(1).map(r => r[1]).filter(Boolean)) === JSON.stringify(['FORMATO', 'GUIDE', 'SENSORE']), 'tipi di guasto da Guasti, senza doppioni');
+  ok(sheets.Elenchi_Fermi.rows.slice(1).map(r => r[0]).includes('ASTUCCIATRICE') && !sheets.Elenchi_Fermi.rows.slice(1).map(r => r[0]).includes('DISMESSA'), 'macchine attive da Equipment');
+  ok(ctx.fermiConvalida_(ss) === false, 'se non cambia niente non rifà il lavoro');
+}
 fine('Script');
