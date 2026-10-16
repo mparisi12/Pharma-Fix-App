@@ -391,7 +391,8 @@ I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai t
 
 ### 5.13b Menu a tendina nel foglio Fermi
 Per chi scrive o corregge i fermi a mano nel foglio, le colonne hanno il menu a tendina (come nel vecchio template):
-- **E Manutentore**, **G Categoria**, **H Tipo intervento**: solo i valori delle colonne *Manutentori*, *Categoria*, *Tipo intervento* del foglio **Liste**;
+- **E Manutentore**: i tecnici, cioè colonne *Manutentori* + *Coordinatori* del foglio **Liste**;
+- **G Categoria**, **H Tipo intervento**: solo i valori delle colonne *Categoria* e *Tipo intervento* del foglio **Liste**;
 - **F Macchina**: le macchine attive del foglio **Equipment**;
 - **I Tipo guasto**: tutti i tipi scritti nel foglio **Guasti** (TUTTE + le singole macchine).
 
