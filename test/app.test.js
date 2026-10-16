@@ -89,6 +89,24 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'BIANCHI Luca,ROSSI Mario', 'filtro Scadute: scaduti + chi non ha la convalida (BIANCHI senza Cat. G); esonerati fuori');
   ok(/MANCA/.test(await p.innerText('#sheet .sgrid')), 'convalida mancante segnata MANCA');
 
+  console.log('\nAccesso che resta (iPhone)');
+  await esci(); await entra('Mario', 'Rossi');
+  await p.reload(); await attesa(1500);
+  ok(/ROSSI Mario/.test(await p.innerText('#manbtn')) && await p.isHidden('#login'), 'riaprendo l\'app: resta dentro, niente codice né nome');
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('pf_sess')); s.exp = Date.now() + 3600e3; localStorage.setItem('pf_sess', JSON.stringify(s)); sessionStorage.clear(); });
+  await p.reload(); await attesa(1500);
+  ok((await p.evaluate(() => JSON.parse(localStorage.getItem('pf_sess')).exp - Date.now())) > 25 * 864e5, 'ogni apertura rinnova l\'accesso (30 giorni), non scade a fine turno');
+  await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await p.reload(); await attesa(2000);
+  ok(await p.isHidden('#login') && /ROSSI Mario/.test(await p.innerText('#manbtn')) && await p.evaluate(() => !!localStorage.getItem('pf_pin')), 'memoria del browser svuotata: codice e accesso ripresi dalla copia nell\'archivio');
+  const ios = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
+  await ios.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' })); await ios.route(/script\.google\.com/, r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D }) }));
+  const q = await ios.newPage(); await q.goto(`http://localhost:${PORT}/fermi/?eq=ST3-04`); await q.waitForTimeout(800);
+  ok(await q.isVisible('#iosban'), 'iPhone in Safari (es. QR con la fotocamera): avviso "apri l\'app dalla schermata Home"');
+  await q.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true })); await q.reload(); await q.waitForTimeout(800);
+  ok(!(await q.isVisible('#iosban')), 'iPhone dall\'icona sulla schermata Home: nessun avviso');
+  await ios.close();
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
