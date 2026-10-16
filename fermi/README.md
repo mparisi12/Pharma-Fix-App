@@ -407,6 +407,14 @@ Il foglio **Vestizioni** si crea da solo (con l'elenco dei Manutentori) alla pri
 - **Coordinatori**: menu del nome → **Vestizioni del reparto** (tutti, ordinati per scadenza, più chi è senza data).
 - **Riepilogo del lunedì**: riga 🧤 VESTIZIONI con chi è in scadenza e chi è scaduto (solo se ce n'è).
 
+### 5.15b Convalide GMP (foglio Convalide)
+Le convalide per gli interventi GMP in area sterile (Cat. G regolazione, Cat. H sostituzione componente…) vengono dallo **scadenziario**.
+- Incolla lo scadenziario **così com'è** (solo valori) nel foglio **Convalide**: servono Oggetto (con il nome della persona), Scadenza e Item ("Categoria G - …"). Quando esce quello nuovo, incolli di nuovo tutto.
+- Lo script riconosce la persona confrontando l'Oggetto con l'elenco **Manutentori** (anche "Nome Cognome" al contrario e senza accenti). Se la stessa persona ha più righe per la stessa categoria vale la scadenza più lontana. I nomi non riconosciuti compaiono in fondo a *Scadenze del reparto*.
+- **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (60 giorni) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
+- **Coordinatore:** *Scadenze del reparto* (al posto di Vestizioni del reparto): tabella per persona con vestizione e categorie, filtri Da rinnovare / Scadute, tocca un nome per il dettaglio.
+- **Riepilogo settimanale:** riga *🧾 CONVALIDE GMP* con quelle in scadenza e scadute.
+
 ### 5.16 Turni
 Il foglio **Turni** si crea da solo (vuoto) alla prima apertura dell'app dopo l'aggiornamento. Ogni mese **incolla la tabella dall'Excel dei turni** sotto il mese precedente, così com'è: la riga con le date e una riga per persona (nomi scritti come in Liste). Va bene anche un foglio per mese, purché il nome inizi con *Turni* (es. "Turni novembre").
 Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), **R** riposo, **F** ferie, **C** corso/formazione, **A** (o qualsiasi altro codice) assente; un secondo numero è il turno originale (**3 1** = fa il 3, era nell'1). Per una malattia usa **A**: nell'app compare solo *assente*, mai il motivo.
