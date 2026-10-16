@@ -237,6 +237,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .knew-l{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;text-align:left}
 .knew-r{border:1px solid var(--line);border-left:4px solid var(--steel);border-radius:10px;padding:10px 12px;background:var(--surface)}
 .knew-r.u{border-left-color:var(--crit)}
+.iosban{background:var(--amber-soft);color:var(--amber-ink);border-bottom:2px solid var(--amber);padding:10px 14px;font:500 14px/1.35 var(--body)}.iosban b{font-weight:700}
 .kpill{flex:none;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font:600 12px/20px var(--body);padding:0 6px;text-align:center}
 .mbtn{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;font:600 16px var(--body);color:var(--ink);text-align:left;text-decoration:none;margin-top:8px}
 .mbtn svg{width:22px;height:22px;flex:none;color:var(--steel)}.mbtn .cnt{margin-left:auto;font:500 12px var(--mono);color:var(--muted)}.mbtn .cnt.r{color:var(--crit)}
@@ -362,7 +363,12 @@ const MOCK = !CFG.API_URL;
 const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], convalide: { list: [], ignote: [] }, turni: {}, programma: {}, continuo: [],
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
-const SESSION_H = 9; // dopo 9 ore (un turno) si rifà l'accesso
+// Accesso: resta valido finché si usa l'app (ogni apertura lo rinnova); si rifà solo dopo SESSION_GG giorni senza aprirla o con "Esci".
+// Il telefono è legato al tecnico (foglio Telefoni), quindi non serve rifare l'accesso a ogni turno.
+const SESSION_GG = 30, SESSION_MS = SESSION_GG * 864e5;
+// iPhone/iPad: Safari e Chrome (scheda normale) hanno una memoria separata da quella dell'app sulla schermata Home e la cancellano dopo pochi giorni
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 let OUTBOX = load('outbox', []);
 // Identificativo di questo telefono: ogni tecnico è legato al suo telefono (foglio Telefoni)
 const DEV = load('dev', '') || (() => { const d = 'T-' + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase(); save('dev', d); return d; })();
@@ -577,15 +583,23 @@ async function withMedia(op) { // la richiesta da spedire, con le foto riprese d
 }
 function dropMedia(op) { for (const k of MEDIA) if (op[k] === IDB_REF) media('del', mediaKey(op, k)).catch(() => {}); }
 async function cleanMedia() { // archivio: via i file di registrazioni già inviate
-  try { const keep = new Set(OUTBOX.flatMap(o => MEDIA.map(k => mediaKey(o, k)))); for (const k of await media('keys')) if (!keep.has(k) && !String(k).startsWith('bozza:')) await media('del', k); } catch {}
+  try { const keep = new Set(OUTBOX.flatMap(o => MEDIA.map(k => mediaKey(o, k)))); for (const k of await media('keys')) if (!keep.has(k) && !/^(bozza|cfg):/.test(String(k))) await media('del', k); } catch {}
 }
 
 /* ================= Backend ================= */
 const getPin = () => load('pin', '');
-const setPin = p => save('pin', p);
+// Codice reparto e accesso: anche in una copia nell'archivio del telefono (IndexedDB), per ripristinarli se la memoria piccola viene svuotata
+const setPin = p => { save('pin', p); (p ? media('put', 'cfg:pin', p) : media('del', 'cfg:pin')).catch(() => {}); };
+function salvaSess(sess) { try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {} save('sess', sess); (sess ? media('put', 'cfg:sess', sess) : media('del', 'cfg:sess')).catch(() => {}); }
+async function ripristina() { // prima dell'avvio: se la memoria piccola è vuota, riprende codice e accesso dalla copia
+  if (MOCK) return;
+  try { if (!getPin()) { const p = await media('get', 'cfg:pin'); if (p) save('pin', p); }
+    if (!load('sess', null)) { const x = await media('get', 'cfg:sess'); if (x) save('sess', x); } } catch {}
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch {}
+}
 const isPinErr = e => /Codice reparto/.test(e && e.message || '');
 function pinInvalid() {
-  const had = !!getPin(); setPin(''); try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null);
+  const had = !!getPin(); setPin(''); salvaSess(null);
   showLogin(); if (had) { const e = $('#lerr'); e.textContent = 'Il codice reparto è cambiato: inseriscilo di nuovo.'; e.hidden = false; }
 }
 async function apiGet(pin = getPin(), ver = '') {
@@ -638,7 +652,8 @@ function applyInit(j) {
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
   S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.sterileNo = j.sterileNo || []; S.convalide = j.convalide || { list: [], ignote: [] }; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || []; S.avviso = j.avviso || null;
-  S.ver = j.ver || ''; S.loaded = true; S.net = 'ok'; S.lastSync = Date.now();
+  S.ver = j.ver || ''; S.loaded = true; S.cacheOk = true; S.net = 'ok'; S.lastSync = Date.now();
+  if (S.man && !(S.liste['Manutentori'] || []).includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
   save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 async function refresh() {
@@ -1287,7 +1302,8 @@ function findTecnico(nome, cognome) {
 function getSession() {
   let s = null; try { s = JSON.parse(sessionStorage.getItem('pf_sess') || 'null'); } catch {}
   if (!s) s = load('sess', null);
-  return s && s.exp > Date.now() && (S.liste['Manutentori'] || []).includes(s.man) ? s.man : '';
+  // senza dati in memoria (prima apertura dopo una pulizia) il nome si controlla quando arrivano i dati dal foglio
+  return s && s.exp > Date.now() && (!S.cacheOk || (S.liste['Manutentori'] || []).includes(s.man)) ? s.man : '';
 }
 function showLogin() {
   S.man = ''; renderHeader(); $('#login').hidden = false;
@@ -1322,14 +1338,21 @@ $('#lform').onsubmit = async e => {
     } catch { if (!okList.includes(t)) return fail('Primo accesso con questo nome su questo telefono: serve la connessione.'); }
     btn.disabled = false; btn.textContent = 'Entra';
   }
-  const sess = { man: t, exp: Date.now() + SESSION_H * 3600e3 };
-  try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {}
-  save('sess', sess);
+  salvaSess({ man: t, exp: Date.now() + SESSION_MS });
   S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t);
   if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; afterScan(e2); }
   sync();
 };
-function logout() { try { sessionStorage.removeItem('pf_sess'); } catch {} save('sess', null); closeSh(); showLogin(); }
+// iPhone fuori dall'app della schermata Home (Safari o Chrome, anche aperti dal QR con la fotocamera): avviso
+function bannerIos() {
+  if (!IOS || STANDALONE || MOCK || $('#iosban')) return;
+  const txt = '<b>Stai usando il browser, non l\'app.</b> Qui l\'accesso e il codice reparto non restano salvati. Apri <b>Pharma-Fix dall\'icona sulla schermata Home</b> e, per i QR delle macchine, usa il pulsante <b>QR dentro l\'app</b> (non la fotocamera).';
+  const d = document.createElement('div'); d.id = 'iosban'; d.className = 'iosban'; d.innerHTML = txt; document.body.prepend(d);
+  const l = document.createElement('div'); l.className = 'iosban'; l.style.cssText = 'border:2px solid var(--amber);border-radius:12px;margin:0 0 14px'; l.innerHTML = txt; $('#login .in').prepend(l); // anche sulla schermata di accesso
+}
+function logout() { salvaSess(null); closeSh(); showLogin(); }
+// Ogni apertura dell'app rinnova l'accesso (una volta l'ora basta)
+function rinnovaSess() { if (!S.man) return; const s = load('sess', null); if (s && s.man === S.man && s.exp - Date.now() < SESSION_MS - 3600e3) salvaSess({ man: S.man, exp: Date.now() + SESSION_MS }); }
 function needMan(next) { if (S.man) next(); else showLogin(); }
 $('#manbtn').onclick = () => {
   if (vestDaVedere()) { vestSegnaVisto(); renderHeader(); }
@@ -1751,20 +1774,23 @@ async function checkUpdate() {
 }
 (function boot() {
   const c = load('cache', null);
+  S.cacheOk = !!(c && c.liste);
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
-  S.man = getSession();
-  render();
+  render(); bannerIos();
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
   const deep = eq && !h && eqBy(eq);
-  if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
-  caricaBozzaAno(); sync(); cleanMedia();
+  ripristina().then(() => {
+    S.man = getSession(); rinnovaSess(); render();
+    if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
+    caricaBozzaAno(); sync(); cleanMedia();
+  });
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
   checkUpdate();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { K_DOPO = false; sync(); checkUpdate(); setTimeout(avvisoCompiti, 300); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { K_DOPO = false; rinnovaSess(); sync(); checkUpdate(); setTimeout(avvisoCompiti, 300); } });
   window.addEventListener('online', sync);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
