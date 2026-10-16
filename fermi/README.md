@@ -415,7 +415,7 @@ Le convalide per gli interventi GMP in area sterile (Cat. G regolazione, Cat. H 
 - **Foglio Vestizioni, cosa aggiunge lo script** (le colonne le trova per nome, l'ordine non conta):
   - *Area sterile (SI/NO)*: la compili tu;
   - *Scadenza Cat. G*, *Scadenza Cat. H*… (viola): le scrive lo script (data, **MANCA** o *esonerato*), non modificarle. Vale la scadenza più lontana tra lo scadenziario e *ultima convalida + durata standard*;
-  - *Ultima convalida Cat. G*, *Cat. H*… (gialle, facoltative): la data in cui è stata fatta la convalida, così risulta subito valida senza aspettare lo scadenziario nuovo;
+  - *Ultima convalida Cat. G*, *Cat. H*… (gialle): le compila lo script come *scadenza dello scadenziario − durata standard*; se una convalida viene rinnovata scrivi tu la data nuova e risulta subito valida (scadenza = data + durata standard) senza aspettare lo scadenziario;
   - riquadro **Impostazioni** a destra: *Durata standard vestizione (mesi)* (vale quando la colonna Durata è vuota), *Durata standard convalide interventi (mesi)* (per l'ultima convalida), *Preavviso vestizione* e *Preavviso convalide GMP* (giorni prima della scadenza). Valgono per app, pallino e riepilogo;
   - colori: giallo = in preavviso, rosso = scaduta o MANCA, grigio = esonerato.
 - **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (60 giorni) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
