@@ -532,6 +532,12 @@ function coordinatori_() {
   }
   return [...new Set(x.lv.slice(1).flatMap(r => x.cols.map(c => String(r[c]).trim())).filter(Boolean))];
 }
+// Tecnici = colonna Manutentori + coordinatori (anche loro intervengono e ricevono compiti); esclusi solo dai KPI Risorse
+function tecniciTutti_(ss) {
+  const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
+  const man = c < 0 ? [] : lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean);
+  return [...new Set(man.concat(coordinatori_()))];
+}
 const isCoordinatore_ = nome => coordinatori_().some(c => c.toUpperCase() === String(nome || '').trim().toUpperCase());
 const DOC_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Tipo (MANUALE / SCHEMA / SCHEDA FORMATO / ALTRO)', 'Titolo', 'Descrizione', 'Link', 'Autore'];
 const ANO_H = ['ID', 'Data', 'Equipment', 'Linea', 'Macchina', 'Urgenza (1 critico, 2 urgente, 3 programmabile)', 'Descrizione', 'Cosa serve', 'Foto',
@@ -1708,8 +1714,7 @@ function addCompito_(p) {
   const titolo = String(p.titolo || '').trim(), a = String(p.a || '').trim();
   if (!titolo) throw new Error('Il titolo del compito è obbligatorio');
   const turno = turnoDi_(a);
-  const tecnici = (() => { const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
-    return c < 0 ? [] : lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean); })();
+  const tecnici = tecniciTutti_(ss);
   if (!turno && !tecnici.some(t => t.toUpperCase() === a.toUpperCase())) throw new Error('Tecnico non valido per il compito: ' + a);
   const entro = entro_(p.entro);
   if (!entro) throw new Error('La data "entro il" è obbligatoria');
@@ -2008,8 +2013,7 @@ function vestSheet_(ss) {
     sh = ss.getSheetByName(SH_VEST); if (sh) return sh;
     sh = ss.insertSheet(SH_VEST);
     sh.getRange(1, 1, 1, VEST_H.length).setValues([VEST_H]).setFontWeight('bold').setBackground('#dfe7ec');
-    const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
-    const nomi = c < 0 ? [] : [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].sort();
+    const nomi = tecniciTutti_(ss).sort();
     if (nomi.length) sh.getRange(2, 1, nomi.length, 1).setValues(nomi.map(n => [n]));
     sh.getRange('B2:B').setNumberFormat('dd/MM/yyyy'); sh.getRange('B2:C').setBackground('#fff3d6');
     sh.getRange('D2').setFormula(F_('=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",12,C2:C),DAY(B2:B))))'));
@@ -2042,7 +2046,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '16/10/2026 23:50';
+const VERSIONE_SCRIPT = '16/10/2026 23:55';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2201,8 +2205,7 @@ function convalideTutte_(ss) { return CONV_MEMO || (CONV_MEMO = convalideLeggi_(
 function convalideLeggi_(ss) {
   const sh = ss.getSheetByName(SH_CONV) || convSheet_(ss);
   if (!sh || sh.getLastRow() < 1) return { list: [], ignote: [] };
-  const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
-  const man = c < 0 ? [] : [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].map(n => ({ n: n, t: normNome_(n) }));
+  const man = tecniciTutti_(ss).map(n => ({ n: n, t: normNome_(n) }));
   const best = {}, ignote = [];
   sh.getDataRange().getValues().forEach(r => {
     const txt = r.map(x => x instanceof Date ? '' : String(x));
@@ -2224,8 +2227,8 @@ function convalideEff_(ss) { let c = null; try { c = vestSetup_(ss); } catch (e)
 function convalide_(ss) { const x = convalideTutte_(ss); return { list: convalideEff_(ss), ignote: x.ignote.slice(0, 30) }; }
 function convMancanti_(ss, list) {
   const no = esonerati_(ss).map(x => x.toUpperCase()), cats = [...new Set(list.map(x => x.cat))].sort();
-  const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori'); if (c < 0 || !cats.length) return [];
-  const nomi = [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].filter(n => no.indexOf(n.toUpperCase()) < 0);
+  if (!cats.length) return [];
+  const nomi = tecniciTutti_(ss).filter(n => no.indexOf(n.toUpperCase()) < 0);
   const out = []; nomi.forEach(n => { const m = cats.filter(k => !list.some(x => x.man.toUpperCase() === n.toUpperCase() && x.cat === k)); if (m.length) out.push({ man: n, cats: m }); });
   return out;
 }
