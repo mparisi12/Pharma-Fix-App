@@ -152,4 +152,33 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   ({ ctx } = car(sheets)); const c4 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
   ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /Viola/.test(VS[6][cs]), 'foglio già impostato: "Durata standard convalide" aggiunta senza toccare la nota');
 }
+console.log('\nPassaggio turno e riepilogo: fermi per reparto');
+{
+  const { ctx } = nuovo(); const msg = [];
+  ctx.mail_ = (tipo, titolo, testo) => { msg.push(titolo + '\n' + testo); return true; };
+  const now = Date.now(), F = (linea, area, min, extra) => Object.assign({ linea, area, macc: 'X', a: new ctx.DD(now - 90 * 60000), b: new ctx.DD(now - 90 * 60000 + min * 60000), stato: 'CHIUSO', guasto: 'FORMATO', man: 'ROSSI Mario' }, extra || {});
+  const fermi = [F('ST3', 'FILLING', 50), F('ST3', 'FILLING', 20), F('ST3', 'PACKAGING', 7), F('SPL2', 'PACKAGING', 220), F('ST2', 'PACKAGING', 2)];
+  ctx.fermiTutti_ = () => fermi.map(f => Object.assign({}, f)); ctx.areaDi_ = () => f => f.area; ctx.areaStd_ = a => a; ctx.minDi_ = f => (f.b - f.a) / 60000;
+  ctx.macchinaBreve_ = () => () => 'Macchina'; ctx.anomalieTutte_ = () => []; ctx.rigaTurno_ = () => ''; ctx.rigaCambiFormato_ = () => '';
+  ctx.inizioTurno_ = () => new ctx.DD(now - 4 * 3600e3);
+  ctx.passaggioTurno(false);
+  const m = msg[0] || '';
+  ok(!/\d+ FERMI ·/.test(m) && !/PACKAGING ·/.test(m), 'niente totali sommati tra reparti né per area');
+  ok(/ST3 · Filling 1h 10′ \(2\) · Packaging 7′ \(1\)/.test(m), 'ST3 · Filling 1h 10′ (2) · Packaging 7′ (1)');
+  ok(m.indexOf('SPL2 ·') < m.indexOf('ST3 ·') && /SPL2 · Packaging 3h 40′ \(1\)/.test(m), 'reparti dal più fermo; linee con solo Packaging mostrano solo quello');
+  ok(/Senza fermi: ST1 MAR/.test(m), 'linee senza fermi in una riga');
+}
+{
+  const { ctx } = nuovo(); const msg = [];
+  ctx.mail_ = (tipo, titolo, testo) => { msg.push(titolo + '\n' + testo); return true; };
+  const o = new ctx.DD(); o.setHours(0, 0, 0, 0); const dow = (o.getDay() + 6) % 7; const fine = o.getTime() - dow * 864e5, t1 = fine - 3 * 864e5, t0 = fine - 10 * 864e5;
+  const F = (t, linea, area, min, extra) => Object.assign({ linea, area, macc: 'X', a: new ctx.DD(t), b: new ctx.DD(t + min * 60000), stato: 'CHIUSO', guasto: 'FORMATO', man: 'ROSSI Mario' }, extra || {});
+  const fermi = [F(t1, 'ST3', 'FILLING', 190), F(t1, 'ST3', 'PACKAGING', 125, { orari: 'DICHIARATI' }), F(t1, 'SPL2', 'PACKAGING', 60), F(t0, 'ST3', 'FILLING', 130), F(t0, 'ST3', 'PACKAGING', 145)];
+  ctx.fermiTutti_ = () => fermi.map(f => Object.assign({}, f)); ctx.areaDi_ = () => f => f.area; ctx.areaStd_ = a => a; ctx.minDi_ = f => (f.b - f.a) / 60000;
+  ctx.macchinaBreve_ = () => () => 'Fardellatrice'; ctx.anomalieTutte_ = () => []; ctx.completaFermiCarta_ = () => ({}); ctx.compitiTutti_ = () => []; ctx.rigaVestizioni_ = () => ''; ctx.rigaConvalide_ = () => '';
+  ctx.riepilogoSettimanale();
+  const m = msg[0] || ''; if (process.env.MOSTRA) console.log(m);
+  ok(/ST3 · Filling 3h 10′ \(1\) ▲\+1h · Packaging 2h 5′ \(1\) ▼−20′/.test(m), 'riepilogo: ST3 · Filling ▲+1h · Packaging ▼−20′ rispetto alla settimana prima');
+  ok(/SPL2 · Packaging 1h \(1\)$/m.test(m) && /Packaging registrati dopo: 1 su 2/.test(m), 'senza confronto se la settimana prima non c\'erano fermi; registrati dopo solo Packaging');
+}
 fine('Script');
