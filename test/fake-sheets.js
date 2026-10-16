@@ -8,7 +8,7 @@ function a1(s) {
 }
 class Sheet {
   constructor(n, rows = []) { this.n = n; this.rows = rows; }
-  getName() { return this.n; } getLastRow() { return this.rows.length; } getMaxRows() { return 1000; } getMaxColumns() { return 30; }
+  getName() { return this.n; } getLastRow() { return this.rows.length; } getMaxRows() { return 1000; } getMaxColumns() { return 30; } getLastColumn() { return Math.max(0, ...this.rows.map(r => r.length)); }
   appendRow(r) { this.rows.push(r); } clearContents() { this.rows = []; } clear() { this.rows = []; }
   getDataRange() { return this.getRange(1, 1, Math.max(this.rows.length, 1), Math.max(1, ...this.rows.map(r => r.length))); }
   getRange(r, c, nr = 1, nc = 1) {
