@@ -1402,7 +1402,8 @@ function checkKey_(k) {
 function checkTecnico_(nome) {
   const lv = listeVal_();
   const col = lv[0].indexOf('Manutentori');
-  const ok = col >= 0 && lv.slice(1).some(r => String(r[col]).trim() !== '' && String(r[col]).trim() === String(nome || '').trim());
+  const ok = (col >= 0 && lv.slice(1).some(r => String(r[col]).trim() !== '' && String(r[col]).trim() === String(nome || '').trim())) ||
+    isCoordinatore_(nome); // i coordinatori entrano anche se non sono nella colonna Manutentori
   if (!ok) throw new Error('Manutentore non abilitato: ' + nome);
 }
 /* ---------- Versione dei dati e copia pronta ----------
@@ -2041,7 +2042,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '16/10/2026 23:45';
+const VERSIONE_SCRIPT = '16/10/2026 23:50';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto

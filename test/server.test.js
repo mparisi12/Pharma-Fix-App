@@ -52,6 +52,11 @@ console.log('\nCoordinatori e manutentori');
   ok(ctx.isCoordinatore_('verdi anna') && !ctx.isCoordinatore_('ROSSI Mario'), 'riconosce i coordinatori (maiuscole/minuscole)');
   let err = ''; try { ctx.checkTecnico_('NERI Ugo'); } catch (e) { err = e.message; }
   ok(/non abilitato/.test(err), 'nome non in elenco Manutentori: rifiutato');
+  sheets_coord: {
+    const { ctx: c2, sheets: sh2 } = nuovo(); sh2.Liste.rows = [['Manutentori', 'Coordinatori'], ['ROSSI Mario', 'PARISI Mirko']];
+    let e2 = ''; try { c2.checkTecnico_('PARISI Mirko'); } catch (e) { e2 = e.message; }
+    ok(!e2, 'coordinatore non presente tra i Manutentori: può entrare');
+  }
 }
 console.log('\nNomi negli avvisi');
 {
