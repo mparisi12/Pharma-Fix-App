@@ -2046,7 +2046,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 00:30';
+const VERSIONE_SCRIPT = '17/10/2026 00:40';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2138,15 +2138,15 @@ function krGrafico_(ss, sh, K) {
   if (pts.length < 2) { sh.getRange(KR_T - 1, C0).setValue('Grafico a quadranti: servono almeno 2 tecnici con MTTR relativo e turni (foglio Turni).').setFontColor('#5f6368'); return; }
   const med = medianaKr_(pts.map(p => p.xt)), Y = p => p.xt / med;
   const k = Math.max(1.6, ...pts.map(p => Math.max(p.rel, 1 / p.rel, Y(p), 1 / Y(p)))) * 1.25; // stesso margine sui due lati di 1
-  const nS = pts.length + 1, rows = [];
-  rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['1 = come il reparto']));
+  const nS = pts.length + 2, rows = [];
+  rows.push(['MTTR relativo'].concat(pts.map(p => cognome_(p.n))).concat(['┃ MTTR come il reparto', '━ interventi come la mediana']));
   pts.forEach((p, i) => { const r = new Array(nS + 1).fill(''); r[0] = Math.round(p.rel * 100) / 100; r[i + 1] = Math.round(Y(p) * 100) / 100; rows.push(r); });
-  // le due linee di riferimento in una sola serie, disegnate come un unico tratto che resta sempre sulla croce
-  // (basso → centro → sinistra → destra → centro → alto): una sola voce in legenda e nessuna diagonale
-  [[1, 1 / k], [1, 1], [1 / k, 1], [k, 1], [1, 1], [1, k]].forEach(xy => { const r = new Array(nS + 1).fill(''); r[0] = xy[0]; r[nS] = xy[1]; rows.push(r); });
+  // le due linee di riferimento: due serie separate (Google Sheets ordina i punti per X, una serie sola non disegna la croce)
+  [[1, 1 / k, nS - 1], [1, k, nS - 1], [1 / k, 1, nS], [k, 1, nS]].forEach(([x, y, c]) => { const r = new Array(nS + 1).fill(''); r[0] = x; r[c] = y; rows.push(r); });
   d.getRange(1, 1, rows.length, nS + 1).setValues(rows);
   const serie = {}; pts.forEach((p, i) => { serie[i] = { pointSize: 10, lineWidth: 0 }; });
-  serie[pts.length] = { pointSize: 0, lineWidth: 1, color: '#9e9e9e' };
+  serie[pts.length] = { pointSize: 0, lineWidth: 2, color: '#9e9e9e' };
+  serie[pts.length + 1] = { pointSize: 0, lineWidth: 2, color: '#9e9e9e' };
   const tick = [0.2, 0.4, 0.6, 0.8, 1, 2, 4].filter(t => t >= 1 / k && t <= k);
   const ch = sh.newChart().asScatterChart().addRange(d.getRange(1, 1, rows.length, nS + 1)).setNumHeaders(1)
     .setOption('title', '↖ Riferimenti   ↗ Carico alto   ↙ Da coinvolgere   ↘ Affiancamento')
