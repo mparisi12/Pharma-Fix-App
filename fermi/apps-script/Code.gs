@@ -632,18 +632,21 @@ function fermiConvalida_(ss, forza) {
   const colL = nome => testa.findIndex(h => h.toUpperCase() === nome.toUpperCase()) + 1;
   const righe = Math.max(sh.getMaxRows(), sh.getLastRow() + 500);
   const props = PropertiesService.getScriptProperties();
-  const firma = 'v1|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|');
+  const tec = tecniciTutti_(ss).sort(); // Manutentori + Coordinatori
+  const firma = 'v2|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|') + '#' + tec.join('|');
   if (!forza && props.getProperty('FERMI_DV') === firma && ss.getSheetByName(SH_EL_FERMI)) return false;
   if (sh.getMaxRows() < righe) sh.insertRowsAfter(sh.getMaxRows(), righe - sh.getMaxRows());
   let el = ss.getSheetByName(SH_EL_FERMI);
   if (!el) { el = ss.insertSheet(SH_EL_FERMI); el.hideSheet(); }
   el.clearContents();
-  el.getRange(1, 1, 1, 2).setValues([['Macchine (da Equipment)', 'Tipi di guasto (da Guasti)']]);
+  el.getRange(1, 1, 1, 3).setValues([['Macchine (da Equipment)', 'Tipi di guasto (da Guasti)', 'Tecnici (Manutentori + Coordinatori)']]);
+  if (tec.length) el.getRange(2, 3, tec.length, 1).setNumberFormat('@').setValues(tec.map(x => [x]));
   if (macc.length) el.getRange(2, 1, macc.length, 1).setNumberFormat('@').setValues(macc.map(x => [x]));
   if (tipi.length) el.getRange(2, 2, tipi.length, 1).setNumberFormat('@').setValues(tipi.map(x => [x]));
   const dv = (rng, rigido, aiuto) => SpreadsheetApp.newDataValidation().requireValueInRange(rng, true).setAllowInvalid(!rigido).setHelpText(aiuto).build();
   const metti = (col, regola) => sh.getRange(2, col, righe - 1, 1).setDataValidation(regola);
-  [['Manutentori', C.MAN], ['Categoria', C.CAT], ['Tipo intervento', C.INT]].forEach(([nome, col]) => {
+  if (tec.length) metti(C.MAN, dv(el.getRange(2, 3, tec.length, 1), true, 'Scegli un tecnico: colonne Manutentori e Coordinatori del foglio Liste.'));
+  [['Categoria', C.CAT], ['Tipo intervento', C.INT]].forEach(([nome, col]) => {
     const c = colL(nome); if (!c) return;
     metti(col, dv(li.getRange(2, c, li.getMaxRows() - 1, 1), true, 'Scegli dall\'elenco "' + nome + '" del foglio Liste.'));
   });
@@ -2046,7 +2049,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 00:50';
+const VERSIONE_SCRIPT = '17/10/2026 00:55';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
