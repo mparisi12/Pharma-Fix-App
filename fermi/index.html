@@ -1454,7 +1454,7 @@ function shAbil(nome, back) {
   $('#abk').onclick = back;
 }
 // Persone del reparto: elenco Manutentori + chi ha una scadenza
-const personeRep = () => [...new Map([...(S.liste['Manutentori'] || []), ...S.vestizioni.map(v => v.man), ...((S.convalide || {}).list || []).map(c => c.man)].filter(n => n && !esonerato(n)).map(n => [U(n), n])).values()];
+const personeRep = () => [...new Map([...abilitati(), ...S.vestizioni.map(v => v.man), ...((S.convalide || {}).list || []).map(c => c.man)].filter(n => n && !esonerato(n)).map(n => [U(n), n])).values()];
 // Coordinatore: tabella vestizione + convalide per persona, prima i più urgenti
 function shScadRep(filtro) {
   const cats = [...new Set(((S.convalide || {}).list || []).map(c => c.cat))].sort();
@@ -1546,7 +1546,7 @@ function shReparto(filtro = '') {
   bindK(() => shReparto(filtro));
 }
 function shAssegna(P = { a: '', pr: 'NORMALE', code: '', t: '', d: '', w: '' }) {
-  const tecnici = [...new Set(S.liste['Manutentori'] || [])].sort();
+  const tecnici = abilitati().sort(); // anche i coordinatori ricevono compiti
   const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   if (!P.w) P.w = iso(new Date(Date.now() + 3 * 864e5));
   const eq = P.code ? eqBy(P.code) : null;
