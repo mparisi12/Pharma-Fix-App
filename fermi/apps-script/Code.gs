@@ -1108,9 +1108,7 @@ const REP_RIGHE = [
   ['Passaggio di turno anche per mail: SI / NO', 'NO'],
   ['Backup settimanale del foglio (domenica sera): SI / NO', 'SI'],
   ['Backup da conservare (quanti)', 8],
-  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3'],
-  ['Preavviso scadenza vestizione sterile (giorni prima)', 60],
-  ['Preavviso scadenza convalide GMP (giorni prima)', 60]
+  ['Linee a ciclo continuo, 7 giorni su 7 (separate da virgola; vuoto = nessuna)', 'ST3']
 ];
 function repCfg_() {
   const sh = avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet());
@@ -1128,8 +1126,7 @@ function repCfg_() {
   const v = sh.getRange(2, 6, REP_RIGHE.length - 1, 1).getValues().map(r => r[0]);
   const si = x => !/^no$/i.test(String(x).trim());
   return { settimanale: si(v[0]), turno: si(v[1]), turnoMail: /^si$/i.test(String(v[2]).trim()), backup: si(v[3]), tieni: Number(v[4]) || 8,
-    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean),
-    avvVest: Number(v[6]) > 0 ? Number(v[6]) : VEST_AVVISO, avvConv: Number(v[7]) > 0 ? Number(v[7]) : VEST_AVVISO };
+    continuo: String(v[5] || '').split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean) };
 }
 function attivaReport() {
   repCfg_();
@@ -1479,7 +1476,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = repCfg_(); return { vest: c.avvVest, conv: c.avvConv }; } catch (e) { return { vest: VEST_AVVISO, conv: VEST_AVVISO }; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1858,23 +1855,103 @@ function completaFermiCarta_() {
    Foglio Vestizioni: una riga per tecnico con data dell'ultima vestizione e durata in mesi (vuota = 12).
    L'app avvisa il tecnico da VEST_AVVISO giorni prima della scadenza; i coordinatori vedono tutto il reparto. */
 const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], VEST_AVVISO = 60;
-// Colonna "Area sterile (SI/NO)" del foglio Vestizioni: NO = esonerato (niente vestizione né convalide, non compare negli elenchi).
-// Vuoto = SI. Chi è SI e non ha una convalida nello scadenziario risulta "mancante" (come scaduta).
-const VEST_STER = 'Area sterile (SI/NO)';
-function vestColSterile_(sh) {
-  const h = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), VEST_H.length)).getValues()[0];
-  const i = h.findIndex(x => /sterile/i.test(String(x)));
-  if (i >= 0) return i + 1;
-  let c = h.length; while (c > 0 && String(h[c - 1]).trim() === '') c--; c = Math.max(c, VEST_H.length) + 1; // prima colonna libera dopo le intestazioni
-  sh.getRange(1, c).setValue(VEST_STER).setFontWeight('bold').setBackground('#dfe7ec')
-    .setNote('NO = esonerato dall\'area sterile: non serve vestizione né convalida GMP e non compare negli elenchi. Vuoto = SI.');
-  sh.getRange(2, c, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SI', 'NO'], true).setAllowInvalid(false).build());
-  return c;
+/* Foglio Vestizioni, colonne aggiunte dallo script (le trova per nome, l'ordine non conta):
+   - "Area sterile (SI/NO)": NO = esonerato (niente vestizione né convalide, fuori dagli elenchi). Vuoto = SI.
+   - "Scadenza Cat. G", "Scadenza Cat. H"…: scritte dallo script dal foglio Convalide (data, MANCA o esonerato). Non modificare.
+   - riquadro "Impostazioni" a destra: durata standard della vestizione (mesi, se la colonna Durata è vuota),
+     preavviso vestizione e preavviso convalide GMP (giorni prima della scadenza). */
+const VEST_STER = 'Area sterile (SI/NO)', CONV_NOME_ = { G: 'regolazione', H: 'sostituzione' };
+const VEST_SET = [['Durata standard vestizione (mesi)', 12], ['Preavviso vestizione (giorni prima)', 60], ['Preavviso convalide GMP (giorni prima)', 60]];
+let VEST_MEMO = null;
+function vestSetup_(ss) {
+  if (VEST_MEMO) return VEST_MEMO;
+  const sh = vestSheet_(ss); if (!sh) return null;
+  const lock = LockService.getScriptLock(); let preso = false;
+  try { preso = lock.tryLock(10000); } catch (e) {}
+  try {
+    let h = [];
+    const leggi = () => { h = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), VEST_H.length)).getValues()[0].map(x => String(x).trim()); };
+    const trova = re => h.findIndex(x => re.test(x)) + 1;
+    leggi();
+    let cSet = trova(/^impostazioni$/i);
+    const ultima = () => { let c = cSet ? cSet - 1 : h.length; while (c > 0 && !h[c - 1]) c--; return Math.max(c, VEST_H.length); };
+    const nuovaCol = (titolo, bg, nota) => { // prima colonna libera dopo i dati; se tocca il riquadro Impostazioni lo sposta a destra
+      const c = ultima() + 1;
+      if (cSet && c >= cSet - 1) { sh.insertColumnBefore(cSet); cSet++; }
+      sh.getRange(1, c).setValue(titolo).setFontWeight('bold').setBackground(bg).setWrap(true).setNote(nota);
+      leggi(); return c;
+    };
+    // Area sterile
+    let cSter = trova(/sterile/i);
+    if (!cSter) {
+      cSter = nuovaCol(VEST_STER, '#dfe7ec', 'NO = esonerato dall\'area sterile: non serve vestizione né convalida GMP e non compare negli elenchi. Vuoto = SI.');
+      sh.getRange(2, cSter, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SI', 'NO'], true).setAllowInvalid(false).build()).setBackground('#fff3d6');
+    }
+    // Colonne delle convalide
+    const conv = convalideTutte_(ss).list, cats = [...new Set(conv.map(x => x.cat))].sort(), cCat = {};
+    cats.forEach(k => {
+      cCat[k] = trova(new RegExp('^scadenza cat\\.?\\s*' + k + '\\b', 'i')) ||
+        nuovaCol('Scadenza Cat. ' + k + (CONV_NOME_[k] ? '\n' + CONV_NOME_[k] : ''), '#e6e0f3', 'Scritta dallo script dal foglio Convalide (scadenziario): non modificare.');
+    });
+    // Impostazioni (la prima volta: valori presi dal foglio Avvisi se c'erano, durata = quella più usata nella colonna Durata)
+    if (!cSet) {
+      cSet = ultima() + 2;
+      const val = VEST_SET.map(r => r[1]);
+      const durate = sh.getLastRow() > 1 ? sh.getRange(2, 3, sh.getLastRow() - 1, 1).getValues().map(r => Number(r[0])).filter(x => x > 0) : [];
+      if (durate.length) { const n = {}; durate.forEach(x => n[x] = (n[x] || 0) + 1); val[0] = Number(Object.keys(n).sort((a, b) => n[b] - n[a])[0]); }
+      try {
+        const av = ss.getSheetByName('Avvisi');
+        if (av && av.getLastRow() > 0) av.getRange(1, 5, av.getLastRow(), 2).getValues().forEach((r, i) => {
+          const k = /^preavviso scadenza vestizione/i.test(String(r[0])) ? 1 : /^preavviso scadenza convalide/i.test(String(r[0])) ? 2 : 0;
+          if (k) { if (Number(r[1]) > 0) val[k] = Number(r[1]); av.getRange(i + 1, 5, 1, 2).clearContent().setBackground(null); }
+        });
+      } catch (e) { Logger.log(e); }
+      sh.getRange(1, cSet, 1, 2).setValues([['Impostazioni', 'Valore']]).setFontWeight('bold').setBackground('#dfe7ec');
+      sh.getRange(2, cSet, VEST_SET.length, 2).setValues(VEST_SET.map((r, i) => [r[0], val[i]]));
+      sh.getRange(2, cSet, VEST_SET.length, 1).setBackground('#dfe7ec').setFontWeight('bold');
+      sh.getRange(2, cSet + 1, VEST_SET.length, 1).setBackground('#fff3d6').setFontWeight('bold');
+      sh.getRange(VEST_SET.length + 3, cSet).setValue('Viola = scritte dallo script dal foglio Convalide (non modificare). Giallo = in preavviso, rosso = scaduta o MANCA. Area sterile NO = esonerato: niente avvisi.').setWrap(true).setFontStyle('italic');
+      sh.setColumnWidth(cSet, 300);
+      leggi();
+    }
+    const sv = sh.getRange(2, cSet + 1, VEST_SET.length, 1).getValues().map(r => Number(r[0]));
+    const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO };
+    const L = c => sh.getRange(1, c).getA1Notation().replace(/\d+$/, ''), abs = r => '$' + L(cSet + 1) + '$' + r;
+    // Scadenza (colonna D) con la durata standard
+    const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(2) + ',C2:C),DAY(B2:B))))';
+    if (String(sh.getRange('D2').getFormula()).indexOf(abs(2)) < 0) sh.getRange('D2').setFormula(F_(fD));
+    // Valori delle convalide per persona
+    const n = sh.getLastRow() - 1;
+    if (n > 0 && cats.length) {
+      const nomi = sh.getRange(2, 1, n, cSter).getValues();
+      cats.forEach(k => {
+        const rng = sh.getRange(2, cCat[k], n, 1), cur = rng.getValues();
+        const nuovo = nomi.map(r => { const nm = String(r[0]).trim(); if (!nm) return ['']; if (/^no$/i.test(String(r[cSter - 1]).trim())) return ['esonerato'];
+          const x = conv.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase()); return [x ? new Date(x.scad) : 'MANCA']; });
+        const t = v => v instanceof Date ? v.getTime() : String(v);
+        if (nuovo.some((v, i) => t(v[0]) !== t(cur[i][0]))) rng.setValues(nuovo).setNumberFormat('dd/MM/yyyy').setBackground('#f5f2fb');
+      });
+    }
+    // Colori: giallo in preavviso, rosso scaduta / MANCA, grigio esonerati (rifatti solo quando cambiano le colonne)
+    const firma = 'cf1|' + cSter + '|' + cSet + '|' + cats.map(k => k + cCat[k]).join(',');
+    const props = PropertiesService.getScriptProperties();
+    if (props.getProperty('VEST_CF') !== firma) {
+      const R = (f, bg, fg, rngs) => { let b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(F_(f)).setRanges(rngs); if (bg) b = b.setBackground(bg); if (fg) b = b.setFontColor(fg); return b.build(); };
+      const last = Math.max(cSter, ...cats.map(k => cCat[k])), righe = Math.max(sh.getMaxRows() - 1, 1), S = L(cSter);
+      const rD = [sh.getRange(2, 4, righe, 1)], rC = cats.map(k => sh.getRange(2, cCat[k], righe, 1)), c1 = cats.length ? L(cCat[cats[0]]) : 'A';
+      const regole = [R('=TRIM($' + S + '2)="NO"', '#f1f3f4', '#9aa0a6', [sh.getRange(2, 1, righe, last)]),
+        R('=AND($D2<>"",$D2<TODAY())', '#f6c7bf', '#a3271a', rD), R('=AND($D2<>"",$D2-TODAY()<=' + abs(3) + ')', '#fde9a9', '#6b4600', rD)];
+      if (rC.length) regole.push(R('=OR(' + c1 + '2="MANCA",AND(ISNUMBER(' + c1 + '2),' + c1 + '2<TODAY()))', '#f6c7bf', '#a3271a', rC),
+        R('=AND(ISNUMBER(' + c1 + '2),' + c1 + '2-TODAY()<=' + abs(4) + ')', '#fde9a9', '#6b4600', rC));
+      sh.setConditionalFormatRules(regole);
+      props.setProperty('VEST_CF', firma);
+    }
+    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC };
+  } finally { if (preso) try { lock.releaseLock(); } catch (e) {} }
 }
 function esonerati_(ss) {
-  const sh = vestSheet_(ss); if (!sh || sh.getLastRow() < 2) return [];
-  const c = vestColSterile_(sh);
-  return sh.getRange(2, 1, sh.getLastRow() - 1, c).getValues().filter(r => String(r[0]).trim() && /^no$/i.test(String(r[c - 1]).trim())).map(r => String(r[0]).trim());
+  const c = vestSetup_(ss); if (!c || c.sh.getLastRow() < 2) return [];
+  return c.sh.getRange(2, 1, c.sh.getLastRow() - 1, c.cSter).getValues().filter(r => String(r[0]).trim() && /^no$/i.test(String(r[c.cSter - 1]).trim())).map(r => String(r[0]).trim());
 }
 function vestSheet_(ss) {
   let sh = ss.getSheetByName(SH_VEST);
@@ -1893,19 +1970,18 @@ function vestSheet_(ss) {
     sh.getRange('E2').setFormula(F_('=ARRAYFORMULA(IF(D2:D="","",D2:D-TODAY()))'));
     sh.getRange('D2:D').setNumberFormat('dd/MM/yyyy'); sh.getRange('E2:E').setNumberFormat('0');
     sh.setFrozenRows(1); sh.setColumnWidth(1, 220); sh.setColumnWidth(6, 300);
-    vestColSterile_(sh);
     return sh;
   } catch (e) { Logger.log(e); return ss.getSheetByName(SH_VEST); }
   finally { try { lock.releaseLock(); } catch (e) {} }
 }
 // Per l'app: tecnici con la data di vestizione e la scadenza calcolata qui (non dipende dalle formule del foglio)
 function vestizioni_(ss) {
-  const sh = vestSheet_(ss);
+  const c = vestSetup_(ss), sh = c && c.sh;
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().filter(r => String(r[0]).trim() && r[1]).map(r => {
     const d = r[1] instanceof Date ? r[1] : dataOra_(r[1], null);
     if (!d) return null;
-    const mesi = Number(r[2]) || 12, s = new Date(d.getFullYear(), d.getMonth() + mesi, d.getDate());
+    const mesi = Number(r[2]) || c.durata, s = new Date(d.getFullYear(), d.getMonth() + mesi, d.getDate());
     return { man: String(r[0]).trim(), data: d.getTime(), mesi: mesi, scad: s.getTime() };
   }).filter(Boolean);
 }
@@ -1913,7 +1989,7 @@ function rigaVestizioni_() {
   let v; try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = vestizioni_(ss).filter(x => no.indexOf(x.man.toUpperCase()) < 0); } catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + gm_(new Date(x.scad));
-  const avv = (() => { try { return repCfg_().avvVest; } catch (e) { return VEST_AVVISO; } })();
+  const avv = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()).avvV; } catch (e) { return VEST_AVVISO; } })();
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
@@ -1942,7 +2018,9 @@ function dataConv_(v) {
   m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
   return null;
 }
-function convalideTutte_(ss) {
+let CONV_MEMO = null;
+function convalideTutte_(ss) { return CONV_MEMO || (CONV_MEMO = convalideLeggi_(ss)); }
+function convalideLeggi_(ss) {
   const sh = ss.getSheetByName(SH_CONV) || convSheet_(ss);
   if (!sh || sh.getLastRow() < 1) return { list: [], ignote: [] };
   const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
@@ -1977,7 +2055,7 @@ function rigaConvalide_() {
   catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
-  const avv = (() => { try { return repCfg_().avvConv; } catch (e) { return VEST_AVVISO; } })();
+  const avv = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()).avvC; } catch (e) { return VEST_AVVISO; } })();
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length && !manca.length) return '';
   return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '') +
