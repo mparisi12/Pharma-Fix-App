@@ -222,6 +222,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Pharma-Fix')
     .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
+    .addItem('Aggiorna KPI Risorse', 'aggiornaKpiRisorse')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
@@ -244,6 +245,7 @@ function onOpen() {
 
 function onEdit(e) {
   try {
+    if (e.range.getSheet().getName() === SH_KR) { if (e.range.getRow() <= 4) aggiornaKpiRisorse(); return; } // filtri del foglio KPI Risorse
     if (e.range.getSheet().getName() !== SH_KPI) { bumpVer_(); return; } // modifica a mano: i telefoni si aggiornano
     if (['B2', 'B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
   } catch (x) { Logger.log(x); }
@@ -2033,6 +2035,132 @@ function rigaVestizioni_() {
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
+}
+
+/* =================== KPI Risorse (foglio "KPI Risorse") ===================
+   Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
+   sulla STESSA macchina nel periodo (MTTR relativo, 1,00 = come il reparto). Filtri in alto (periodo, area, minimo);
+   si ricalcola da solo quando li cambi o dal menu. Per responsabile e coordinatori: è uno strumento per decidere
+   affiancamenti e formazione, non una classifica. */
+const SH_KR = 'KPI Risorse', KR_AREE = ['Tutte', 'Filling', 'Packaging'], KR_T = 7;
+const KR_H = ['Tecnico', 'Interventi', 'Ore di intervento', 'Turni lavorati (foglio Turni)', 'Interventi per turno', 'MTTR relativo (1,00 = reparto)', 'Interventi confrontabili',
+  'Ricorrenza entro 24h', 'Registrati in tempo (Packaging, col QR)', 'Con descrizione', 'Anomalie segnalate', 'Soluzioni approvate', 'Compiti fatti in tempo', 'Quadrante'];
+function krSheet_(ss) {
+  let sh = ss.getSheetByName(SH_KR);
+  if (sh) return sh;
+  sh = ss.insertSheet(SH_KR);
+  sh.getRange('A1').setValue('KPI RISORSE').setFontSize(16).setFontWeight('bold');
+  sh.getRange('A2').setValue('Confronti equi: ogni intervento è paragonato agli interventi dello stesso guasto sulla stessa macchina. Strumento per affiancamenti e formazione, non una classifica.').setFontStyle('italic').setFontColor('#5f6368');
+  sh.getRange('A3:H3').setValues([['Periodo', 'Ultimi 90 giorni', '', 'Area', 'Tutte', '', 'Minimo interventi confrontabili', 5]]);
+  sh.getRange('A4:E4').setValues([['Dal (personalizzato)', '', '', 'Al', '']]);
+  ['A3', 'D3', 'G3', 'A4', 'D4'].forEach(c => sh.getRange(c).setFontWeight('bold'));
+  ['B3', 'E3', 'H3', 'B4', 'E4'].forEach(c => sh.getRange(c).setBackground('#fff3d6'));
+  sh.getRange('B3').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(PERIODI, true).setAllowInvalid(false).build());
+  sh.getRange('E3').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(KR_AREE, true).setAllowInvalid(false).build());
+  sh.getRange('B4:E4').setNumberFormat('dd/MM/yyyy');
+  sh.setColumnWidth(1, 200); sh.setFrozenRows(0);
+  return sh;
+}
+const medianaKr_ = a => { const v = a.slice().sort((x, y) => x - y), n = v.length; return n ? (n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2) : null; };
+function kpiRisorseCalcola_(ss, filtri) {
+  const per = periodo_(filtri.periodo, filtri.dal, filtri.al, dateOnly_(new Date()));
+  const areaDi = areaDi_(), A = String(filtri.area || 'Tutte').toUpperCase();
+  const tutti = fermiTutti_().filter(f => f.b && f.stato === 'CHIUSO');
+  tutti.forEach(f => { f.area = areaStd_(areaDi(f)); f.k = (f.eq || kpiChiave_(f.linea, f.macc)) + '|' + String(f.guasto).trim().toUpperCase(); f.m = minDi_(f); });
+  const nel = tutti.filter(f => f.a >= per.from && f.a < per.toEnd && (A === 'TUTTE' || f.area === A));
+  // mediana per macchina + guasto (almeno 3 interventi)
+  const grp = {}; nel.forEach(f => { if (String(f.guasto).trim()) (grp[f.k] = grp[f.k] || []).push(f.m); });
+  const med = {}; Object.keys(grp).forEach(k => { if (grp[k].length >= 3) med[k] = medianaKr_(grp[k]); });
+  // ricorrenza: lo stesso guasto torna sulla stessa macchina entro 24 ore dalla fine dell'intervento
+  const perK = {}; tutti.forEach(f => (perK[f.k] = perK[f.k] || []).push(f));
+  const torna = f => String(f.guasto).trim() && (perK[f.k] || []).some(g => g !== f && g.a > f.b && g.a - f.b <= 864e5);
+  // turni lavorati nel periodo (foglio Turni)
+  let tt = {}; try { tt = turniTutti_(ss); } catch (e) { Logger.log(e); }
+  const da = Utilities.formatDate(per.from, TZ, 'yyyy-MM-dd'), a = Utilities.formatDate(new Date(Math.min(per.toEnd.getTime(), Date.now()) - 1), TZ, 'yyyy-MM-dd');
+  const turniDi = n => { const k = Object.keys(tt).find(x => x.toUpperCase() === n.toUpperCase()); if (!k) return null;
+    const giorni = Object.keys(tt[k]).filter(d => d >= da && d <= a); if (!giorni.length) return null;
+    return { lav: giorni.filter(d => /^[123G]$/.test(tt[k][d].split(' ')[0])), tutti: giorni }; };
+  const ano = {}; anomalieTutte_().forEach(x => { if (x.ts && x.ts >= per.from && x.ts < per.toEnd && x.da) { const n = String(x.da).trim().toUpperCase(); ano[n] = (ano[n] || 0) + 1; } });
+  const sol = {}; righe_(ss, SH_SOL, SOL_H.length).forEach(r => { const d = r[1] instanceof Date ? r[1] : null, st = String(r[11] || 'VERIFICATA').toUpperCase();
+    if (d && d >= per.from && d < per.toEnd && st === 'VERIFICATA' && r[10]) { const n = String(r[10]).trim().toUpperCase(); sol[n] = (sol[n] || 0) + 1; } });
+  const kt = {}; try { compitiTutti_().forEach(k => { if (k.stato === 'FATTO' && k.fatto >= per.from.getTime() && k.fatto < per.toEnd.getTime() && k.fattoDa) {
+    const n = String(k.fattoDa).trim().toUpperCase(); kt[n] = kt[n] || { f: 0, t: 0 }; kt[n].f++; if (!k.ritardo) kt[n].t++; } }); } catch (e) { Logger.log(e); }
+  const nomi = [...new Set(nel.map(f => String(f.man).trim()).filter(Boolean))];
+  const rows = nomi.map(n => {
+    const fs = nel.filter(f => String(f.man).trim() === n), N = n.toUpperCase();
+    const rel = fs.filter(f => med[f.k] > 0).map(f => f.m / med[f.k]);
+    const app = fs.filter(f => String(f.orari) !== ORA_CARTA), pk = app.filter(f => f.area === 'PACKAGING');
+    const tu = turniDi(n);
+    const nT = tu ? fs.filter(f => tu.tutti.indexOf(Utilities.formatDate(f.a, TZ, 'yyyy-MM-dd')) >= 0).length : 0; // interventi nei giorni coperti dal foglio Turni
+    return { n: n, c: fs.length, ore: fs.reduce((x, f) => x + f.m, 0) / 60, turni: tu ? tu.lav.length : null, xt: tu && tu.lav.length ? nT / tu.lav.length : null,
+      rel: rel.length >= filtri.min ? medianaKr_(rel) : null, nrel: rel.length, ric: fs.filter(torna).length / fs.length,
+      tempo: pk.length ? pk.filter(f => String(f.orari) !== 'DICHIARATI').length / pk.length : null,
+      desc: app.length ? app.filter(f => String(f.altro).trim()).length / app.length : null,
+      ano: ano[N] || 0, sol: sol[N] || 0, comp: kt[N] ? kt[N].t + ' su ' + kt[N].f : '' };
+  }).sort((x, y) => y.c - x.c);
+  const mx = medianaKr_(rows.filter(r => r.xt !== null).map(r => r.xt));
+  rows.forEach(r => { r.q = r.rel === null || r.xt === null || mx === null ? '' : r.rel <= 1 ? (r.xt >= mx ? 'Riferimento' : 'Da coinvolgere di più') : (r.xt >= mx ? 'Carico alto: verificare tempi' : 'Affiancamento / formazione'); });
+  // matrice competenze: interventi per linea
+  const linee = lineeTutte_(), mat = rows.map(r => linee.map(l => nel.filter(f => String(f.man).trim() === r.n && String(f.linea).trim() === l).length));
+  const esperti = linee.map((l, j) => mat.filter(x => x[j] >= 5).length);
+  // ricorrenza per tipo di guasto (i 10 più frequenti)
+  const pg = {}; nel.forEach(f => { const g = String(f.guasto).trim().toUpperCase(); if (!g) return; const x = pg[g] = pg[g] || { n: 0, r: 0 }; x.n++; if (torna(f)) x.r++; });
+  const guasti = Object.keys(pg).sort((x, y) => pg[y].n - pg[x].n).slice(0, 10).map(g => ({ g: g, n: pg[g].n, r: pg[g].r / pg[g].n }));
+  return { per: per, rows: rows, linee: linee, mat: mat, esperti: esperti, guasti: guasti, nFermi: nel.length };
+}
+function aggiornaKpiRisorse() {
+  try { completaFermiCarta_(); } catch (e) { Logger.log(e); }
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = krSheet_(ss);
+  const f = sh.getRange('B3:H4').getValues();
+  const filtri = { periodo: String(f[0][0] || 'Ultimi 90 giorni'), area: String(f[0][3] || 'Tutte'), min: Number(f[0][6]) > 0 ? Number(f[0][6]) : 5, dal: f[1][0], al: f[1][3] };
+  const K = kpiRisorseCalcola_(ss, filtri);
+  sh.getRange(KR_T - 1, 1, Math.max(sh.getMaxRows() - KR_T + 2, 1), Math.max(sh.getMaxColumns(), 16)).clear();
+  sh.getRange(KR_T - 1, 1).setValue('Periodo ' + Utilities.formatDate(K.per.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(K.per.to, TZ, 'dd/MM/yyyy') + ' · ' + nFermi_(K.nFermi) + ' chiusi · aggiornato ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm')).setFontColor('#5f6368');
+  let r = KR_T;
+  sh.getRange(r, 1, 1, KR_H.length).setValues([KR_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true).setVerticalAlignment('bottom');
+  const pc = x => x === null ? '—' : x, nr = K.rows.length;
+  if (nr) {
+    const vals = K.rows.map(x => [x.n, x.c, Math.round(x.ore * 10) / 10, pc(x.turni), x.xt === null ? '—' : Math.round(x.xt * 100) / 100, x.rel === null ? '—' : Math.round(x.rel * 100) / 100, x.nrel,
+      x.ric, pc(x.tempo), pc(x.desc), x.ano, x.sol, x.comp, x.q]);
+    const rng = sh.getRange(r + 1, 1, nr, KR_H.length);
+    rng.setValues(vals);
+    sh.getRange(r + 1, 8, nr, 3).setNumberFormat('0%');
+    const bg = K.rows.map(x => { const row = new Array(KR_H.length).fill(null);
+      if (x.rel !== null) row[5] = x.rel <= 0.85 ? '#dff1e7' : x.rel >= 1.2 ? '#fde9a9' : null;
+      if (x.tempo !== null) row[8] = x.tempo >= 0.8 ? '#dff1e7' : x.tempo < 0.6 ? '#fde9a9' : null;
+      if (x.desc !== null) row[9] = x.desc >= 0.9 ? '#dff1e7' : x.desc < 0.7 ? '#fde9a9' : null;
+      return row; });
+    rng.setBackgrounds(bg);
+    sh.getRange(r + 1, 1, nr, 1).setFontWeight('bold');
+  } else sh.getRange(r + 1, 1).setValue('Nessun fermo chiuso nel periodo.');
+  r += nr + 2;
+  sh.getRange(r, 1).setValue('MTTR relativo: verde ≤ 0,85 (più veloce del reparto sugli stessi guasti), giallo ≥ 1,20; "—" = meno di ' + filtri.min + ' interventi confrontabili. Interventi per turno: solo nei giorni presenti nel foglio Turni. Quadrante: MTTR relativo rispetto a 1,00 e interventi per turno rispetto alla mediana del reparto.').setFontStyle('italic').setFontColor('#5f6368');
+  // matrice
+  r += 2;
+  sh.getRange(r, 1).setValue('MATRICE COMPETENZE · interventi per linea').setFontWeight('bold').setFontSize(12);
+  r++;
+  sh.getRange(r, 1, 1, K.linee.length + 1).setValues([['Tecnico'].concat(K.linee)]).setFontWeight('bold').setBackground('#dfe7ec');
+  if (nr) {
+    const mxv = Math.max(1, ...K.mat.map(x => Math.max(...x)));
+    const mrng = sh.getRange(r + 1, 1, nr, K.linee.length + 1);
+    mrng.setValues(K.rows.map((x, i) => [x.n].concat(K.mat[i].map(v => v || ''))));
+    mrng.setBackgrounds(K.mat.map(x => [null].concat(x.map(v => { if (!v) return null; const t = 0.12 + 0.75 * v / mxv; const c = c0 => Math.round(255 - (255 - c0) * t); return '#' + [36, 90, 122].map(c).map(z => ('0' + z.toString(16)).slice(-2)).join(''); }))));
+    sh.getRange(r + 1, 2, nr, K.linee.length).setHorizontalAlignment('center');
+  }
+  r += nr + 1;
+  sh.getRange(r, 1, 1, K.linee.length + 1).setValues([['Esperti (≥5 interventi)'].concat(K.esperti.map(e => e <= 1 ? e + ' ⚠' : e))]).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange(r, 2, 1, K.linee.length).setBackgrounds([K.esperti.map(e => e <= 1 ? '#fde9a9' : null)]);
+  r += 1;
+  sh.getRange(r, 1).setValue('⚠ = una sola persona (o nessuna) conosce bene la linea: candidata ad affiancamenti.').setFontStyle('italic').setFontColor('#5f6368');
+  // ricorrenza per guasto
+  r += 2;
+  sh.getRange(r, 1).setValue('RICORRENZA PER TIPO DI GUASTO · stesso guasto sulla stessa macchina entro 24 ore').setFontWeight('bold').setFontSize(12);
+  r++;
+  sh.getRange(r, 1, 1, 3).setValues([['Tipo guasto', 'Interventi', 'Ricorrenza 24h']]).setFontWeight('bold').setBackground('#dfe7ec');
+  if (K.guasti.length) { sh.getRange(r + 1, 1, K.guasti.length, 3).setValues(K.guasti.map(g => [g.g, g.n, g.r])); sh.getRange(r + 1, 3, K.guasti.length, 1).setNumberFormat('0%'); }
+  sh.setColumnWidth(1, 220); for (let c = 2; c <= KR_H.length; c++) sh.setColumnWidth(c, c === KR_H.length ? 210 : 105);
+  sh.setRowHeight(KR_T, 54);
+  return K;
 }
 
 /* =================== Convalide GMP (foglio Convalide) ===================
