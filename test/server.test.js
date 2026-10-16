@@ -97,4 +97,17 @@ console.log('\nConvalide GMP');
   ok(!!f('GRECO Nicolò', 'G'), 'accenti: Nicolo = Nicolò, data 22/10/2026');
   ok(r.ignote.length === 1 && /Sconosciuto/.test(r.ignote[0]), 'nomi non trovati in Manutentori segnalati');
 }
+console.log('\nArea sterile: esonerati e convalide mancanti');
+{
+  const { ctx, sheets } = nuovo();
+  sheets.Liste.rows = [['Manutentori'], ['ORZI Matteo'], ['CACIOPPO Riccardo'], ['RONCONI Luca']];
+  sheets.Vestizioni = new Sheet('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], ['ORZI Matteo', new ctx.DD(2026, 0, 10), 12], ['CACIOPPO Riccardo'], ['RONCONI Luca', '', '', '', '', '', 'NO']]);
+  sheets.Convalide = new Sheet('Convalide', [['x', 'Convalida Sterile Matteo Orzi', '2027/01/10', 'Categoria G - regolazione'], ['x', 'Convalida Sterile Matteo Orzi', '2027/01/10', 'Categoria H - sostituzione']]);
+  const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  ok(JSON.stringify(ctx.esonerati_(ss)) === '["RONCONI Luca"]', 'colonna Area sterile: NO = esonerato');
+  ok(/sterile/i.test(sheets.Vestizioni.rows[0][6]), 'colonna Area sterile presente nel foglio Vestizioni');
+  const m = ctx.convMancanti_(ss, ctx.convalideTutte_(ss).list);
+  ok(m.length === 1 && m[0].man === 'CACIOPPO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
+  ok(/mancanti: CACIOPPO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
+}
 fine('Script');

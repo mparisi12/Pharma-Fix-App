@@ -12,7 +12,8 @@ const now = Date.now(), g0 = new Date(); g0.setHours(0, 0, 0, 0);
 const D = { liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca', 'VERDI Anna'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
   fermi: [{ id: 'F0', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE + TAPPATRICE FLEXFILL F940', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
   compiti: [], documenti: [], vestizioni: [{ man: 'ROSSI Mario', scad: g0.getTime() + 40 * 864e5 }],
-  convalide: { list: [{ man: 'ROSSI Mario', cat: 'G', desc: 'Intervento Meccanico di regolazione', scad: g0.getTime() - 3 * 864e5 }, { man: 'BIANCHI Luca', cat: 'H', desc: 'Intervento Meccanico di sostituzione componente', scad: g0.getTime() + 200 * 864e5 }], ignote: [] } };
+  convalide: { list: [{ man: 'ROSSI Mario', cat: 'G', desc: 'Intervento Meccanico di regolazione', scad: g0.getTime() - 3 * 864e5 }, { man: 'BIANCHI Luca', cat: 'H', desc: 'Intervento Meccanico di sostituzione componente', scad: g0.getTime() + 200 * 864e5 }], ignote: [] },
+  sterileNo: ['VERDI Anna'] };
 let ver = 1, full = 0, same = 0; const posts = [];
 
 (async () => {
@@ -81,11 +82,12 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(!!(await p.$('#sheet .vbox')), 'avviso vestizione nel menu');
   ok(/Cat\. G SCADUTA/.test(await p.innerText('#sheet')), 'avviso convalida GMP scaduta nel menu');
   await p.click('#mabil'); await attesa(200);
-  ok((await p.$$('#sheet .abil')).length === 2 && !!(await p.$('#sheet .abil.exp')), 'le mie abilitazioni: vestizione + Cat. G scaduta');
+  ok((await p.$$('#sheet .abil')).length === 3 && /Mancante/.test(await p.innerText('#sheet')), 'le mie abilitazioni: vestizione, Cat. G scaduta, Cat. H mancante');
   await esci(); await entra('Anna', 'Verdi'); await p.click('#manbtn'); await attesa(200);
   ok(/Scadenze del reparto/.test(await p.innerText('#vrep')), 'coordinatore: voce Scadenze del reparto');
   await p.click('#vrep'); await attesa(200); await p.click('#sfil [data-v="scad"]'); await attesa(200);
-  ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'ROSSI Mario', 'filtro Scadute: solo chi ha una scadenza passata');
+  ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'BIANCHI Luca,ROSSI Mario', 'filtro Scadute: scaduti + chi non ha la convalida (BIANCHI senza Cat. G); esonerati fuori');
+  ok(/MANCA/.test(await p.innerText('#sheet .sgrid')), 'convalida mancante segnata MANCA');
 
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
