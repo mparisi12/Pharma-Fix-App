@@ -110,4 +110,17 @@ console.log('\nArea sterile: esonerati e convalide mancanti');
   ok(m.length === 1 && m[0].man === 'CACIOPPO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
   ok(/mancanti: CACIOPPO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
 }
+console.log('\nPreavviso scadenze (foglio Avvisi)');
+{
+  const { ctx, sheets } = nuovo();
+  const av = new Sheet('Avvisi', [['Avvisi', 'Valore']]);
+  sheets.Avvisi = av; ctx.avvisiSheet_ = () => av;
+  let c = ctx.repCfg_();
+  ok(c.avvVest === 60 && c.avvConv === 60, 'valori di partenza: 60 giorni');
+  ok(av.rows.some(r => /convalide GMP/.test(r[4] || '')), 'righe di preavviso aggiunte nel foglio Avvisi');
+  const i = av.rows.findIndex(r => /convalide GMP/.test(r[4] || '')); av.rows[i][5] = 90;
+  c = ctx.repCfg_(); ok(c.avvConv === 90 && c.avvVest === 60, 'preavviso convalide cambiato a 90, vestizione resta 60');
+  av.rows = av.rows.slice(0, 7).map(r => r.slice()); av.rows[6][5] = 'ST3,ST6'; // foglio vecchio, senza le righe nuove
+  c = ctx.repCfg_(); ok(c.avvConv === 60 && c.continuo.join() === 'ST3,ST6', 'foglio vecchio: aggiunge le righe nuove senza toccare quelle esistenti');
+}
 fine('Script');
