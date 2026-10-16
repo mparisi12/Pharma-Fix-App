@@ -144,6 +144,9 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   const g = c3.conv.find(x => x.man === 'ORZI Matteo' && x.cat === 'G'), h = c3.conv.find(x => x.man === 'CACIOPPO Riccardo' && x.cat === 'H');
   ok(g && new Date(g.scad).getFullYear() === 2027 && new Date(g.scad).getMonth() === 9, 'ultima convalida 01/10/2026 + 12 mesi = 01/10/2027 (più lontana dello scadenziario)');
   ok(h && isD(V[2][c3.cCat.H - 1]), 'chi era MANCA con l\'ultima convalida scritta diventa valido');
+  const ug = V[2][c3.cUlt.G - 1]; // CACIOPPO non ha G nello scadenziario: resta vuota
+  const uo = V[1][c3.cUlt.H - 1]; // ORZI H nello scadenziario 04/11/2026 → ultima = 04/11/2025
+  ok(!ug && isD(uo) && uo.getFullYear() === 2025 && uo.getMonth() === 10 && uo.getDate() === 4, 'ultima convalida scritta dallo script = scadenza − 12 mesi (04/11/2025)');
   // foglio impostato con la versione precedente (3 impostazioni + nota): la riga nuova va nella prima riga libera
   const VS = sheets.Vestizioni.rows, cs = c3.cSet - 1; VS[4][cs] = ''; VS[4][cs + 1] = '';
   ({ ctx } = car(sheets)); const c4 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());

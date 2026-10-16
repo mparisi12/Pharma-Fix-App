@@ -1899,7 +1899,7 @@ function vestSetup_(ss) {
     cats.forEach(k => {
       cUlt[k] = trova(new RegExp('^ultima convalida cat\\.?\\s*' + k + '\\b', 'i'));
       if (!cUlt[k]) {
-        cUlt[k] = nuovaCol('Ultima convalida Cat. ' + k, '#dfe7ec', 'Facoltativa: data in cui è stata fatta la convalida. Scadenza = questa data + durata standard convalide (Impostazioni), se è più lontana di quella dello scadenziario.');
+        cUlt[k] = nuovaCol('Ultima convalida Cat. ' + k, '#dfe7ec', 'Data dell\'ultima convalida. La scrive lo script (scadenza dello scadenziario − durata standard); se la convalida è stata rinnovata scrivi tu la data nuova: scadenza = questa data + durata standard.');
         sh.getRange(2, cUlt[k], Math.max(sh.getMaxRows() - 1, 1), 1).setNumberFormat('dd/MM/yyyy').setBackground('#fff3d6');
       }
     });
@@ -1939,18 +1939,30 @@ function vestSetup_(ss) {
     // Scadenza (colonna D) con la durata standard
     const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(riga[0]) + ',C2:C),DAY(B2:B))))';
     if (String(sh.getRange('D2').getFormula()).indexOf(abs(riga[0])) < 0) sh.getRange('D2').setFormula(F_(fD));
-    // Convalide effettive: la scadenza più lontana tra scadenziario e "ultima convalida + durata standard"
+    // Ultima convalida: se non c'è (o è più vecchia) = scadenza dello scadenziario − durata standard; la scrive lo script.
+    // Scadenza effettiva = la più lontana tra scadenziario e ultima convalida + durata standard.
     const n = sh.getLastRow() - 1, eff = conv.map(x => Object.assign({}, x));
-    if (n > 0) cats.forEach(k => {
-      const v = sh.getRange(2, 1, n, 1).getValues(), u = sh.getRange(2, cUlt[k], n, 1).getValues();
-      v.forEach((r, i) => {
-        const nm = String(r[0]).trim(), d = u[i][0] instanceof Date ? u[i][0] : dataConv_(u[i][0]); if (!nm || !d) return;
-        const sc = new Date(d.getFullYear(), d.getMonth() + set.durC, d.getDate()).getTime();
-        const x = eff.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase());
-        if (x) { if (sc > x.scad) { x.scad = sc; x.da = 'ultima convalida'; } }
-        else eff.push({ man: nm, cat: k, desc: (conv.find(c => c.cat === k) || {}).desc || '', scad: sc, da: 'ultima convalida' });
+    const piu = (d, m) => new Date(d.getFullYear(), d.getMonth() + m, d.getDate());
+    if (n > 0) {
+      const v = sh.getRange(2, 1, n, cSter).getValues();
+      cats.forEach(k => {
+        const rng = sh.getRange(2, cUlt[k], n, 1), u = rng.getValues(); let cambia = false;
+        const out = v.map((r, i) => {
+          const nm = String(r[0]).trim(), cur = u[i][0];
+          if (!nm || /^no$/i.test(String(r[cSter - 1]).trim())) return [cur];
+          let d = cur instanceof Date ? cur : dataConv_(cur);
+          const x = eff.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase());
+          const base = x ? piu(new Date(x.scad), -set.durC) : null;
+          if (base && (!d || d.getTime() < base.getTime())) { d = base; cambia = true; }
+          if (!d) return [cur];
+          const sc = piu(d, set.durC).getTime();
+          if (x) { if (sc > x.scad) { x.scad = sc; x.da = 'ultima convalida'; } }
+          else eff.push({ man: nm, cat: k, desc: (conv.find(c => c.cat === k) || {}).desc || '', scad: sc, da: 'ultima convalida' });
+          return [d];
+        });
+        if (cambia) rng.setValues(out).setNumberFormat('dd/MM/yyyy');
       });
-    });
+    }
     const conv2 = eff;
     if (n > 0 && cats.length) {
       const nomi = sh.getRange(2, 1, n, cSter).getValues();
