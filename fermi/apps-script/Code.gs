@@ -1247,6 +1247,7 @@ function riepilogoSettimanale() {
     }
   } catch (e) { Logger.log(e); }
   const rv = rigaVestizioni_(); if (rv) out.push(rv);
+  const rc = rigaConvalide_(); if (rc) out.push(rc);
   const titolo = 'SETTIMANA ' + gm_(inizio) + '–' + gm_(new Date(fine.getTime() - 864e5));
   mail_('Riepilogo settimanale', titolo, out.slice(1).join('\n'));
 }
@@ -1474,7 +1475,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1892,6 +1893,60 @@ function rigaVestizioni_() {
   const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
   if (!inScad.length && !scadute.length) return '';
   return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
+}
+
+/* =================== Convalide GMP (foglio Convalide) ===================
+   Si incolla lo scadenziario così com'è (Codice processo · Oggetto · Scadenza · Item). Lo script riconosce:
+   la persona dal testo dell'Oggetto ("Convalida Sterile Matteo Orzi…" → ORZI Matteo, confrontando con Manutentori),
+   la categoria dall'Item ("Categoria G - Intervento Meccanico di regolazione") e la data (Date, 2026/10/22 o 22/10/2026).
+   Se la stessa persona ha più righe per la stessa categoria vale la scadenza più lontana. */
+const SH_CONV = 'Convalide', CONV_H = ['Codice processo (link)', 'Oggetto', 'Scadenza', 'Item'];
+function convSheet_(ss) {
+  let sh = ss.getSheetByName(SH_CONV);
+  if (sh) return sh;
+  sh = ss.insertSheet(SH_CONV);
+  sh.getRange(1, 1, 1, CONV_H.length).setValues([CONV_H]).setFontWeight('bold').setBackground('#dfe7ec');
+  sh.getRange(1, 6).setValue('Incolla qui lo scadenziario completo (solo valori): basta che ci siano Oggetto, Scadenza e Item.');
+  sh.setFrozenRows(1); sh.setColumnWidth(2, 380); sh.setColumnWidth(4, 380);
+  return sh;
+}
+const normNome_ = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z' ]+/g, ' ').replace(/'/g, ' ').trim().split(/\s+/).filter(Boolean);
+function dataConv_(v) {
+  if (v instanceof Date && !isNaN(v)) return v;
+  const t = String(v || '').trim();
+  let m = t.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+function convalideTutte_(ss) {
+  const sh = ss.getSheetByName(SH_CONV) || convSheet_(ss);
+  if (!sh || sh.getLastRow() < 1) return { list: [], ignote: [] };
+  const lv = listeVal_(ss), c = lv[0].indexOf('Manutentori');
+  const man = c < 0 ? [] : [...new Set(lv.slice(1).map(r => String(r[c]).trim()).filter(Boolean))].map(n => ({ n: n, t: normNome_(n) }));
+  const best = {}, ignote = [];
+  sh.getDataRange().getValues().forEach(r => {
+    const txt = r.map(x => x instanceof Date ? '' : String(x));
+    const iItem = txt.findIndex(x => /categoria\s+[A-Z]\b/i.test(x)); if (iItem < 0) return;
+    const cat = txt[iItem].match(/categoria\s+([A-Z])\b/i)[1].toUpperCase();
+    const desc = (txt[iItem].split(/\s+-\s+/)[1] || '').replace(/\s+/g, ' ').trim();
+    let d = null; for (const x of r) { if ((d = dataConv_(x))) break; } if (!d) return;
+    const ogg = txt.filter((x, i) => i !== iItem).sort((a, b) => b.length - a.length)[0] || '';
+    const tok = normNome_(ogg);
+    const chi = man.filter(m => m.t.length && m.t.every(w => tok.indexOf(w) >= 0)).sort((a, b) => b.t.length - a.t.length)[0];
+    if (!chi) { const k = ogg.replace(/\s+/g, ' ').trim(); if (k && ignote.indexOf(k) < 0) ignote.push(k); return; }
+    const key = chi.n + '|' + cat;
+    if (!best[key] || best[key].scad < d.getTime()) best[key] = { man: chi.n, cat: cat, desc: desc, scad: d.getTime() };
+  });
+  return { list: Object.keys(best).map(k => best[k]).sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)), ignote: ignote };
+}
+function convalide_(ss) { const x = convalideTutte_(ss); return { list: x.list, ignote: x.ignote.slice(0, 30) }; }
+function rigaConvalide_() {
+  let v; try { v = convalideTutte_(SpreadsheetApp.getActiveSpreadsheet()).list; } catch (e) { Logger.log(e); return ''; }
+  const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
+  const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= VEST_AVVISO).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
+  if (!inScad.length && !scadute.length) return '';
+  return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '');
 }
 
 /* =================== Turni (dal foglio Turni) ===================
