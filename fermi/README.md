@@ -414,8 +414,9 @@ Le convalide per gli interventi GMP in area sterile (Cat. G regolazione, Cat. H 
 - **Chi lavora in sterile:** nel foglio **Vestizioni** c'è la colonna *Area sterile (SI/NO)*. **NO** = esonerato: niente vestizione né convalide, non compare negli elenchi e non riceve avvisi. Vuoto = SI: se una categoria non si trova nello scadenziario risulta **MANCA** (vale come scaduta).
 - **Foglio Vestizioni, cosa aggiunge lo script** (le colonne le trova per nome, l'ordine non conta):
   - *Area sterile (SI/NO)*: la compili tu;
-  - *Scadenza Cat. G*, *Scadenza Cat. H*… (viola): le scrive lo script dal foglio Convalide (data, **MANCA** o *esonerato*), non modificarle;
-  - riquadro **Impostazioni** a destra: *Durata standard vestizione (mesi)* (vale quando la colonna Durata è vuota), *Preavviso vestizione* e *Preavviso convalide GMP* (giorni prima della scadenza). Valgono per app, pallino e riepilogo;
+  - *Scadenza Cat. G*, *Scadenza Cat. H*… (viola): le scrive lo script (data, **MANCA** o *esonerato*), non modificarle. Vale la scadenza più lontana tra lo scadenziario e *ultima convalida + durata standard*;
+  - *Ultima convalida Cat. G*, *Cat. H*… (gialle, facoltative): la data in cui è stata fatta la convalida, così risulta subito valida senza aspettare lo scadenziario nuovo;
+  - riquadro **Impostazioni** a destra: *Durata standard vestizione (mesi)* (vale quando la colonna Durata è vuota), *Durata standard convalide interventi (mesi)* (per l'ultima convalida), *Preavviso vestizione* e *Preavviso convalide GMP* (giorni prima della scadenza). Valgono per app, pallino e riepilogo;
   - colori: giallo = in preavviso, rosso = scaduta o MANCA, grigio = esonerato.
 - **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (60 giorni) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
 - **Coordinatore:** *Scadenze del reparto* (al posto di Vestizioni del reparto): tabella per persona con vestizione e categorie, filtri Da rinnovare / Scadute, tocca un nome per il dettaglio.

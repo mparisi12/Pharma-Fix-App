@@ -126,17 +126,27 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   sheets.Vestizioni.rows[3][6] = 'NO'; // RONCONI esonerato (colonna G già scritta a mano, senza intestazione)
   sheets.Vestizioni.rows[0][6] = 'Area sterile (SI/NO)';
   const c = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet()), V = sheets.Vestizioni.rows;
-  ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cSet === 11, 'colonne: G area sterile, H/I convalide, K–L impostazioni');
-  ok(c.durata === 13 && c.avvV === 45 && c.avvC === 90, 'impostazioni: durata 13 (la più usata), preavvisi presi dal foglio Avvisi');
+  ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cUlt.G === 10 && c.cUlt.H === 11 && c.cSet === 13, 'colonne: G area sterile, H/I scadenze, J/K ultima convalida, M–N impostazioni');
+  ok(c.durata === 13 && c.avvV === 45 && c.avvC === 90 && c.durC === 12, 'impostazioni: durata 13 (la più usata), preavvisi presi dal foglio Avvisi');
   ok(!sheets.Avvisi.rows.some(r => /Preavviso/.test(r[4] || '')), 'righe di preavviso tolte dal foglio Avvisi');
   ok(isD(V[1][7]) && V[1][7].getDate() === 22 && V[2][7] === 'MANCA' && V[3][7] === 'esonerato', 'Cat. G: data / MANCA / esonerato');
-  ok(/\$L\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($L$2)');
+  ok(/\$N\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($N$2)');
   ok((sheets.Vestizioni.cf || []).length === 5, 'colori: esonerati, vestizione scaduta/in preavviso, convalide scadute/in preavviso');
   V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'RONCONI Fabio');
   ok(r.mesi === 13, 'durata vuota: vale lo standard');
   // nuova categoria nello scadenziario: colonna nuova prima del riquadro Impostazioni
   sheets.Convalide.rows.push(['x', 'Convalida Sterile Matteo Orzi', '2027/01/01', 'Categoria F - pulizia']);
   ({ ctx } = car(sheets)); const c2 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
-  ok(c2.cCat.F === 10 && c2.cSet === 12 && V[0][11] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonna aggiunta, Impostazioni spostate a destra');
+  ok(c2.cCat.F === 12 && c2.cUlt.F === 13 && c2.cSet === 15 && V[0][14] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonne aggiunte, Impostazioni spostate a destra');
+  // ultima convalida + durata standard
+  ({ ctx } = car(sheets)); V[1][c2.cUlt.G - 1] = new ctx.DD(2026, 9, 1); V[2][c2.cUlt.H - 1] = new ctx.DD(2026, 5, 1);
+  const c3 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  const g = c3.conv.find(x => x.man === 'ORZI Matteo' && x.cat === 'G'), h = c3.conv.find(x => x.man === 'CACIOPPO Riccardo' && x.cat === 'H');
+  ok(g && new Date(g.scad).getFullYear() === 2027 && new Date(g.scad).getMonth() === 9, 'ultima convalida 01/10/2026 + 12 mesi = 01/10/2027 (più lontana dello scadenziario)');
+  ok(h && isD(V[2][c3.cCat.H - 1]), 'chi era MANCA con l\'ultima convalida scritta diventa valido');
+  // foglio impostato con la versione precedente (3 impostazioni + nota): la riga nuova va nella prima riga libera
+  const VS = sheets.Vestizioni.rows, cs = c3.cSet - 1; VS[4][cs] = ''; VS[4][cs + 1] = '';
+  ({ ctx } = car(sheets)); const c4 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /Viola/.test(VS[6][cs]), 'foglio già impostato: "Durata standard convalide" aggiunta senza toccare la nota');
 }
 fine('Script');
