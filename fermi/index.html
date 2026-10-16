@@ -425,6 +425,8 @@ function allFermi() {
   return [...m.values()].sort((a, b) => b.start - a.start);
 }
 // Coordinatori (colonna del foglio Liste): approvano le soluzioni nuove dei tecnici
+// Chi può entrare: colonna Manutentori + colonne Coordinatori del foglio Liste
+const abilitati = () => [...new Set([...(S.liste['Manutentori'] || []), ...Object.keys(S.liste).filter(k => /^\s*coordinator[ei]\s*$/i.test(k)).flatMap(k => S.liste[k] || [])].filter(Boolean))];
 const isCoord = (nome = S.man) => !!nome && Object.keys(S.liste).filter(k => /^\s*coordinator[ei]\s*$/i.test(k)).some(k => (S.liste[k] || []).some(c => U(c) === U(nome)));
 // Il fermo lo chiude (o annulla) solo chi l'ha aperto; i coordinatori possono chiudere tutti
 const apertoDa = f => String(f.apertoDa || f.man || '');
@@ -653,7 +655,7 @@ function applyInit(j) {
   if (j.guasti) S.guasti = j.guasti;
   S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.sterileNo = j.sterileNo || []; S.convalide = j.convalide || { list: [], ignote: [] }; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || []; S.avviso = j.avviso || null;
   S.ver = j.ver || ''; S.loaded = true; S.cacheOk = true; S.net = 'ok'; S.lastSync = Date.now();
-  if (S.man && !(S.liste['Manutentori'] || []).includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
+  if (S.man && !abilitati().includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
   save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 async function refresh() {
@@ -1297,13 +1299,13 @@ function singleChoice(el, onPick) { el.onclick = e => { const b = e.target.close
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z' ]/g, ' ').replace(/\s+/g, ' ').trim();
 function findTecnico(nome, cognome) {
   const want = (norm(nome) + ' ' + norm(cognome)).split(' ').filter(Boolean).sort().join(' ');
-  return (S.liste['Manutentori'] || []).find(m => norm(m).split(' ').sort().join(' ') === want) || null;
+  return abilitati().find(m => norm(m).split(' ').sort().join(' ') === want) || null;
 }
 function getSession() {
   let s = null; try { s = JSON.parse(sessionStorage.getItem('pf_sess') || 'null'); } catch {}
   if (!s) s = load('sess', null);
   // senza dati in memoria (prima apertura dopo una pulizia) il nome si controlla quando arrivano i dati dal foglio
-  return s && s.exp > Date.now() && (!S.cacheOk || (S.liste['Manutentori'] || []).includes(s.man)) ? s.man : '';
+  return s && s.exp > Date.now() && (!S.cacheOk || abilitati().includes(s.man)) ? s.man : '';
 }
 function showLogin() {
   S.man = ''; renderHeader(); $('#login').hidden = false;
