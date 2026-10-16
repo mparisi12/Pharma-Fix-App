@@ -9,7 +9,7 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   if (!f.startsWith(ROOT) || !fs.existsSync(f)) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); });
 
 const now = Date.now(), g0 = new Date(); g0.setHours(0, 0, 0, 0);
-const D = { liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca', 'VERDI Anna'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
+const D = { liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
   fermi: [{ id: 'F0', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE + TAPPATRICE FLEXFILL F940', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
   compiti: [], documenti: [], vestizioni: [{ man: 'ROSSI Mario', scad: g0.getTime() + 40 * 864e5 }],
   convalide: { list: [{ man: 'ROSSI Mario', cat: 'G', desc: 'Intervento Meccanico di regolazione', scad: g0.getTime() - 3 * 864e5 }, { man: 'BIANCHI Luca', cat: 'H', desc: 'Intervento Meccanico di sostituzione componente', scad: g0.getTime() + 200 * 864e5 }], ignote: [] },
@@ -46,7 +46,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
 
   console.log('Accesso e dati');
   await entra('Anna', 'Verdi');
-  ok(/VERDI Anna/.test(await p.innerText('#manbtn')), 'accesso del coordinatore');
+  ok(/VERDI Anna/.test(await p.innerText('#manbtn')), 'accesso del coordinatore (solo nella colonna Coordinatori)');
   ok(/FLEXFILL/.test(await p.innerText('#view')), 'la home mostra il fermo aperto');
   const f0 = full; for (let i = 0; i < 3; i++) { await p.evaluate(() => refresh()); await attesa(150); }
   ok(full === f0 && same >= 3, 'aggiornamenti senza modifiche: nessun riscaricamento completo');
