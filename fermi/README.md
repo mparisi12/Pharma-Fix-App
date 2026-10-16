@@ -443,7 +443,7 @@ Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto
 Prima delle 6 del mattino vale il programma del giorno prima (turno 3).
 
 ### 5.18 KPI Risorse (foglio KPI Risorse)
-Indicatori per tecnico, per responsabile e coordinatori: servono per decidere affiancamenti e formazione, non per fare classifiche (prima di usarli per valutare le persone sentire HR: art. 4 Statuto dei Lavoratori).
+Indicatori per tecnico (i **coordinatori** della colonna Coordinatori del foglio Liste non compaiono; i loro interventi contano solo nelle mediane del reparto), per responsabile e coordinatori: servono per decidere affiancamenti e formazione, non per fare classifiche (prima di usarli per valutare le persone sentire HR: art. 4 Statuto dei Lavoratori).
 - **Crearlo / aggiornarlo:** menu **Pharma-Fix → Aggiorna KPI Risorse**. Si ricalcola da solo quando cambi i filtri in alto (Periodo, Area, Minimo interventi confrontabili; Dal/Al per *Personalizzato*).
 - **MTTR relativo:** ogni intervento diviso per la mediana dello **stesso guasto sulla stessa macchina** nel periodo (almeno 3 interventi); per il tecnico vale la mediana dei suoi rapporti. 1,00 = come il reparto; verde ≤ 0,85, giallo ≥ 1,20; "—" sotto il minimo.
 - **Interventi per turno:** interventi nei giorni presenti nel foglio Turni diviso i turni lavorati (1/2/3/G).
