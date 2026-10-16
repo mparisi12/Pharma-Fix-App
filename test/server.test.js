@@ -204,6 +204,6 @@ console.log('\nFoglio Programma pesante');
   const { ctx } = nuovo(); const fatto = [];
   const sh = { getLastColumn: () => 305, getMaxColumns: () => 16370, getLastRow: () => 972, getMaxRows: () => 1000, deleteColumns: (a, n) => fatto.push(['col', a, n]), deleteRows: (a, n) => fatto.push(['row', a, n]) };
   ctx.pulisciProgramma_(sh);
-  ok(JSON.stringify(fatto) === JSON.stringify([['col', 311, 16060]]), 'colonne vuote oltre l\'ultima con valori eliminate (16.370 → 310), righe lasciate');
+  ok(JSON.stringify(fatto) === JSON.stringify([['col', 311, 16060], ['row', 993, 8]]), 'colonne e righe vuote oltre i dati eliminate (16.370 → 310 colonne)');
 }
 fine('Script');
