@@ -31,11 +31,19 @@ Conosci una soluzione nuova? In fondo alla pagina c'è il link **Conosci una sol
 ### Chiudere (~30 secondi)
 1. **Scansiona di nuovo il QR** → pulsante verde **PREMI QUI PER CHIUDERE FERMO** (oppure **Chiudi** sul fermo nella home). In alto vedi quando è stato aperto, da chi, la durata e il lotto.
    **Quando è ripartita?** **ADESSO**, oppure **SCEGLI ORARIO** se la macchina è ripartita prima e chiudi solo ora (l'orario viene segnato come dichiarato).
-2. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto** (i guasti più frequenti di quella macchina sono in cima): ogni scelta sblocca la successiva.
+2. Tre domande, in ordine:
+   - **Cosa si è guastato**: il componente o la zona (i più frequenti su quella macchina sono in cima). La **categoria** (meccanico, elettrico, automation) la mette l'app da sola; la scegli tu solo con ALTRO.
+   - **Cosa hai fatto**, con una regola sola:
+     - **REGOLAZIONE**: hai spostato o registrato qualcosa (nonio, guida, parametro);
+     - **SOSTITUZIONE**: hai montato un pezzo nuovo → codice pezzo obbligatorio. Niente pezzo nuovo = non è una sostituzione;
+     - **RIPRISTINO**: reset, riavvio, sblocco, homing: non hai regolato né cambiato niente;
+     - **PULIZIA**.
+     L'app propone già scelto l'intervento più usato per quel guasto su quella macchina: se hai fatto altro, tocca quello giusto.
+   - **Perché** (facoltativo, se lo sai): usura, formato / regolazione persa, materiale fuori specifica, errore operatore, elettrica / alimentazione, non nota. Tocca di nuovo per togliere la scelta.
 3. **Foto** della zona di intervento (consigliata) → **tocca la foto per cerchiare** il punto.
 4. **Descrizione breve** (**obbligatoria**): cosa hai trovato e cosa hai fatto, anche corta.
 5. Hai risolto qualcosa che può servire ai colleghi? Spunta **Proponi come soluzione** e scrivi il problema in una riga: diventa una soluzione (la approva il coordinatore).
-6. Controlla il **lotto**. Se il tipo intervento è **SOSTITUZIONE**, scrivi il **codice pezzo** (obbligatorio).
+6. Controlla il **lotto**.
 7. **Chiudi fermo**.
 
 Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Correggi il fermo**: la **prima** correzione la fai tu, anche degli orari. Per correggere ancora → **Chiedi correzione** e scrivi cosa va cambiato: lo sistema il responsabile.
