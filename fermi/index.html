@@ -659,10 +659,11 @@ function applyInit(j) {
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
   if (j.vociCat) S.vociCat = j.vociCat;
+  if (j.intDesc) S.intDesc = j.intDesc;
   S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.sterileNo = j.sterileNo || []; S.convalide = j.convalide || { list: [], ignote: [] }; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || []; S.avviso = j.avviso || null;
   S.ver = j.ver || ''; S.loaded = true; S.cacheOk = true; S.net = 'ok'; S.lastSync = Date.now();
   if (S.man && !abilitati().includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, intDesc: S.intDesc, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 let NET_KO = 0, RETRY_NET = null; // tentativi falliti di fila per mancanza di rete
 async function refresh() {
@@ -1009,7 +1010,7 @@ function modSheet(f, eq) {
       <div class="hint">Se li cambi vengono segnati come <b>dichiarati</b>.</div></div>
     <div class="group"><span class="label">Cosa si è guastato</span><div class="chips" id="mgua">${guaChips(eq, M.guasto)}</div><div id="mcatbox"></div></div>
     <div class="group"><span class="label">Cosa hai fatto</span><div class="chips ich2" id="mint">${intChips(M.int)}</div></div>
-    <div class="group"><span class="label">Perché · facoltativo</span><div class="chips" id="mcau">${chips(CAUSE, M.causa)}</div></div>
+    <div class="group"><span class="label">Perché · facoltativo</span><div class="chips" id="mcau">${chips(causeL(), M.causa)}</div></div>
     <div class="group"><label class="label" for="malt">Descrizione breve</label><textarea class="field" id="malt">${esc(f.altro || '')}</textarea></div>
     <div class="group"><label class="label" for="mlot">Lotto</label><input class="field" id="mlot" inputmode="numeric" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}"></div>
     <div class="group" id="mpzg" ${U(M.int) === 'SOSTITUZIONE' ? '' : 'hidden'}><label class="label" for="mpz">Codice pezzo sostituito</label><input class="field" id="mpz" value="${esc(f.pezzo || '')}"></div>
@@ -1690,12 +1691,16 @@ function guaChips(eq, sel) {
   return l.map(x => `<button class="chip" type="button" data-v="${esc(x.g)}" aria-pressed="${sel === x.g}">${esc(x.g)}${x.n > 0 ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('');
 }
 /* Classificazione: 1) cosa si è guastato 2) cosa hai fatto (4 voci con regola) 3) perché (facoltativo). Categoria dal foglio Voci guasto. */
-const INTERVENTI = [['REGOLAZIONE', 'spostato o registrato (nonio, guida, parametro)'], ['SOSTITUZIONE', 'pezzo nuovo montato · codice obbligatorio'],
-  ['RIPRISTINO', 'reset, riavvio, sblocco, homing: niente regolato né cambiato'], ['PULIZIA', 'pulito, tolto residui o inceppamenti']];
-const CAUSE = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
-const intNorm = v => { const u = U(v); return u === 'RIAVVIO' ? 'RIPRISTINO' : INTERVENTI.some(x => x[0] === u) ? u : null; };
+// Le liste stanno nel foglio Liste (colonne Tipo intervento, Tipo intervento · spiegazione, Causa); queste valgono finché il foglio non le ha
+const INT_DEF = { REGOLAZIONE: 'spostato o registrato (nonio, guida, parametro)', SOSTITUZIONE: 'pezzo nuovo montato · codice obbligatorio',
+  RIPRISTINO: 'reset, riavvio, sblocco, homing: niente regolato né cambiato', PULIZIA: 'pulito, tolto residui o inceppamenti' };
+const CAUSE_DEF = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
+const interventi = () => { const l = (S.liste['Tipo intervento'] || []).map(U).filter(x => x && x !== 'ALTRO' && x !== 'RIAVVIO'); const d = S.intDesc || {};
+  return (l.length && Object.keys(d).length ? l : Object.keys(INT_DEF)).map(v => [v, d[v] || INT_DEF[v] || '']); };
+const causeL = () => (S.liste['Causa'] || []).length ? S.liste['Causa'] : CAUSE_DEF;
+const intNorm = v => { const u = U(v); return u === 'RIAVVIO' ? 'RIPRISTINO' : interventi().some(x => x[0] === u) ? u : null; };
 const catDi = g => g && U(g) !== 'ALTRO' ? (S.vociCat || {})[U(g)] || null : null;
-const intChips = sel => INTERVENTI.map(([v, d]) => `<button class="chip" type="button" data-v="${v}" aria-pressed="${intNorm(sel) === v}">${v}<small>${d}</small></button>`).join('');
+const intChips = sel => interventi().map(([v, d]) => `<button class="chip" type="button" data-v="${v}" aria-pressed="${intNorm(sel) === v}">${v}<small>${d}</small></button>`).join('');
 // L'intervento usato più spesso per questo guasto su questa macchina (almeno 2 volte): viene proposto già scelto
 function intProposto(code, g) {
   const c = {}; allFermi().forEach(f => { if (f.code === code && f.stato === 'CHIUSO' && U(f.guasto) === U(g)) { const i = intNorm(f.int); if (i) c[i] = (c[i] || 0) + 1; } });
@@ -1731,7 +1736,7 @@ function closeSheet(f, opt = {}) {
     <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Cosa si è guastato <i class="lockhint" style="display:inline">· il componente / la zona</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="catbox"></div><div id="solsug"></div></div>
     <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Cosa hai fatto <span class="prop" id="iprop"></span><i class="lockhint">· scegli prima cosa si è guastato</i></span><div class="chips ich2" id="int">${intChips(null)}</div>
       <div id="pzgrp" hidden style="margin-top:10px"><label class="label" for="pezzo">Codice pezzo montato · obbligatorio</label><input class="field" id="pezzo" autocomplete="off" placeholder="Codice del ricambio montato"></div></div>
-    <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Perché <i class="lockhint" style="display:inline">· facoltativo, se lo sai</i></span><div class="chips" id="cau">${chips(CAUSE)}</div></div>
+    <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Perché <i class="lockhint" style="display:inline">· facoltativo, se lo sai</i></span><div class="chips" id="cau">${chips(causeL())}</div></div>
     <div class="group" id="phgrp"></div>
     <div class="step locked" id="st4">
       <div class="group"><label class="label" for="altro"><em class="stepn">4</em>Descrizione breve · obbligatoria <i class="lockhint">· scegli prima cosa hai fatto</i></label><textarea class="field" id="altro" placeholder="Cosa hai trovato e cosa hai fatto (anche corta). Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea>
@@ -1830,7 +1835,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   S.cacheOk = !!(c && c.liste);
-  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.fermi = c.fermi || [];
+  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.intDesc = c.intDesc || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
