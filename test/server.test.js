@@ -284,4 +284,30 @@ console.log('\nRicodifica dei fermi vecchi');
   ok(F('C')[C.CAT - 1] === 'AUTOMATION' && by('A')[14] && by('A')[14] !== 'nessuna modifica', 'categoria dalla voce (CAM. OMRON → AUTOMATION); colonna Applicato compilata');
 }
 
+
+console.log('\nKPI: per causa, per intervento, micro-fermi, MTBF stimato, guasti cronici');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C, DD = ctx.DD, oggi = new DD(); oggi.setHours(0, 0, 0, 0);
+  const riga = (gg, min, gua, int, linea) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new DD(oggi.getTime() - gg * 864e5 + 10 * 3600e3);
+    Object.assign(r, { [C.STATO - 1]: 'CHIUSO', [C.DATA - 1]: new DD(a.getFullYear(), a.getMonth(), a.getDate()), [C.INIZIO - 1]: a, [C.FINE - 1]: new DD(a.getTime() + min * 60000),
+      [C.GUASTO - 1]: gua, [C.INT - 1]: int, [C.LINEA - 1]: linea || 'ST3', [C.MACC - 1]: 'ASTUCCIATRICE', [C.EQ - 1]: 'ST3-04', [C.LOTTO - 1]: '601095' }); return r; };
+  const vals = [riga(1, 60, 'CHIUSURE AST', 'SOSTITUZIONE'), riga(2, 30, 'CHIUSURE AST', 'REGOLAZIONE'), riga(3, 1, 'GUIDE', 'RIAVVIO'), riga(3, 2, 'GUIDE', 'REGOLAZIONE')];
+  const f = { from: new DD(oggi.getTime() - 29 * 864e5), toEnd: new DD(oggi.getTime() + 864e5), linea: 'TUTTE', area: '', aree: {}, code: '', ore: 100, cause: ['USURA', '', 'USURA', 'MATERIALE FUORI SPEC.'] };
+  const k = ctx.calcolaKpi_(vals, f);
+  ok(k.n === 4 && k.micro === 2 && Math.abs(k.mttr * 1440 - 45) < 0.01, 'micro-fermi (< 3 min) contati a parte: MTTR = media dei fermi veri (45 min)');
+  ok(k.perCausa[0][0] === 'USURA' && k.perCausa[0][1] === 2 && k.perCausa[k.perCausa.length - 1][0] === '(non indicata)', 'tabella per causa: USURA in cima, "non indicata" in fondo');
+  ok(k.perInt.some(r => r[0] === 'RIPRISTINO' && r[1] === 1) && k.mtbf === 25, 'per intervento (RIAVVIO conta come RIPRISTINO); MTBF = ore / n° fermi');
+  // stima ore dal Programma
+  const d = n => new DD(oggi.getTime() - n * 864e5);
+  sheets.Equipment.rows = [['Codice', 'Linea', 'Area', 'Macchina', 'Attivo'], ['ST3-04', 'ST3', 'Packaging', 'AST', 'SI'], ['SPL1-01', 'SPL1', 'Packaging', 'X', 'SI']];
+  sheets.Programma = new Sheet('Programma', [['x'], ['y'], ['', d(9), d(8), d(7), d(6), d(5), d(4), d(3), d(2), d(1), oggi, d(-1)], ['st3 rip', '601095', '', '601096', '', '', '', '', '', '601097', '', '601098'], ['spl1', '', '601001']]);
+  const st = ctx.oreStimate_(ctx.SpreadsheetApp.getActiveSpreadsheet(), { from: d(29), toEnd: new DD(oggi.getTime() + 864e5) }, 'PACKAGING', 'TUTTE');
+  ok(st.giorni === 4 && st.ore === 96 && st.linee === 2, 'ore stimate: giorni con lotti fino a oggi (domani escluso) × 24 h, su tutte le linee dell\'area');
+  // guasti cronici
+  const f2 = (gg, min, gua) => ({ a: new DD(oggi.getTime() - gg * 864e5), b: new DD(oggi.getTime() - gg * 864e5 + min * 60000), guasto: gua, linea: 'ST3', macc: 'AST' });
+  const tutti = [f2(3, 60, 'H7'), f2(10, 60, 'H7'), f2(40, 20, 'H7'), f2(5, 30, 'GUIDE'), f2(6, 30, 'GUIDE'), f2(35, 90, 'GUIDE'), f2(4, 200, 'ALTRO'), f2(4, 200, 'ALTRO')];
+  const rr = ctx.croniciRighe_(tutti, oggi, (l, m) => m);
+  ok(rr.length === 4 && /H7 · ST3 AST ×2 · 2h ▲ \+1h 40/.test(rr[2]) && /GUIDE.*×2 · 1h ▼ −30/.test(rr[3]) && !rr.join().includes('ALTRO'), 'guasti cronici: ore delle ultime 4 settimane con tendenza (▲/▼), ALTRO escluso');
+}
+
 fine('Script');
