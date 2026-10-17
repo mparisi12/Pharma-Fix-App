@@ -122,6 +122,15 @@ let ver = 1, full = 0, same = 0; const posts = [];
   await p.evaluate(() => window.dispatchEvent(new Event('online'))); await attesa(800);
   ok(/Sincronizzato/.test(await p.innerText('#sync')), 'rete tornata: si riconnette subito');
 
+  console.log('\nTocco sulla scritta in alto: aggiorna subito');
+  await ctx.unroute(/script\.google\.com/); let get = 0;
+  D.fermi.unshift({ id: 'F-ALTRO', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '123456', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' });
+  await ctx.route(/script\.google\.com/, r => { get++; r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, ver: 'NUOVA' }) }); });
+  await p.evaluate(() => go('home')); await attesa(200);
+  await p.click('#sync'); await attesa(800);
+  ok(get >= 1 && /fermi? apert/.test(await p.innerText('body')), 'tocco sul pallino: dati richiesti subito e conteggio dei fermi aperti');
+  ok(/BIANCHI/.test(await p.innerText('#view')), 'il fermo aperto dal collega compare subito nella home');
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -92,6 +92,8 @@ Nel menu del nome, **Le mie abilitazioni** mostra la tua **vestizione** (accesso
 
 ## 6. Il pallino in alto
 
+L'app si aggiorna da sola ogni minuto. Vuoi vedere **subito** se un collega ha aperto un fermo? **Tocca la scritta in alto** (quella col pallino e la freccia ↻): si aggiorna in quel momento e ti dice quanti fermi sono aperti.
+
 | Pallino | Cosa fare |
 |---|---|
 | 🟢 Sincronizzato | Niente, è tutto arrivato |
