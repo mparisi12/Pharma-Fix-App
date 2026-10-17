@@ -42,6 +42,7 @@ header.top{display:flex;align-items:center;gap:10px;padding-block:26px 6px} /* p
 .brand small{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);margin-top:3px;text-transform:none}
 .manbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:7px 12px;font-size:13px;font-weight:500;max-width:48%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sync{display:flex;align-items:center;gap:6px;font:500 11px var(--mono);color:var(--muted);margin-bottom:8px}
+.sync{cursor:pointer;-webkit-tap-highlight-color:transparent}.sync .rf{opacity:.7}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
 .dot.warn{background:var(--amber)}.dot.off{background:var(--crit)}.dot.demo{background:var(--muted)}
 .updbar{display:block;width:100%;border:0;border-radius:var(--r);background:var(--steel);color:var(--steel-ink);font:600 14px var(--body);padding:12px;margin-block:6px;text-align:center}
@@ -834,7 +835,7 @@ function renderSync() {
     cls += ' off'; txt = 'Non connesso' + (min >= 1 ? ' da ' + min + ' min' : '') + (S.lastSync ? ' · dati delle ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : '') + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
   else if (n) { cls += ' warn'; txt = 'Invio in corso · ' + n + ' in coda'; }
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
-  $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
+  $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>${MOCK ? '' : '<span class="rf" aria-hidden="true">↻</span>'}`;
 }
 function renderHeader() { const n = S.man ? kAperti(mieiCompiti().filter(kMio)).length + (vestDaVedere() ? 1 : 0) : 0; $('#manbtn').innerHTML = `<span class="nm">${esc(S.man || '—')}</span>${n ? `<span class="kpill" aria-label="${n} compiti da fare">${n}</span>` : ''}`; }
 const topline = (title, sub, back) => `<div class="topline"><button class="back" data-back="${esc(back || 'home')}" aria-label="Indietro">${I.back}</button>
@@ -1806,6 +1807,13 @@ async function checkUpdate() {
   checkUpdate();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { K_DOPO = false; rinnovaSess(); sync(); checkUpdate(); setTimeout(avvisoCompiti, 300); } });
   window.addEventListener('online', () => { NET_KO = 0; sync(); }); // rete tornata: riprovo subito
+  // Tocco sulla scritta in alto: aggiorna subito i fermi (senza aspettare il controllo del minuto)
+  $('#sync').onclick = async () => {
+    if (MOCK || syncing || !getPin()) return;
+    $('#sync').innerHTML = '<span class="dot warn"></span><span>Aggiorno…</span>';
+    NET_KO = 0; await sync(); renderSync();
+    if (S.net === 'ok') { const n = allFermi().filter(f => f.stato === 'APERTO').length; toast('Aggiornato · ' + (n ? n + (n === 1 ? ' fermo aperto' : ' fermi aperti') : 'nessun fermo aperto'), 2200); }
+  };
   setInterval(() => { if (S.net === 'off') renderSync(); }, 30000); // aggiorna "da N min"
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
