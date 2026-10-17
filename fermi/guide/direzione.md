@@ -18,7 +18,7 @@
 | **N° fermi** | Quante volte si è fermata la macchina/linea | Scende |
 | **Tempo di fermo** | Ore perse per guasti | Scende |
 | **MTTR** | Tempo medio per rimettere in marcia (tempo di fermo ÷ n° fermi): misura la **rapidità della manutenzione** | Scende |
-| **MTBF** | Ore di funzionamento medie tra un fermo e l'altro: misura l'**affidabilità della macchina**. Le ore di funzionamento vengono dai dati di produzione | Sale |
+| **MTBF** | Ore di funzionamento medie tra un fermo e l'altro: misura l'**affidabilità della macchina**. Le ore sono quelle di produzione, oppure una stima dal programma (giorni con lotti × 24 h) | Sale |
 | **Occurrancy** | Fermi per lotto (n° fermi ÷ n° lotti): confronta periodi con produzioni diverse | Scende |
 | **RFR** | Peso di un guasto sul totale (fermi di quel guasto ÷ tutti i fermi): dice **dove intervenire** | Il guasto n°1 scende |
 
