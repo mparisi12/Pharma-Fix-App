@@ -226,6 +226,8 @@ function onOpen() {
     .addItem('Alleggerisci foglio Programma (colonne vuote)', 'alleggerisciProgramma')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
+    .addItem('Ricodifica fermi vecchi: prepara', 'ricodificaPrepara')
+    .addItem('Ricodifica fermi vecchi: applica', 'ricodificaApplica')
     .addItem('Sistema lotti (zeri iniziali)', 'sistemaLotti')
     .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
     .addItem('Aggiorna elenchi foglio Documenti', 'aggiornaElenchiDocumenti')
@@ -2151,7 +2153,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 16:00';
+const VERSIONE_SCRIPT = '17/10/2026 19:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2593,3 +2595,124 @@ function modificaFermo_(p) {
   fsh.getRange(r, C.ALTRO).setNote('Corretto da ' + io + ' il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM HH:mm') + ': ' + diff.join('; '));
   return {};
 }
+
+/* ---------- Ricodifica dei fermi registrati prima della nuova classificazione ----------
+   "prepara" crea il foglio Ricodifica: una riga per fermo chiuso, con la proposta (dal guasto vecchio e dalla descrizione)
+   per Cosa si è guastato / Cosa hai fatto / Perché. Il responsabile controlla e corregge; "applica" scrive nel foglio Fermi
+   per ID (categoria dal foglio Voci guasto). Una voce scritta a mano che la macchina non ha viene aggiunta al foglio Guasti. */
+const SH_RIC = 'Ricodifica';
+const RIC_H = ['ID fermo', 'Data', 'Linea', 'Codice', 'Macchina', 'Descrizione', 'Prima: categoria', 'Prima: intervento', 'Prima: guasto', 'Prima: pezzo',
+  'Cosa si è guastato', 'Cosa hai fatto', 'Perché', 'Codice pezzo', 'Applicato'];
+const listaLi_ = (ss, nome, def) => { const v = listeVal_(ss), c = v[0].findIndex(h => String(h).trim().toUpperCase() === nome.toUpperCase());
+  const l = c < 0 ? [] : v.slice(1).map(r => String(r[c]).trim()).filter(Boolean); return l.length ? l : def; };
+const normT_ = t => String(t || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function propostaRicod_(f, voci, interv, cause) {
+  const d = normT_(f.altro), g0 = String(f.guasto || '').trim(), G0 = g0.toUpperCase(), i0 = String(f.int || '').trim().toUpperCase();
+  // cosa hai fatto
+  let int = i0 === 'RIAVVIO' ? 'RIPRISTINO' : interv.indexOf(i0) >= 0 ? i0 : '';
+  if (!int || /HOMING/.test(G0)) {
+    if (/HOMING|RESET|RIAVVI|SBLOCC|RIARM/.test(d + ' ' + G0)) int = 'RIPRISTINO';
+    else if (!int && (String(f.pezzo || '').trim() || /SOSTITU|\bSOST\b|CAMBIAT|MONTAT/.test(d))) int = 'SOSTITUZIONE';
+    else if (!int && /PULIT|PULIZI/.test(d)) int = 'PULIZIA';
+    else if (!int && /REGOL|SPOSTAT|REGISTRAT|ALLINEAT|FASAT|CENTRAT|PORTAT|ABBASSAT|ALZAT/.test(d)) int = 'REGOLAZIONE';
+  }
+  if (interv.indexOf(int) < 0) int = '';
+  // cosa si è guastato: il guasto vecchio se è una voce della macchina, altrimenti la voce con più parole in comune con la descrizione
+  let gua = voci.find(v => v.toUpperCase() === G0 && G0 !== 'ALTRO' && NON_VOCI.indexOf(G0) < 0) || '';
+  if (!gua && d) {
+    let best = 0;
+    voci.forEach(v => { if (v.toUpperCase() === 'ALTRO') return;
+      const w = normT_(v).split(/[^A-Z]+/).filter(x => x.length >= 4 && ['CAMBIO', 'REGOLAZIONE', 'SOSTITUZIONE', 'ZONA'].indexOf(x) < 0);
+      const n = w.filter(x => d.indexOf(x.slice(0, Math.max(5, x.length - 2))) >= 0).length;
+      if (n > best) { best = n; gua = v; } });
+  }
+  // perché
+  let cau = '';
+  if (G0 === 'USURA' || /USURAT|CONSUMAT|ROTT|SPACCAT|LOGOR|SCOLLAT/.test(d)) cau = 'USURA';
+  else if (G0 === 'SPIKE CORRENTE' || /SPIKE|TENSIONE|CORRENTE|ALIMENTAZ|BLACKOUT/.test(d)) cau = 'ELETTRICA / ALIMENTAZIONE';
+  else if (G0 === 'FORMATO' || /CAMBIO FORMATO|FORMATO/.test(d)) cau = 'FORMATO / REGOLAZIONE PERSA';
+  else if (/MATERIALE|DIFETTOS|FUORI SPEC|MAL FORMAT|NON CONFORM/.test(d)) cau = 'MATERIALE FUORI SPEC.';
+  else if (/OPERATOR/.test(d)) cau = 'ERRORE OPERATORE';
+  if (cause.indexOf(cau) < 0) cau = '';
+  // codice pezzo: se è una sostituzione senza codice, il primo numero lungo nella descrizione
+  let pz = String(f.pezzo || '').trim();
+  if (!pz && int === 'SOSTITUZIONE') { const m = String(f.altro || '').match(/\b\d{5,}\b/); if (m) pz = m[0]; }
+  return { gua: gua, int: int, cau: cau, pz: pz };
+}
+function ricodificaPrepara() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try { classificazione_(ss); } catch (e) { Logger.log(e); }
+  const sh = ss.getSheetByName(SH_FERMI), last = sh.getLastRow(); if (last < 2) return;
+  const g = guasti_(ss), eq = equipment_(ss), interv = listaLi_(ss, 'Tipo intervento', INTERVENTI), cause = listaLi_(ss, 'Causa', CAUSE);
+  const v = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
+  const cauOld = sh.getMaxColumns() >= C.CAUSA ? sh.getRange(2, C.CAUSA, last - 1, 1).getValues() : [];
+  const righe = [], voceDi = [], stato = [];
+  v.forEach((r, i) => {
+    if (!r[C.ID - 1] || String(r[C.STATO - 1]) !== 'CHIUSO') return;
+    const code = String(r[C.EQ - 1] || '').trim(), e = eq.find(x => x.code === code) || {};
+    const voci = [...new Set([...(g[code.toUpperCase()] || []), ...(g[String(r[C.LINEA - 1]).toUpperCase()] || []), ...(g.TUTTE || [])])].filter(x => NON_VOCI.indexOf(String(x).toUpperCase()) < 0);
+    const f = { altro: r[C.ALTRO - 1], guasto: r[C.GUASTO - 1], int: r[C.INT - 1], pezzo: r[C.PEZZO - 1] };
+    const pr = propostaRicod_(f, voci, interv, cause);
+    if (String((cauOld[i] || [])[0] || '').trim()) pr.cau = String(cauOld[i][0]).trim();
+    righe.push([r[C.ID - 1], r[C.INIZIO - 1] instanceof Date ? r[C.INIZIO - 1] : r[C.DATA - 1], r[C.LINEA - 1], code, e.macchina || r[C.MACC - 1], String(r[C.ALTRO - 1] || ''),
+      r[C.CAT - 1], r[C.INT - 1], r[C.GUASTO - 1], r[C.PEZZO - 1], pr.gua, pr.int, pr.cau, pr.pz, '']);
+    voceDi.push(voci.length ? voci : ['ALTRO']);
+    stato.push([pr.gua ? (String(pr.gua).toUpperCase() === String(f.guasto).trim().toUpperCase() ? 'ok' : 'new') : 'no', pr.int ? (pr.int === String(f.int).toUpperCase() ? 'ok' : 'new') : 'no', pr.cau ? 'new' : '']);
+  });
+  let r = ss.getSheetByName(SH_RIC); if (r) r.clear(); else r = ss.insertSheet(SH_RIC);
+  r.getRange(1, 1, 1, RIC_H.length).setValues([RIC_H]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+  r.getRange(1, 11, 1, 4).setBackground('#cfe2f3');
+  r.setFrozenRows(1); r.setColumnWidth(6, 360); [11, 12, 13].forEach(c => r.setColumnWidth(c, 190));
+  if (!righe.length) return;
+  r.getRange(2, 1, righe.length, RIC_H.length).setValues(righe);
+  r.getRange(2, 2, righe.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  r.getRange(2, 14, righe.length, 1).setNumberFormat('@');
+  const col = { ok: '#ffffff', new: '#fff2cc', no: '#f4cccc', '': '#ffffff' };
+  r.getRange(2, 11, righe.length, 3).setBackgrounds(stato.map(x => x.map(k => col[k])));
+  r.getRange(2, 11, righe.length, 1).setDataValidations(voceDi.map(l => [SpreadsheetApp.newDataValidation().requireValueInList(l.slice(0, 500), true).setAllowInvalid(true).setHelpText('Voci di questa macchina. Puoi scriverne una nuova: verrà aggiunta al foglio Guasti.').build()]));
+  r.getRange(2, 12, righe.length, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(interv, true).setAllowInvalid(false).build());
+  r.getRange(2, 13, righe.length, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(cause, true).setAllowInvalid(false).build());
+  r.getRange(1, 17).setValue('Bianco = invariato · giallo = proposta da controllare · rosso = da compilare. Poi menu Pharma-Fix → Ricodifica fermi vecchi: applica. Le celle vuote non cambiano il foglio Fermi.').setWrap(true).setFontStyle('italic');
+  r.setColumnWidth(17, 360);
+  ss.setActiveSheet(r);
+  const n = k => stato.filter(x => x.indexOf(k) >= 0).length;
+  ss.toast(righe.length + ' fermi · ' + n('new') + ' con proposte da controllare (giallo) · ' + n('no') + ' da compilare (rosso).', 'Pharma-Fix', 10);
+}
+function ricodificaApplica() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), r = ss.getSheetByName(SH_RIC);
+  if (!r || r.getLastRow() < 2) { ss.toast('Prima: menu Pharma-Fix → Ricodifica fermi vecchi: prepara', 'Pharma-Fix', 8); return; }
+  const v = r.getRange(2, 1, r.getLastRow() - 1, RIC_H.length).getValues(), fsh = ss.getSheetByName(SH_FERMI);
+  // voci nuove scritte a mano → foglio Guasti, riga della macchina
+  const gsh = ss.getSheetByName(SH_GUASTI), g = guasti_(ss);
+  v.forEach(x => { const code = String(x[3]).trim().toUpperCase(), voce = String(x[10]).trim(); if (!voce || !code || !gsh) return;
+    const tutte = [...(g[code] || []), ...(g[String(x[2]).toUpperCase()] || []), ...(g.TUTTE || [])].map(y => String(y).toUpperCase());
+    if (tutte.indexOf(voce.toUpperCase()) >= 0) return;
+    const gv = gsh.getDataRange().getValues(); let i = gv.findIndex(y => String(y[0]).trim().toUpperCase() === code);
+    if (i < 0) { gsh.appendRow([code, String(x[4] || '')]); i = gsh.getLastRow() - 1; }
+    const riga = gsh.getRange(i + 1, 1, 1, gsh.getMaxColumns()).getValues()[0]; let c = riga.length; while (c > 2 && !String(riga[c - 1]).trim()) c--;
+    if (c + 1 > gsh.getMaxColumns()) gsh.insertColumnsAfter(gsh.getMaxColumns(), 5);
+    gsh.getRange(i + 1, c + 1).setValue(voce); (g[code] = g[code] || []).push(voce);
+  });
+  VOCI_MEMO = null; vociSync_(ss); const vc = vociCat_(ss);
+  causaCol_(fsh);
+  const quando = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
+  let n = 0;
+  v.forEach((x, k) => {
+    if (String(x[14]).trim()) return; // già applicato
+    const voce = String(x[10]).trim(), int = String(x[11]).trim(), cau = String(x[12]).trim(), pz = String(x[13]).trim();
+    if (!voce && !int && !cau && !pz) return;
+    const row = findRow_(fsh, x[0]); if (!row) return;
+    const cur = fsh.getRange(row, C.CAT, 1, 3).getValues()[0], diff = [];
+    const set = (col, nome, val, prima) => { if (val && String(prima).trim() !== val) { fsh.getRange(row, col).setValue(val); diff.push(nome + ': ' + (String(prima).trim() || '—') + ' → ' + val); } };
+    set(C.GUASTO, 'guasto', voce, cur[2]);
+    if (voce && vc[voce.toUpperCase()]) set(C.CAT, 'categoria', vc[voce.toUpperCase()], cur[0]);
+    set(C.INT, 'intervento', int, cur[1]);
+    set(C.CAUSA, 'causa', cau, fsh.getRange(row, C.CAUSA).getValue());
+    if (pz && !String(fsh.getRange(row, C.PEZZO).getValue()).trim()) set(C.PEZZO, 'pezzo', pz, '');
+    if (diff.length) { fsh.getRange(row, C.GUASTO).setNote('Ricodificato il ' + quando + ': ' + diff.join('; ')); n++; }
+    r.getRange(k + 2, 15).setValue(diff.length ? quando : 'nessuna modifica');
+  });
+  bumpVer_(); try { aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
+  ss.toast(n + ' fermi ricodificati nel foglio Fermi (nota sulla cella del guasto). Colonna Applicato compilata.', 'Pharma-Fix', 10);
+}
+
