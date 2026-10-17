@@ -219,6 +219,8 @@ Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
 - I coordinatori, nello stesso menu, hanno anche **Compiti del reparto** e **Stampa etichette QR** (vedi 5.13).
 
 ### Il pallino in alto
+I dati si aggiornano da soli ogni minuto (e subito quando si rientra nell'app). **Toccando la scritta in alto** (↻) si aggiornano in quel momento: compare *Aggiornato · N fermi aperti*.
+
 | Pallino | Significa |
 |---|---|
 | 🟢 Sincronizzato | Tutto è arrivato nel foglio. |
