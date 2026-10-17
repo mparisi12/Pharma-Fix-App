@@ -2049,7 +2049,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 09:00';
+const VERSIONE_SCRIPT = '17/10/2026 10:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2313,6 +2313,11 @@ function turniSheet_(ss) {
       .setFontStyle('italic').setFontColor('#4d5b66');
   } catch (e) { Logger.log(e); } finally { try { lock.releaseLock(); } catch (e) {} }
 }
+// Una cella turno scritta "3/1" (fa il 3, era nell'1) Fogli la trasforma in data (3 gennaio): la rileggo come "3 1"
+function codCella_(v) {
+  if (v instanceof Date) { const g = Number(Utilities.formatDate(v, TZ, 'd')), m = Number(Utilities.formatDate(v, TZ, 'M')); return g + ' ' + m; }
+  return String(v).trim().toUpperCase().replace(/[\/\\-]/g, ' ').replace(/\s+/g, ' ');
+}
 // Tutti i turni letti: { NOME: { 'yyyy-MM-dd': '3 1' } }
 function turniTutti_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
@@ -2331,7 +2336,7 @@ function turniTutti_(ss) {
       const nome = String(r[0] || '').trim().replace(/\s+/g, ' ');
       if (!date || !nome) return;
       const p = out[nome] = out[nome] || {};
-      r.slice(1).forEach((v, i) => { if (date[i] && v !== '' && v != null) p[key(date[i])] = String(v).trim().toUpperCase().replace(/\s+/g, ' '); });
+      r.slice(1).forEach((v, i) => { if (date[i] && v !== '' && v != null) p[key(date[i])] = codCella_(v); });
     });
   });
   return out;
