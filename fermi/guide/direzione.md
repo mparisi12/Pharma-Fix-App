@@ -22,6 +22,10 @@
 | **Occurrancy** | Fermi per lotto (n° fermi ÷ n° lotti): confronta periodi con produzioni diverse | Scende |
 | **RFR** | Peso di un guasto sul totale (fermi di quel guasto ÷ tutti i fermi): dice **dove intervenire** | Il guasto n°1 scende |
 
+## Indicatori per le persone (KPI Risorse)
+
+Il foglio **KPI Risorse** confronta i tecnici con il reparto (MTTR relativo allo stesso guasto sulla stessa macchina, interventi per turno, guasti che tornano entro 24 ore, qualità delle registrazioni) e mostra una **matrice competenze per linea**. Serve al responsabile per decidere **affiancamenti e formazione** e per vedere le linee che conosce bene una sola persona. Non è una classifica: prima di usarlo per valutare le persone va sentito l'HR (art. 4 Statuto dei Lavoratori), e i tecnici non vedono i numeri dei colleghi.
+
 ## I due Pareto
 
 - **Per frequenza**: i guasti che capitano più spesso. Riducono le interruzioni e il lavoro dei tecnici.

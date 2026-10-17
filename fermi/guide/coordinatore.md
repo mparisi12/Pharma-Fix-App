@@ -1,6 +1,6 @@
 # Pharma-Fix — Guida per il coordinatore
 
-Il coordinatore usa l'app come i tecnici (vedi la *Guida per il tecnico*) e in più **tiene d'occhio il reparto**: riceve gli avvisi, segue le anomalie, controlla che i fermi siano registrati bene. Gli strumenti sono due: il **gruppo Telegram** e la sezione **Anomalie** dell'app.
+Il coordinatore usa l'app come i tecnici (vedi la *Guida per il tecnico*): può ricevere compiti e ha le sue scadenze di vestizione e convalide. In più **tiene d'occhio il reparto**: riceve gli avvisi, segue le anomalie, controlla che i fermi siano registrati bene. Gli strumenti sono due: il **gruppo Telegram** e la sezione **Anomalie** dell'app.
 
 ## 1. Cosa ti arriva su Telegram e cosa fare
 
@@ -9,7 +9,7 @@ Il coordinatore usa l'app come i tecnici (vedi la *Guida per il tecnico*) e in p
 | 🔴 **Anomalia CRITICA** | Appena un tecnico segnala un'anomalia con urgenza 1 | Valuta subito: serve fermare la linea, chiamare un fornitore, ordinare un ricambio? Prendila in carico dall'app |
 | ⏱️ **Fermo APERTO DA…** | Un fermo resta aperto oltre le ore impostate (es. 2) | È un fermo lungo o qualcuno si è dimenticato di chiuderlo. Chiama il tecnico: se ha finito, lo chiude dall'app |
 | 🔁 **Guasto RIPETUTO** | Lo stesso guasto sulla stessa macchina si ripete (es. 3 volte in 7 giorni) | Non è più un caso: serve una soluzione vera (regolazione, ricambio, preventiva). Parlane con il responsabile |
-| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra: ore di fermo per reparto (linea), divise in Filling e Packaging (senza totali tra linee diverse), i 3 fermi più lunghi, anomalie. È scritto **dai dati registrati**: in **Da sistemare** trovi i fermi lasciati aperti, quelli senza descrizione e quelli di Packaging **registrati dopo** (non aperti col QR), con il nome; chiedi al tecnico di completare |
+| 🔔 **Passaggio turno** | A fine di ogni turno (6, 14, 22) | Leggilo con chi entra: ore di fermo per reparto (linea), divise in Filling e Packaging (senza totali tra linee diverse), i 3 fermi più lunghi, quante anomalie nuove e quante da gestire (il dettaglio è nell'app). È scritto **dai dati registrati**: in **Da sistemare** trovi i fermi lasciati aperti, quelli senza descrizione e quelli di Packaging **registrati dopo** (non aperti col QR), con il nome; chiedi al tecnico di completare |
 | 🔔 **Riepilogo settimanale** | Lunedì alle 7 | Settimana separata **Packaging** e **Filling**: fermi, ore e confronto con la settimana prima, MTTR, ore di tutte le linee, guasti che si ripetono, fermi più lunghi, anomalie e compiti |
 
 Su ST3, finché è a ciclo continuo, il passaggio di turno arriva anche sabato e domenica (solo con i dati di ST3).
@@ -44,10 +44,10 @@ Se una soluzione già approvata è sbagliata o superata, segnalalo al responsabi
 ## 5. Compiti: assegnarli e seguirli
 
 Tocca il **tuo nome** in alto → **Compiti del reparto** → **+ Assegna un compito**:
-- **A chi**: un tecnico, oppure **Turno T1 / T2 / T3** (lo vede chi è in turno; il primo che tocca *Lo prendo io* ne diventa responsabile).
+- **A chi**: un tecnico o un coordinatore, oppure **Turno T1 / T2 / T3** (lo vede chi è in turno; il primo che tocca *Lo prendo io* ne diventa responsabile).
 - **Titolo**, **cosa fare**, **macchina** (facoltativa), **priorità** (normale / urgente), **entro il**.
 
-Il tecnico vede il numero rosso sul suo nome. In **Compiti del reparto** trovi gli aperti (in rosso quelli in ritardo), i fatti, il riepilogo **per persona** e lo storico (tocca un nome per vedere solo i suoi).
+Il tecnico vede il numero rosso sul suo nome e, al primo ingresso nell'app, la finestra **Hai un nuovo compito!**. In **Compiti del reparto** trovi gli aperti (in rosso quelli in ritardo), i fatti, il riepilogo **per persona** e lo storico (tocca un nome per vedere solo i suoi).
 - **Annullare** un compito che non serve più o **riaprirne** uno fatto male: dal dettaglio, con il **motivo** (obbligatorio, resta scritto).
 - Tutto resta nel foglio **Compiti**: chi l'ha assegnato, preso in carico e fatto, quando, con la nota. Nulla si cancella.
 - I compiti non compaiono nel passaggio di turno: il dettaglio (anche chi è in ritardo) è nel foglio Compiti e in *Compiti del reparto*; il lunedì il riepilogo ne riporta i numeri.
@@ -60,8 +60,11 @@ Dal menu del nome, **Programma produzione**: tutte le linee oggi, domani e dopod
 ### Turni
 **Chi c'è** (menu del nome) mostra chi è in turno oggi, domani e dopodomani e chi è assente. Il passaggio di turno inizia con *In turno: …*. I compiti assegnati a un turno li vede chi quel giorno è davvero in quel turno (foglio Turni, aggiornato dal responsabile ogni mese).
 
-### Vestizioni
-Nel menu del tuo nome, **Vestizioni del reparto**: tutti i tecnici ordinati per scadenza della vestizione sterile (scadute, in scadenza nei prossimi 60 giorni, valide) e chi non ha ancora una data. Le date le aggiorna il responsabile nel foglio Vestizioni. Il lunedì il riepilogo riporta chi è in scadenza o scaduto.
+### Scadenze del reparto (vestizioni e convalide GMP)
+Nel menu del tuo nome, **Scadenze del reparto**: una riga per persona con la vestizione sterile e le convalide GMP per categoria (G, H…), i più urgenti in alto. Filtri **Da rinnovare** e **Scadute**; tocca un nome per il dettaglio.
+- **MANCA** = la persona lavora in sterile ma quella convalida non è nello scadenziario: vale come scaduta, gli interventi di quella categoria li fa un collega abilitato.
+- Chi non lavora in sterile (*Area sterile = NO* nel foglio Vestizioni) non compare.
+- Le date le aggiorna il responsabile (foglio Vestizioni e scadenziario nel foglio Convalide). Il lunedì il riepilogo riporta chi è in scadenza o scaduto.
 
 ## 6. Telefoni dei tecnici
 

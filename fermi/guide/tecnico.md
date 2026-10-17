@@ -11,6 +11,8 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 3. Apri l'app dall'icona, scrivi **Nome** e **Cognome** e il **Codice reparto** che ti dà il responsabile della manutenzione.
 4. Alla prima scansione consenti l'uso della **fotocamera**.
 
+**iPhone:** apri Pharma-Fix **sempre dall'icona sulla schermata Home** e per i QR usa il pulsante **QR dentro l'app**, non la fotocamera dell'iPhone. Aperta da Safari o da Chrome l'app non ricorda accesso e codice reparto (lo vedi dall'avviso giallo *Stai usando il browser, non l'app*). Dall'icona invece l'accesso resta: si rinnova a ogni apertura e si rifà solo dopo 30 giorni senza usarla.
+
 **Il tuo nome è legato al tuo telefono personale.** Usa sempre il tuo telefono e il tuo nome. Se cambi telefono, avvisa il coordinatore: il telefono nuovo va approvato prima di poter registrare.
 
 ## 2. Macchine PACKAGING: aprire e chiudere un fermo
@@ -22,10 +24,12 @@ Pharma-Fix è l'app per registrare i fermi macchina partendo dal **QR della macc
 4. **Apri fermo**: parte il cronometro. (*Non ora* chiude il riquadro e ti lascia sulla scheda della macchina.)
 
 ### Mentre lavori: "Cosa provare"
-Sotto il pulsante verde trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno. In fondo c'è **+ Aggiungi soluzione** (con il guasto già scelto) se trovi qualcosa di nuovo.
+Con il fermo aperto, in cima alla pagina della macchina c'è il grande pulsante verde **PREMI QUI PER CHIUDERE FERMO** con il cronometro. Sotto trovi **Cosa provare**: tocca il guasto che vedi e leggi le **soluzioni verificate** dei colleghi. Spesso il problema è già stato risolto da qualcuno.
+
+Conosci una soluzione nuova? In fondo alla pagina c'è il link **Conosci una soluzione per questa macchina? Aggiungila**. Attenzione: **aggiungere una soluzione non chiude il fermo**, il fermo si chiude solo dal pulsante verde.
 
 ### Chiudere (~30 secondi)
-1. **Scansiona di nuovo il QR** → pulsante verde **Chiudi fermo**. In alto vedi quando è stato aperto, da chi, la durata e il lotto.
+1. **Scansiona di nuovo il QR** → pulsante verde **PREMI QUI PER CHIUDERE FERMO** (oppure **Chiudi** sul fermo nella home). In alto vedi quando è stato aperto, da chi, la durata e il lotto.
    **Quando è ripartita?** **ADESSO**, oppure **SCEGLI ORARIO** se la macchina è ripartita prima e chiudi solo ora (l'orario viene segnato come dichiarato).
 2. Scegli in ordine **Categoria** → **Tipo intervento** → **Tipo guasto** (i guasti più frequenti di quella macchina sono in cima): ogni scelta sblocca la successiva.
 3. **Foto** della zona di intervento (consigliata) → **tocca la foto per cerchiare** il punto.
@@ -66,6 +70,8 @@ Tocca il **tuo nome** in alto a destra. Il **numero rosso** sul nome ti dice che
 
 ### I miei compiti
 Il coordinatore può assegnarti dei lavori (es. un inventario, una verifica, una pulizia). Il **numero rosso sul tuo nome**, in alto, dice quanti compiti hai da fare.
+
+Quando entri nell'app e c'è un compito nuovo per te compare al centro la finestra **Hai un nuovo compito!**: **Vedi il compito** lo apre, **Dopo** la chiude ma te la ripropone al prossimo ingresso finché non lo guardi.
 1. **I miei compiti**: quelli assegnati a te e quelli del **tuo turno** (secondo il foglio turni).
 2. Tocca un compito → **Prendo in carico** (per un compito del turno: **Lo prendo io**, così i colleghi sanno che è tuo).
 3. A lavoro finito scrivi una **nota** (cosa hai fatto; se serve, il riferimento al logbook) → **Fatto**.
@@ -78,8 +84,11 @@ Nella scheda della macchina vedi cosa è in produzione oggi su quella linea; apr
 ### Turni
 **I miei turni** (i prossimi 14 giorni, con i cambi turno) e **Chi c'è** (chi è in turno oggi, domani e dopodomani, chi è assente o in ferie).
 
-### Vestizione sterile
-Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel menu compare un avviso giallo (e il pallino rosso sul nome): prenota la riqualifica con il responsabile. Se è scaduta l'avviso è rosso: **non entrare in sterile** finché non è rinnovata.
+### Vestizione sterile e convalide GMP
+Nel menu del nome, **Le mie abilitazioni** mostra la tua **vestizione** (accesso all'area sterile) e le **convalide GMP** per categoria di intervento (es. Cat. G regolazione, Cat. H sostituzione componente), con la scadenza di ognuna.
+- **In scadenza** (da 60 giorni prima, o i giorni decisi dal responsabile): avviso giallo nel menu e pallino rosso sul nome. Prenota il rinnovo con il responsabile. Il pallino si spegne quando apri il menu e si riaccende a 14 giorni, a 7 giorni e alla scadenza.
+- **Scaduta**: avviso rosso. Vestizione scaduta = **non entrare in sterile**. Convalida scaduta (o *non trovata* nello scadenziario) = in sterile quegli interventi li fa un collega abilitato finché non è rinnovata.
+- Se non lavori in area sterile non vedi niente di tutto questo.
 
 ## 6. Il pallino in alto
 
@@ -87,7 +96,8 @@ Da 60 giorni prima della scadenza della tua vestizione per l'area sterile, nel m
 |---|---|
 | 🟢 Sincronizzato | Niente, è tutto arrivato |
 | 🟠 Invio in corso | Niente, parte da solo |
-| 🔴 Non connesso | **Continua a lavorare**: i dati restano sul telefono e partono quando torna la rete. Non disinstallare l'app |
+| 🟠 Il foglio risponde lentamente | Niente: lo script si sta svegliando, riprova da solo |
+| 🔴 Non connesso da N min · dati delle hh:mm | **Continua a lavorare**: i dati restano sul telefono e partono quando torna la rete (l'app riprova da sola). L'ora dice a quando risalgono i dati che vedi. Non disinstallare l'app |
 | 🔴 Telefono non autorizzato | Avvisa il coordinatore: deve approvare il tuo telefono. I dati restano in coda e partono dopo |
 
 ## 7. Cose da ricordare
