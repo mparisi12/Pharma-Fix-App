@@ -3,5 +3,5 @@
 // Il codice reparto NON sta qui: lo inserisce ogni tecnico al primo accesso e resta solo sul suo telefono.
 // Se API_URL è vuoto l'app gira in MODALITÀ DEMO: i dati restano solo sul telefono.
 window.PF_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbwlSGiXWAwcf5QM3qWO0DKL0R7FI_KsMpkaXqpi5SGIyE0k0k_QOE_6b61QUA_9QxZh6A/exec'
+  API_URL: 'https://script.google.com/macros/s/AKfycbxHeB_YErlU5TBmDyRkj4c3LCvw63ZmN-_u5vPcsxitddI4zo5yfGDL1bEbgNWFJ7Z0_A/exec'
 };
