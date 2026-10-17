@@ -262,4 +262,26 @@ console.log('\nClassificazione: voci guasto, interventi a 4, causa');
   ok(sheets['Voci guasto'].rows.length === n && sheets['Voci guasto'].rows.find(r => r[0] === 'GUIDE')[1] === 'ELETTRICO', 'le categorie decise dal responsabile non vengono toccate');
 }
 
+
+console.log('\nRicodifica dei fermi vecchi');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C;
+  const riga = (id, int, gua, altro, pz) => { const r = new Array(ctx.HEAD.length).fill(''); Object.assign(r, { [C.ID - 1]: id, [C.INT - 1]: int, [C.GUASTO - 1]: gua, [C.ALTRO - 1]: altro, [C.PEZZO - 1]: pz || '', [C.STATO - 1]: 'CHIUSO', [C.EQ - 1]: 'ST3-04', [C.LINEA - 1]: 'ST3', [C.CAT - 1]: 'MECCANICO' }); return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('A', 'SOSTITUZIONE', 'USURA', 'LAMA SBUCCIATRICE 9500085'), riga('B', 'ALTRO', 'ALTRO', 'regolato chiusura astucci lato operatore'),
+    riga('C', 'RIAVVIO', 'CAM. OMRON', ''), riga('D', 'REGOLAZIONE', 'H7, Sblocco Homing', '')]);
+  sheets.Liste.rows = [['Categoria', 'Tipo intervento', 'Manutentori'], ['MECCANICO', 'SOSTITUZIONE', 'ROSSI Mario'], ['ELETTRICO', 'RIAVVIO', ''], ['AUTOMATION', 'ALTRO', '']];
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['ST3-04', 'AST', 'CHIUSURE AST', 'CAM. OMRON', 'H7, Sblocco Homing']]);
+  ctx.ricodificaPrepara();
+  const R = sheets.Ricodifica.rows, by = id => R.find(r => r[0] === id);
+  ok(by('A')[11] === 'SOSTITUZIONE' && by('A')[12] === 'USURA' && by('A')[13] === '9500085' && !by('A')[10], 'lama: SOSTITUZIONE, causa USURA, codice pezzo dalla descrizione, guasto da scegliere');
+  ok(by('B')[10] === 'CHIUSURE AST' && by('B')[11] === 'REGOLAZIONE', 'ALTRO + "regolato chiusura astucci": CHIUSURE AST · REGOLAZIONE');
+  ok(by('C')[11] === 'RIPRISTINO' && by('D')[11] === 'RIPRISTINO', 'RIAVVIO e Sblocco Homing → RIPRISTINO');
+  by('A')[10] = 'LAMA SBUCCIATRICE';
+  ctx.ricodificaApplica();
+  const F = id => sheets.Fermi.rows.find(r => r[C.ID - 1] === id);
+  ok(F('A')[C.GUASTO - 1] === 'LAMA SBUCCIATRICE' && F('A')[C.CAUSA - 1] === 'USURA' && F('A')[C.PEZZO - 1] === '9500085', 'applicato al foglio Fermi per ID (guasto, causa, pezzo)');
+  ok(sheets.Guasti.rows[2].includes('LAMA SBUCCIATRICE') && F('A')[C.CAT - 1] === 'MECCANICO', 'voce nuova aggiunta al foglio Guasti della macchina, categoria da Voci guasto');
+  ok(F('C')[C.CAT - 1] === 'AUTOMATION' && by('A')[14] && by('A')[14] !== 'nessuna modifica', 'categoria dalla voce (CAM. OMRON → AUTOMATION); colonna Applicato compilata');
+}
+
 fine('Script');

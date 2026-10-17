@@ -43,7 +43,7 @@ for (const m of ['hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 
 function carica(sheets) {
   const src = fs.readFileSync(path.join(__dirname, '../fermi/apps-script/Code.gs'), 'utf8');
   const props = {}, cache = {};
-  const ss = { getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)), deleteSheet: s => delete sheets[s.n], getSheets: () => Object.values(sheets), toast() {} };
+  const ss = { getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)), deleteSheet: s => delete sheets[s.n], getSheets: () => Object.values(sheets), toast() {}, setActiveSheet() {} };
   const blob = b => ({ getBytes: () => b, getDataAsString: () => Buffer.from(b).toString('utf8') });
   const p2 = n => String(n).padStart(2, '0');
   const ctx = {
