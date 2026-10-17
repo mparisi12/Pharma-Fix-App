@@ -108,6 +108,20 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(!(await q.isVisible('#iosban')), 'iPhone dall\'icona sulla schermata Home: nessun avviso');
   await ios.close();
 
+  console.log('\nRete che va e viene');
+  let giu = 0; await ctx.unroute(/script\.google\.com/);
+  await ctx.route(/script\.google\.com/, r => { if (giu > 0) { giu--; return r.abort('internetdisconnected'); } r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, same: true, ver: 'V' + ver }) }); });
+  await p.evaluate(() => closeSh());
+  giu = 1; await p.evaluate(() => refresh()); await attesa(300);
+  ok(!/Non connesso/.test(await p.innerText('#sync')), 'un solo tentativo fallito: niente pallino rosso');
+  await attesa(5500);
+  ok(/Sincronizzato/.test(await p.innerText('#sync')), 'riprova da solo dopo 5 secondi');
+  giu = 2; await p.evaluate(() => refresh()); await attesa(5800);
+  const tx = await p.innerText('#sync');
+  ok(/Non connesso/.test(tx) && /dati delle \d\d:\d\d/.test(tx), 'due tentativi falliti: rosso con l\'ora degli ultimi dati');
+  await p.evaluate(() => window.dispatchEvent(new Event('online'))); await attesa(800);
+  ok(/Sincronizzato/.test(await p.innerText('#sync')), 'rete tornata: si riconnette subito');
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
