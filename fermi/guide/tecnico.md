@@ -44,7 +44,7 @@ Conosci una soluzione nuova? In fondo alla pagina c'è il link **Conosci una sol
 4. **Descrizione breve** (**obbligatoria**): cosa hai trovato e cosa hai fatto, anche corta.
 5. Hai risolto qualcosa che può servire ai colleghi? Spunta **Proponi come soluzione** e scrivi il problema in una riga: diventa una soluzione (la approva il coordinatore).
 6. Controlla il **lotto**.
-7. **Chiudi fermo**.
+7. **Chiudi fermo**. Se il fermo è durato meno di 3 minuti l'app chiede conferma: se è giusto tocca di nuovo, altrimenti correggi l'orario.
 
 Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Correggi il fermo**: la **prima** correzione la fai tu, anche degli orari. Per correggere ancora → **Chiedi correzione** e scrivi cosa va cambiato: lo sistema il responsabile.
 

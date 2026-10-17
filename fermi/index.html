@@ -1694,6 +1694,7 @@ function guaChips(eq, sel) {
 // Le liste stanno nel foglio Liste (colonne Tipo intervento, Tipo intervento · spiegazione, Causa); queste valgono finché il foglio non le ha
 const INT_DEF = { REGOLAZIONE: 'spostato o registrato (nonio, guida, parametro)', SOSTITUZIONE: 'pezzo nuovo montato · codice obbligatorio',
   RIPRISTINO: 'reset, riavvio, sblocco, homing: niente regolato né cambiato', PULIZIA: 'pulito, tolto residui o inceppamenti' };
+const MICRO_MIN = 3; // fermo più corto: chiede conferma
 const CAUSE_DEF = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
 const interventi = () => { const l = (S.liste['Tipo intervento'] || []).map(U).filter(x => x && x !== 'ALTRO' && x !== 'RIAVVIO'); const d = S.intDesc || {};
   return (l.length && Object.keys(d).length ? l : Object.keys(INT_DEF)).map(v => [v, d[v] || INT_DEF[v] || '']); };
@@ -1798,6 +1799,9 @@ function closeSheet(f, opt = {}) {
       }
     }
     if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
+    // micro-fermo: sotto i 3 minuti chiedo conferma (spesso è un orario sbagliato); nei KPI conta a parte, non nell'MTTR
+    if (fin - ini < MICRO_MIN * 60000 && !C.microOk) { C.microOk = true; const e = $('#err');
+      e.textContent = 'Fermo di ' + Math.max(0, Math.round((fin - ini) / 60000)) + ' min: è giusto? Se sì tocca di nuovo «' + $('#go').textContent + '». Se no correggi gli orari.'; e.hidden = false; return; }
     const lotto = $('#clotto').value.trim();
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
     enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined,
