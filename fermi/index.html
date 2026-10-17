@@ -641,7 +641,7 @@ async function sync() {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
         if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a|corrett|foglio Equipment|il titolo|link valido/.test(e.message)) { toast('Scartato: ' + e.message); }
-        else { S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
+        else { if (!S.offSince) S.offSince = Date.now(); S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
       dropMedia(OUTBOX.shift()); save('outbox', OUTBOX);
@@ -658,11 +658,22 @@ function applyInit(j) {
   if (S.man && !abilitati().includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
   save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
+let NET_KO = 0, RETRY_NET = null; // tentativi falliti di fila per mancanza di rete
 async function refresh() {
   if (!MOCK && !getPin()) return;
   // mando la versione dei dati che ho: se sul foglio non è cambiato niente arriva solo { same: true }
-  try { const j = await apiGet(getPin(), S.loaded ? S.ver : ''); if (j.same && j.ver === S.ver) { S.net = 'ok'; S.lastSync = Date.now(); } else applyInit(j); }
-  catch (e) { if (isPinErr(e)) { pinInvalid(); return; } S.net = e.server ? 'err' : e.name === 'AbortError' ? 'slow' : 'off'; S.errMsg = e.message; }
+  clearTimeout(RETRY_NET);
+  try { const j = await apiGet(getPin(), S.loaded ? S.ver : ''); if (j.same && j.ver === S.ver) { S.net = 'ok'; S.lastSync = Date.now(); } else applyInit(j); NET_KO = 0; S.offSince = null; }
+  catch (e) {
+    if (isPinErr(e)) { pinInvalid(); return; }
+    if (!e.server && e.name !== 'AbortError') {
+      // rete assente: riprovo subito (5 s, poi 15 s, poi 30 s); il rosso si accende solo dal secondo tentativo fallito
+      NET_KO++; RETRY_NET = setTimeout(() => { if (document.visibilityState === 'visible') refresh(); }, NET_KO === 1 ? 5000 : NET_KO === 2 ? 15000 : 30000);
+      if (NET_KO < 2) return;
+      if (!S.offSince) S.offSince = Date.now();
+      S.net = 'off'; S.errMsg = e.message;
+    } else { S.net = e.server ? 'err' : 'slow'; S.errMsg = e.message; }
+  }
   if (S.view.name === 'anoform') { renderSync(); renderHeader(); return; } // non ricostruire il modulo mentre si compila
   render();
 }
@@ -819,7 +830,8 @@ function renderSync() {
   else if (S.net === 'tel') { cls += ' off'; txt = (S.telErr || 'Telefono non autorizzato') + (n ? ' · ' + n + ' in attesa' : ''); }
   else if (S.net === 'err') { cls += ' off'; txt = 'Errore del foglio: ' + (S.errMsg || '') + (n ? ' · ' + n + ' in coda' : ''); }
   else if (S.net === 'slow') { cls += ' warn'; txt = 'Il foglio risponde lentamente · riprovo da solo'; }
-  else if (S.net === 'off') { cls += ' off'; txt = 'Non connesso' + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
+  else if (S.net === 'off') { const min = S.offSince ? Math.floor((Date.now() - S.offSince) / 60000) : 0;
+    cls += ' off'; txt = 'Non connesso' + (min >= 1 ? ' da ' + min + ' min' : '') + (S.lastSync ? ' · dati delle ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : '') + (n ? ' · ' + n + ' da inviare' : '') + ' · riprovo da solo'; }
   else if (n) { cls += ' warn'; txt = 'Invio in corso · ' + n + ' in coda'; }
   else txt = S.lastSync ? 'Sincronizzato ' + pad(new Date(S.lastSync).getHours()) + ':' + pad(new Date(S.lastSync).getMinutes()) : 'Collegamento…';
   $('#sync').innerHTML = `<span class="${cls}"></span><span>${esc(txt)}</span>`;
@@ -1793,7 +1805,8 @@ async function checkUpdate() {
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
   checkUpdate();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { K_DOPO = false; rinnovaSess(); sync(); checkUpdate(); setTimeout(avvisoCompiti, 300); } });
-  window.addEventListener('online', sync);
+  window.addEventListener('online', () => { NET_KO = 0; sync(); }); // rete tornata: riprovo subito
+  setInterval(() => { if (S.net === 'off') renderSync(); }, 30000); // aggiorna "da N min"
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
