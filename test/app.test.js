@@ -134,7 +134,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   console.log('\nChiusura fermo: cosa si è guastato → cosa hai fatto → perché');
   await ctx.unroute(/script\.google\.com/);
   const storia = k => ({ id: 'H' + k, code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - (k + 2) * 3600e3, end: Date.now() - (k + 1) * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: k < 2 ? 'REGOLAZIONE' : 'RIAVVIO', cat: 'AUTOMATION', man: 'ROSSI Mario', lotto: '601095' });
-  D.fermi = D.fermi.concat([0, 1, 2].map(storia), [{ id: 'FC', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }]);
+  D.fermi = D.fermi.concat([0, 1, 2].map(storia), [{ id: 'FC', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }]);
   D.guasti = { 'ST3-04': ['CAM. OMRON', 'MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ALTRO'] }; D.vociCat = { 'CAM. OMRON': 'AUTOMATION', 'MAG. ISTRUZIONI': 'MECCANICO', SENSORE: 'ELETTRICO' };
   await ctx.route(/script\.google\.com/, r => { if (r.request().method() === 'POST') { posts.push(JSON.parse(r.request().postData())); return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); }
     r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, ver: 'CL' }) }); });
@@ -150,7 +150,9 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(await p.isVisible('#catbox .chips') && await p.getAttribute('#int [data-v="SOSTITUZIONE"]', 'aria-pressed') === 'true', 'ALTRO: la categoria la sceglie il tecnico; la sua scelta di intervento resta');
   await p.click('#gua [data-v="CAM. OMRON"]'); await p.click('#int [data-v="REGOLAZIONE"]');
   await p.click('#cau [data-v="USURA"]'); await p.click('#cau [data-v="USURA"]'); await p.click('#cau [data-v="MATERIALE FUORI SPEC."]');
-  await p.fill('#altro', 'regolata messa a fuoco telecamera'); await p.click('#go'); await attesa(800);
+  await p.fill('#altro', 'regolata messa a fuoco telecamera'); await p.click('#go'); await attesa(300);
+  ok(/è giusto\?/.test(await p.innerText('#err')) && !posts.some(o => o.action === 'close' && o.id === 'FC'), 'fermo più corto di 3 minuti: chiede conferma e non chiude');
+  await p.click('#go'); await attesa(800);
   const cl = posts.filter(o => o.action === 'close' && o.id === 'FC').pop() || {};
   ok(cl.categoria === 'AUTOMATION' && cl.intervento === 'REGOLAZIONE' && cl.guasto === 'CAM. OMRON' && cl.causa === 'MATERIALE FUORI SPEC.', 'inviato: categoria automatica, intervento, guasto e causa (secondo tocco toglie la scelta)');
 
