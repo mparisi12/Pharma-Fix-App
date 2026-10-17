@@ -154,6 +154,13 @@ let ver = 1, full = 0, same = 0; const posts = [];
   const cl = posts.filter(o => o.action === 'close' && o.id === 'FC').pop() || {};
   ok(cl.categoria === 'AUTOMATION' && cl.intervento === 'REGOLAZIONE' && cl.guasto === 'CAM. OMRON' && cl.causa === 'MATERIALE FUORI SPEC.', 'inviato: categoria automatica, intervento, guasto e causa (secondo tocco toglie la scelta)');
 
+  D.liste['Tipo intervento'] = ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA']; D.intDesc = { RIPRISTINO: 'reset allarme, homing' }; D.liste.Causa = ['USURA', 'MANUTENZIONE NON ESEGUITA'];
+  D.fermi.push({ id: 'FC2', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 300000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  await p.evaluate(() => { S.ver = 'x'; return refresh(); }); await attesa(400);
+  await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC2')); }); await attesa(300);
+  ok(/reset allarme, homing/.test(await p.innerText('#int')) && /MANUTENZIONE NON ESEGUITA/.test(await p.innerText('#cau')), 'interventi, spiegazioni e cause presi dal foglio Liste');
+  await p.evaluate(() => closeSh());
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
