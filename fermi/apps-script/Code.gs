@@ -39,11 +39,11 @@ const HEAD = [
   'Orari', 'Registrato alle', 'Telefono'
 ];
 const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT: 8, GUASTO: 9, ALTRO: 10,
-  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24 };
+  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25 }; // CAUSA è fuori da HEAD: la colonna si aggiunge solo quando serve
 
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
-  'Tipo intervento': ['SOSTITUZIONE', 'REGOLAZIONE', 'PULIZIA', 'RIAVVIO', 'ALTRO'],
+  'Tipo intervento': ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'],
   'Guasto Sterile': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H32 CTG, rimessa in dima pinze ctg',
     'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi',
     'H10, Sostituzione e regolazione fotocellula della macchina', 'H19, Rimessa in fase della Stella',
@@ -624,6 +624,76 @@ function aggiornaElenchiDocumenti() {
    Su F e I un valore fuori elenco è solo segnalato (triangolino), perché i fermi da carta hanno nomi liberi.
    Macchine e guasti stanno nel foglio nascosto Elenchi_Fermi, che si aggiorna da solo quando cambiano Equipment o Guasti. */
 const SH_EL_FERMI = 'Elenchi_Fermi';
+
+/* ---------- Classificazione dei fermi (dal 17/10/2026) ----------
+   Il tecnico sceglie: 1) cosa si è guastato (componente/zona, foglio Guasti) 2) cosa ha fatto (4 interventi con regola fissa)
+   3) perché (facoltativo). La CATEGORIA non la sceglie più: sta nel foglio "Voci guasto" (una riga per voce, la decide il responsabile). */
+const INTERVENTI = ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'];
+const CAUSE = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
+const NON_VOCI = ['FORMATO', 'USURA', 'SPIKE CORRENTE', 'RIPARAZIONE', 'SOSTITUZIONE', 'PULIZIA', 'RIAVVIO', 'REGOLAZIONE']; // cause o interventi, non componenti
+const SH_VOCI = 'Voci guasto', VOCI_H = ['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene (giallo = da controllare)'];
+let VOCI_MEMO = null;
+function causaCol_(sh) {
+  if (sh.getMaxColumns() < C.CAUSA) sh.insertColumnsAfter(sh.getMaxColumns(), C.CAUSA - sh.getMaxColumns());
+  const h = sh.getRange(1, C.CAUSA);
+  if (String(h.getValue()) !== 'Causa') h.setValue('Causa').setFontWeight('bold').setBackground('#fff3d6');
+}
+// Categoria proposta per una voce: quella più usata nello storico (almeno 3 fermi), altrimenti dal nome
+function catProposta_(voce, storico) {
+  const c = storico[voce];
+  if (c) { const t = Object.keys(c).filter(k => k && k !== 'ALTRO').sort((a, b) => c[b] - c[a])[0], n = Object.values(c).reduce((a, b) => a + b, 0);
+    if (t && n >= 3) return [t, 'storico: ' + c[t] + ' fermi su ' + n]; }
+  if (/CAM\.|VIDEOJET|PARAM|PANNELLO|RICETTA|STAMPA DATI|SEA VISION|COGNEX|ANTARES|CHECKWEIGHER|ZONA ROBOT|VELOCIT/.test(voce)) return ['AUTOMATION', 'dal nome'];
+  if (/SENSOR|FOTOCELL|FINE CORSA|SICUREZZ|SELETTOR|TEMPERATUR|LETTURA|H10|BARRIERE|FIBRA/.test(voce)) return ['ELETTRICO', 'dal nome'];
+  return ['MECCANICO', 'dal nome'];
+}
+// { VOCE: CATEGORIA } dal foglio Voci guasto
+function vociCat_(ss) {
+  if (VOCI_MEMO) return VOCI_MEMO;
+  const sh = ss.getSheetByName(SH_VOCI), out = {};
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(r => { const v = String(r[0]).trim().toUpperCase(), c = String(r[1]).trim().toUpperCase(); if (v && c) out[v] = c; });
+  return VOCI_MEMO = out;
+}
+// Una volta: Tipo intervento a 4 voci, RIAVVIO → RIPRISTINO nello storico, cause tolte da TUTTE, colonna Causa.
+// Ogni volta (se cambia il foglio Guasti): le voci nuove entrano nel foglio Voci guasto con la categoria proposta.
+function classificazione_(ss) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('CLASS_V1') !== '1') {
+    const f = ss.getSheetByName(SH_FERMI);
+    if (f) {
+      causaCol_(f);
+      if (f.getLastRow() > 1) { const rg = f.getRange(2, C.INT, f.getLastRow() - 1, 1), v = rg.getValues();
+        if (v.some(x => String(x[0]).trim().toUpperCase() === 'RIAVVIO')) rg.setValues(v.map(x => [String(x[0]).trim().toUpperCase() === 'RIAVVIO' ? 'RIPRISTINO' : x[0]])); }
+    }
+    const li = ss.getSheetByName(SH_LISTE);
+    if (li) { const testa = li.getRange(1, 1, 1, li.getLastColumn()).getValues()[0], c = testa.findIndex(h => String(h).trim().toUpperCase() === 'TIPO INTERVENTO') + 1;
+      if (c) { li.getRange(2, c, Math.max(li.getLastRow() - 1, INTERVENTI.length), 1).clearContent(); li.getRange(2, c, INTERVENTI.length, 1).setValues(INTERVENTI.map(x => [x])); LISTE_MEMO = null; } }
+    const g = ss.getSheetByName(SH_GUASTI);
+    if (g && g.getLastRow() > 1) { const v = g.getDataRange().getValues(), i = v.findIndex(r => String(r[0]).trim().toUpperCase() === 'TUTTE');
+      if (i > 0) { const resto = v[i].slice(2).filter(x => String(x).trim() && NON_VOCI.indexOf(String(x).trim().toUpperCase()) < 0);
+        g.getRange(i + 1, 3, 1, v[0].length - 2).clearContent(); if (resto.length) g.getRange(i + 1, 3, 1, resto.length).setValues([resto]); } }
+    props.setProperty('CLASS_V1', '1');
+  }
+  vociSync_(ss);
+}
+function vociSync_(ss) {
+  const g = guasti_(ss), voci = [...new Set(Object.keys(g).flatMap(k => g[k]).map(x => String(x).trim()).filter(x => x && x.toUpperCase() !== 'ALTRO' && NON_VOCI.indexOf(x.toUpperCase()) < 0))];
+  let sh = ss.getSheetByName(SH_VOCI);
+  const nuovo = !sh;
+  if (nuovo) { sh = ss.insertSheet(SH_VOCI); sh.getRange(1, 1, 1, 3).setValues([VOCI_H]).setFontWeight('bold').setBackground('#dfe7ec'); sh.setFrozenRows(1); sh.setColumnWidth(1, 340); sh.setColumnWidth(2, 130); sh.setColumnWidth(3, 260);
+    sh.getRange('E1').setValue('Una riga per voce del foglio Guasti: la categoria la decidi qui una volta e l\'app la scrive da sola alla chiusura del fermo. Le voci nuove del foglio Guasti compaiono qui da sole, in giallo.').setWrap(true).setFontStyle('italic'); sh.setColumnWidth(5, 380); }
+  const gia = new Set(sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim().toUpperCase()) : []);
+  const manca = voci.filter(x => !gia.has(x.toUpperCase()));
+  if (!manca.length) return;
+  const storico = {}, f = ss.getSheetByName(SH_FERMI);
+  if (f && f.getLastRow() > 1) f.getRange(2, C.CAT, f.getLastRow() - 1, 3).getValues().forEach(r => { const v = String(r[2]).trim().toUpperCase(), c = String(r[0]).trim().toUpperCase(); if (!v) return; (storico[v] = storico[v] || {})[c] = (storico[v][c] || 0) + 1; });
+  const righe = manca.map(x => { const [c, da] = catProposta_(x.toUpperCase(), storico); return [x, c, da]; });
+  const r0 = sh.getLastRow() + 1;
+  sh.getRange(r0, 1, righe.length, 3).setValues(righe);
+  righe.forEach((r, i) => sh.getRange(r0 + i, 2).setBackground(/^storico/.test(r[2]) ? null : '#fff2cc'));
+  sh.getRange(2, 2, sh.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'], true).setAllowInvalid(false).build());
+  VOCI_MEMO = null;
+}
 function fermiConvalida_(ss, forza) {
   const sh = ss.getSheetByName(SH_FERMI), li = ss.getSheetByName(SH_LISTE); if (!sh || !li) return false;
   const macc = [...new Set(equipment_(ss).map(e => String(e.macchina).trim()).filter(Boolean))].sort();
@@ -633,7 +703,7 @@ function fermiConvalida_(ss, forza) {
   const righe = Math.max(sh.getMaxRows(), sh.getLastRow() + 500);
   const props = PropertiesService.getScriptProperties();
   const tec = tecniciTutti_(ss).sort(); // Manutentori + Coordinatori
-  const firma = 'v2|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|') + '#' + tec.join('|');
+  const firma = 'v3|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|') + '#' + tec.join('|');
   if (!forza && props.getProperty('FERMI_DV') === firma && ss.getSheetByName(SH_EL_FERMI)) return false;
   if (sh.getMaxRows() < righe) sh.insertRowsAfter(sh.getMaxRows(), righe - sh.getMaxRows());
   let el = ss.getSheetByName(SH_EL_FERMI);
@@ -648,10 +718,11 @@ function fermiConvalida_(ss, forza) {
   if (tec.length) metti(C.MAN, dv(el.getRange(2, 3, tec.length, 1), true, 'Scegli un tecnico: colonne Manutentori e Coordinatori del foglio Liste.'));
   [['Categoria', C.CAT], ['Tipo intervento', C.INT]].forEach(([nome, col]) => {
     const c = colL(nome); if (!c) return;
-    metti(col, dv(li.getRange(2, c, li.getMaxRows() - 1, 1), true, 'Scegli dall\'elenco "' + nome + '" del foglio Liste.'));
+    metti(col, dv(li.getRange(2, c, li.getMaxRows() - 1, 1), col === C.CAT, 'Scegli dall\'elenco "' + nome + '" del foglio Liste.'));
   });
   if (macc.length) metti(C.MACC, dv(el.getRange(2, 1, macc.length, 1), false, 'Macchine del foglio Equipment.'));
   if (tipi.length) metti(C.GUASTO, dv(el.getRange(2, 2, tipi.length, 1), false, 'Tipi di guasto del foglio Guasti.'));
+  if (sh.getMaxColumns() >= C.CAUSA) metti(C.CAUSA, SpreadsheetApp.newDataValidation().requireValueInList(CAUSE, true).setAllowInvalid(true).setHelpText('Perché si è guastato (facoltativo).').build());
   props.setProperty('FERMI_DV', firma);
   return true;
 }
@@ -1463,6 +1534,7 @@ function json_(o) {
 
 function init_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try { classificazione_(ss); } catch (e) { Logger.log(e); }
   const equipment = equipment_(ss);
   // Liste
   const lv = listeVal_(ss);
@@ -1475,6 +1547,7 @@ function init_() {
   if (last > 1) {
     const vals = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
     const fotoC = sh.getRange(2, C.FOTO_C, last - 1, 1).getFormulas(); // link della foto di chiusura
+    const cause = sh.getMaxColumns() >= C.CAUSA ? sh.getRange(2, C.CAUSA, last - 1, 1).getValues() : [];
     const from = Date.now() - 90 * 864e5, nCorr = correzioniPerFermo_(ss);
     vals.forEach((r, i) => {
       const start = r[C.INIZIO - 1] instanceof Date ? r[C.INIZIO - 1].getTime() : null;
@@ -1483,12 +1556,12 @@ function init_() {
       if (stato !== 'APERTO' && start < from) return;
       const end = r[C.FINE - 1] instanceof Date ? r[C.FINE - 1].getTime() : null;
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
-        start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1],
+        start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1], causa: String((cause[i] || [])[0] || ''),
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1618,7 +1691,9 @@ function closeFermo_(p) {
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
   if (p.manutentore && !daAltri) sh.getRange(r, C.MAN).setValue(p.manutentore);
   if (daAltri) sh.getRange(r, C.MAN).setNote('Chiuso da ' + p.manutentore + ' (coordinatore) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
-  sh.getRange(r, C.CAT, 1, 4).setValues([[p.categoria || '', p.intervento || '', p.guasto || '', p.altro || '']]);
+  const cat = String(p.categoria || '').trim() || (vociCat_(SpreadsheetApp.getActiveSpreadsheet())[String(p.guasto || '').trim().toUpperCase()] || '');
+  sh.getRange(r, C.CAT, 1, 4).setValues([[cat, p.intervento || '', p.guasto || '', p.altro || '']]);
+  if (p.causa) { causaCol_(sh); sh.getRange(r, C.CAUSA).setValue(String(p.causa).trim()); }
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
@@ -2049,7 +2124,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 10:30';
+const VERSIONE_SCRIPT = '17/10/2026 15:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2459,7 +2534,8 @@ function modificaFermo_(p) {
   if (!String(p.altro || '').trim()) throw new Error('La descrizione è obbligatoria');
   if (String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' && !String(p.pezzo || '').trim()) throw new Error('Con SOSTITUZIONE il codice pezzo è obbligatorio');
   const campi = [['Categoria', C.CAT, p.categoria], ['Tipo intervento', C.INT, p.intervento], ['Tipo guasto', C.GUASTO, p.guasto], ['Descrizione', C.ALTRO, p.altro],
-    ['Lotto', C.LOTTO, p.lotto], ['Codice pezzo', C.PEZZO, String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' ? p.pezzo : '']];
+    ['Lotto', C.LOTTO, p.lotto], ['Codice pezzo', C.PEZZO, String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' ? p.pezzo : ''], ['Causa', C.CAUSA, p.causa]];
+  if (p.causa != null) { causaCol_(fsh); v[C.CAUSA - 1] = fsh.getRange(r, C.CAUSA).getValue(); }
   const diff = [];
   // orari: se cambiati diventano DICHIARATI (fine non nel futuro, dopo l'inizio, al massimo 12 ore)
   if (p.inizio && p.fine) {
