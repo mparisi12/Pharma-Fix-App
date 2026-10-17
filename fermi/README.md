@@ -194,7 +194,7 @@ Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è *
 2. In alto il riepilogo: aperto alle, durata, lotto, aperto da; poi **Quando è ripartita?** **ADESSO** o **SCEGLI ORARIO** (fine scritta a mano = *dichiarata*; solo turno in corso o entro 2 ore dal cambio turno). Poi tre domande (classificazione dal 17/10/2026):
    - **Cosa si è guastato**: componente o zona dal foglio Guasti, in ordine di frequenza su quella macchina. La **Categoria** si scrive da sola dal foglio **Voci guasto** (vedi 5.4b); il tecnico la sceglie solo per ALTRO o per una voce non ancora classificata. Sotto compaiono le **soluzioni verificate** (*Prova prima*).
    - **Cosa hai fatto**: **REGOLAZIONE** (spostato o registrato), **SOSTITUZIONE** (pezzo nuovo, codice obbligatorio), **RIPRISTINO** (reset, riavvio, sblocco, homing: niente regolato né cambiato), **PULIZIA**. È già scelto quello usato più spesso per quel guasto su quella macchina (almeno 2 volte negli ultimi 90 giorni).
-   - **Perché** (facoltativo): usura, formato / regolazione persa, materiale fuori spec., errore operatore, elettrica / alimentazione, non nota. Va nella colonna **Causa** (Y) del foglio Fermi.
+   - **Perché** (facoltativo): usura, formato / regolazione persa, materiale fuori spec., errore operatore, elettrica / alimentazione, non nota. Va nella colonna **Causa** (Y) del foglio Fermi. Voci, spiegazioni e cause si cambiano nel foglio Liste (vedi 5.3b).
 3. **Foto della zona di intervento** (consigliata) → scatta → **tocca la foto per cerchiare** il punto (tocca il cerchio per toglierlo).
 4. **Descrizione breve**: **sempre obbligatoria**. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio. Con **Proponi come soluzione** (e il problema in una riga) la descrizione diventa anche una soluzione *da approvare* nel foglio Soluzioni (già verificata se chiude un coordinatore).
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
@@ -294,6 +294,14 @@ Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della
 - **Stessa famiglia, stessa lista**: tutte le astucciatrici, cartonatrici, bilance… con le stesse voci scritte allo stesso modo, così i Pareto si confrontano tra linee.
 - Rinominare una voce già usata spezza lo storico (i vecchi fermi restano col nome vecchio e l'ordine per frequenza riparte da zero): meglio correggere i nomi prima che vengano usati.
 - Le modifiche arrivano ai telefoni alla sincronizzazione successiva: non serve ripubblicare lo script.
+
+### 5.3b Tipo intervento e Causa (foglio Liste)
+Nel foglio **Liste** ci sono tre colonne per la chiusura del fermo (le crea lo script la prima volta):
+- **Tipo intervento**: le voci di *Cosa hai fatto* (REGOLAZIONE, SOSTITUZIONE, RIPRISTINO, PULIZIA). Il codice pezzo è obbligatorio quando la voce si chiama esattamente **SOSTITUZIONE**.
+- **Tipo intervento · spiegazione**: la riga che il tecnico legge sotto ogni voce, **sulla stessa riga** dell'intervento. È la regola: scrivila corta e senza ambiguità.
+- **Causa**: le voci di *Perché* (facoltativa). Aggiungi, togli o rinomina liberamente: rinominare una voce già usata spezza lo storico (i vecchi fermi tengono il nome vecchio).
+
+I telefoni vedono le modifiche alla sincronizzazione successiva (entro un minuto). Non servono nuove versioni dello script.
 
 ### 5.4b Categoria automatica (foglio Voci guasto)
 Una riga per ogni voce del foglio Guasti con la sua **Categoria** (MECCANICO / ELETTRICO / AUTOMATION / ALTRO). La decidi una volta e l'app la scrive da sola a ogni chiusura: lo stesso guasto ha sempre la stessa categoria.
@@ -418,7 +426,7 @@ I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai t
 Per chi scrive o corregge i fermi a mano nel foglio, le colonne hanno il menu a tendina (come nel vecchio template):
 - **E Manutentore**: i tecnici, cioè colonne *Manutentori* + *Coordinatori* del foglio **Liste**;
 - **G Categoria**: solo i valori della colonna *Categoria* del foglio **Liste**; **H Tipo intervento**: le 4 voci della colonna *Tipo intervento* (i valori vecchi dello storico sono solo segnalati);
-- **Y Causa**: le 6 cause (facoltativa);
+- **Y Causa**: le voci della colonna *Causa* del foglio **Liste** (facoltativa);
 - **F Macchina**: le macchine attive del foglio **Equipment**;
 - **I Tipo guasto**: tutti i tipi scritti nel foglio **Guasti** (TUTTE + le singole macchine).
 

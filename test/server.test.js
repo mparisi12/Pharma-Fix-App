@@ -254,6 +254,10 @@ console.log('\nClassificazione: voci guasto, interventi a 4, causa');
   sheets.Guasti.rows[2].push('NASTRATORI'); ctx.classificazione_(ss);
   const n = sheets['Voci guasto'].rows.length;
   ok(sheets['Voci guasto'].rows.some(r => r[0] === 'NASTRATORI') && sheets.Liste.rows[1][1] === 'REGOLAZIONE', 'voce nuova nel foglio Guasti: aggiunta in Voci guasto (la migrazione non si ripete)');
+  const LT = sheets.Liste.rows[0].map(String);
+  ok(LT.includes('Tipo intervento · spiegazione') && LT.includes('Causa'), 'Liste: aggiunte le colonne Tipo intervento · spiegazione e Causa');
+  const cD = LT.indexOf('Tipo intervento · spiegazione'), cC = LT.indexOf('Causa');
+  ok(sheets.Liste.rows[2][1] === 'SOSTITUZIONE' && /codice obbligatorio/.test(sheets.Liste.rows[2][cD]) && sheets.Liste.rows.slice(1).map(r => r[cC]).filter(Boolean).length === 6, 'spiegazione sulla stessa riga dell\'intervento, 6 cause');
   sheets['Voci guasto'].rows.find(r => r[0] === 'GUIDE')[1] = 'ELETTRICO'; ctx.classificazione_(ss);
   ok(sheets['Voci guasto'].rows.length === n && sheets['Voci guasto'].rows.find(r => r[0] === 'GUIDE')[1] === 'ELETTRICO', 'le categorie decise dal responsabile non vengono toccate');
 }
