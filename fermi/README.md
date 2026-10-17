@@ -62,7 +62,7 @@ L'app è fatta di due parti che vivono in posti diversi:
 |---|---|---|
 | **Fermi** | Una riga per fermo. Colonne A–L **identiche al template** (Lotto, Data, Ora Inizio, Ora Fine, Manutentore, Macchina, Categoria, Tipo intervento, Tipo guasto, Altro, Durata MTTR, Intervento-Guasto), poi Linea, Turno, Codice pezzo, Foto apertura, Foto chiusura, Stato, ID fermo, Equipment, Aperto da, **Orari** (TEMPO REALE / DICHIARATI), **Registrato alle** (ora vera dell'inserimento), **Telefono**. Le righe **gialle** sono fermi ancora aperti. | L'app. Tu puoi correggere a mano un errore, ma **non toccare le colonne Stato e ID fermo**. |
 | **Equipment** | Elenco macchine: codice del QR, linea, area (**Filling** / **Packaging**), nome macchina, attivo. | Tu. |
-| **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori abilitati**. | Tu. |
+| **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori** e **Coordinatori** abilitati. | Tu. |
 | **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
 | **Soluzioni** | Troubleshooting: dove vale (codice macchina, linea o `TUTTE`), tipo guasto, problema, soluzione, codici ricambio, allegato. | L'app (pulsante *Aggiungi soluzione*) e tu. |
 | **Documenti** | Manuali, schemi, schede formato: dove vale, tipo, titolo, descrizione, **link**. | Tu (vedi 5.6). |
@@ -70,6 +70,13 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Compiti** | Compiti assegnati dai coordinatori a un tecnico o a un turno: chi, cosa, entro quando, stato DA FARE / IN CORSO / FATTO / ANNULLATO, chi l'ha preso e quando, chi l'ha fatto e quando, nota, **In ritardo** (calcolato), **Storia** (ogni passaggio con data e nome). Una riga per compito, **mai cancellata**. Si crea da solo al primo compito (vedi 5.13). | L'app. Non cancellare righe: un compito che non serve si annulla dall'app. |
 | **Telefoni** | Il telefono di ogni tecnico. Il primo si registra da solo; un telefono nuovo, o il telefono di un collega, resta **DA APPROVARE** (vedi 5.9). | Tu (colonna Stato). |
 | **Controlli** | Casi da guardare (telefoni da approvare, stesso telefono per più tecnici, fermi sovrapposti, orari dichiarati inseriti tardi): menu **Pharma-Fix → Controlla registrazioni**. | Lo script. |
+| **Correzioni** | Correzioni dei fermi chiusi: quelle fatte dal tecnico e quelle chieste al responsabile (vedi 5.9). | L'app; tu metti FATTA. |
+| **Vestizioni** | Vestizione sterile per persona, colonna *Area sterile*, scadenze delle convalide e riquadro Impostazioni (vedi 5.15). | Tu (date, durate, Area sterile); le colonne viola le scrive lo script. |
+| **Convalide** | Lo scadenziario delle convalide GMP, incollato così com'è (vedi 5.15b). | Tu. |
+| **Turni** | La tabella mensile dei turni (vedi 5.16). | Tu. |
+| **Programma** | Il programma di produzione incollato dall'Excel (vedi 5.17). | Tu. |
+| **KPI Risorse** | Indicatori per tecnico e matrice competenze (vedi 5.18). | Solo le celle gialle (filtri). |
+| *Elenchi_Fermi*, *Elenco_Dove*, *KPI_Risorse_dati* | Fogli **nascosti**: elenchi dei menu a tendina e dati del grafico a quadranti. | Lo script. Non cancellarli. |
 | **KPI** | Indicatori separati per Filling e Packaging, con filtri per linea, macchina e periodo: n° fermi, tempo di fermo, MTTR, n° lotti, Occurrancy, MTBF, RFR, Pareto doppio (frequenza e durata) con grafici, fermi per macchina. | Solo le celle gialle (filtri e ore di funzionamento). |
 
 Le foto finiscono nella cartella Drive **Pharma-Fix Foto Fermi**; nel foglio Fermi c'è il link "Foto".
@@ -155,7 +162,7 @@ Tempo: circa 30 minuti. Serve un account Google (quello che usi per Pharma-Fix v
 Riferimento completo. Per i tecnici c'è la versione corta: *Guida per il tecnico*.
 
 ### Accesso
-All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
+All'apertura l'app chiede **Nome** e **Cognome**. Entra solo chi è tra i manutentori o i coordinatori abilitati (maiuscole, accenti e ordine non contano: "mario rossi" va bene per `ROSSI Mario`). Ogni fermo viene registrato a nome di chi è entrato.
 La **prima volta** su un telefono chiede anche il **Codice reparto** (serve la rete); poi non lo chiede più, finché il responsabile non lo cambia.
 **Ogni nome è legato al telefono personale del tecnico**: il primo telefono con cui entri diventa il tuo. Con il nome di un collega, o da un telefono nuovo, l'app risponde *"Telefono non autorizzato"* finché il responsabile non approva.
 L'accesso resta finché si usa l'app: ogni apertura lo rinnova, si rifà solo dopo 30 giorni senza aprirla o con **Esci** (tocca il tuo nome in alto). Codice reparto e accesso hanno anche una copia nell'archivio del telefono, così non si perdono se il browser svuota la memoria.
@@ -183,7 +190,7 @@ Regole sugli orari scritti a mano: la fine deve essere nel **turno in corso**, o
 Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è **Cosa provare**: i tipi di guasto della macchina dal più frequente (il numero = quante volte negli ultimi 90 giorni). Tocca il guasto che vedi: compaiono le **soluzioni verificate** da provare. Il guasto scelto qui è già selezionato quando chiudi il fermo.
 
 ### Chiudere un fermo (~20–30 secondi)
-1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **Chiudi fermo** (oppure, nella home, **Chiudi** sul fermo).
+1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **PREMI QUI PER CHIUDERE FERMO** (oppure, nella home, **Chiudi** sul fermo).
 2. In alto il riepilogo: aperto alle, durata, lotto, aperto da; poi **Quando è ripartita?** **ADESSO** o **SCEGLI ORARIO** (fine scritta a mano = *dichiarata*; solo turno in corso o entro 2 ore dal cambio turno). Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template; in ordine di frequenza su quella macchina, con il numero). Sotto il guasto compaiono le **soluzioni verificate** più adatte (*Prova prima*).
 3. **Foto della zona di intervento** (consigliata) → scatta → **tocca la foto per cerchiare** il punto (tocca il cerchio per toglierlo).
 4. **Descrizione breve**: **sempre obbligatoria**. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio. Con **Proponi come soluzione** (e il problema in una riga) la descrizione diventa anche una soluzione *da approvare* nel foglio Soluzioni (già verificata se chiude un coordinatore).
@@ -196,7 +203,7 @@ Il fermo lo può chiudere (o annullare) **solo chi l'ha aperto**, oppure un coor
 Fermo aperto per sbaglio? **Chiudi** → in fondo, staccato dal pulsante verde, **Annulla il fermo** (tocca due volte).
 
 ### Scheda macchina, soluzioni, documenti, anomalie
-- **Pagina della macchina** (si apre dopo il QR o scegliendo la macchina, con sopra il riquadro **Apri fermo** se non c'è un fermo in corso): sotto il nome *In produzione oggi* (dal foglio Programma); poi **Apri fermo** rosso, oppure la fascia verde **Chiudi fermo** con il cronometro e sotto **Cosa provare** (+ Aggiungi soluzione); poi Manuali, Schede, Anomalia. **Scorrendo**: gli interventi degli ultimi 90 giorni dal più recente, divisi per giorno, con orari, durata (arancione oltre l'ora), guasto, descrizione, tecnico e lotto; 5 alla volta (**Mostra altri interventi**, +10). Tocca un intervento per il dettaglio completo e la foto.
+- **Pagina della macchina** (si apre dopo il QR o scegliendo la macchina, con sopra il riquadro **Apri fermo** se non c'è un fermo in corso): sotto il nome *In produzione oggi* (dal foglio Programma); poi **Apri fermo** rosso, oppure il grande pulsante verde **PREMI QUI PER CHIUDERE FERMO** con il cronometro e sotto **Cosa provare**; poi Manuali, Schede, Anomalia. In fondo alla pagina, staccato, il link **Conosci una soluzione per questa macchina? Aggiungila** (era in vista sotto Cosa provare e i tecnici pensavano chiudesse il fermo). **Scorrendo**: gli interventi degli ultimi 90 giorni dal più recente, divisi per giorno, con orari, durata (arancione oltre l'ora), guasto, descrizione, tecnico e lotto; 5 alla volta (**Mostra altri interventi**, +10). Tocca un intervento per il dettaglio completo e la foto.
 - **Soluzioni** (barra in basso): cerca per parola (pinze, ventose…) o per tipo guasto. Compaiono solo le soluzioni **verificate** del foglio Soluzioni (lo storico dei fermi è nella pagina della macchina). **+ Aggiungi soluzione**: tipo guasto, problema, soluzione, ricambi, vale per questa macchina o tutta la linea, foto o PDF facoltativo. La soluzione nuova la vede subito solo chi l'ha scritta (*DA APPROVARE*): diventa visibile a tutti quando il coordinatore la approva.
 - **Documenti**: due schede, *Manuali e schemi* e *Schede formato*; filtro *Questa macchina* / *Tutta la linea*. Si aprono con un tocco.
 - **Segnala anomalia**: macchina (dal QR o *Cambia*), **urgenza 1 / 2 / 3**, cosa hai visto, foto con cerchio, cosa serve → **Invia segnalazione**.
@@ -205,6 +212,7 @@ Fermo aperto per sbaglio? **Chiudi** → in fondo, staccato dal pulsante verde, 
 Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
 
 ### Compiti (tocca il tuo nome in alto)
+- Entrando nell'app, se c'è un compito nuovo compare al centro **Hai un nuovo compito!** → **Vedi il compito** oppure **Dopo** (la finestra torna al prossimo ingresso, anche rientrando nell'app dallo sfondo, finché il compito non è stato visto).
 - Il pallino rosso sul nome dice quanti **compiti** hai da fare. Tocca il nome → **I miei compiti**: quelli assegnati a te e quelli del **tuo turno** (es. *Turno T2*) che nessuno ha ancora preso.
 - Tocca un compito → **Prendo in carico** (o **Lo prendo io** se è del turno: da quel momento è tuo) → a lavoro finito scrivi una **nota** (cosa hai fatto, riferimento al logbook se serve) → **Fatto**.
 - Sotto trovi i compiti **fatti negli ultimi 30 giorni**.
@@ -215,8 +223,9 @@ Anche queste funzioni lavorano senza rete: partono appena torna la connessione.
 |---|---|
 | 🟢 Sincronizzato | Tutto è arrivato nel foglio. |
 | 🟠 Invio in corso | Ci sono registrazioni in coda, partono da sole. |
+| 🟠 Il foglio risponde lentamente | Lo script si sta svegliando (vedi 5.10): riprova da solo. |
 | 🔴 Telefono non autorizzato | Il nome non è legato a questo telefono: le registrazioni restano in coda e partono appena il responsabile approva il telefono nel foglio Telefoni. |
-| 🔴 Non connesso | Niente rete: **continua pure a lavorare**, i fermi restano sul telefono e partono appena torna la connessione. **Non disinstallare l'app** finché ci sono dati in coda (le foto in coda stanno nell'archivio del telefono, non si perdono chiudendo l'app). |
+| 🔴 Non connesso da N min · dati delle hh:mm | Niente rete (o foglio irraggiungibile). L'app riprova da sola dopo 5, 15 e 30 secondi e diventa rossa solo se fallisce anche il secondo tentativo; appena il telefono ritrova la rete si ricollega subito. **Continua pure a lavorare**, i fermi restano sul telefono e partono appena torna la connessione. **Non disinstallare l'app** finché ci sono dati in coda (le foto in coda stanno nell'archivio del telefono, non si perdono chiudendo l'app). |
 | ⚪ Modalità demo | L'app non è ancora collegata al foglio. |
 
 ---
@@ -231,7 +240,7 @@ Foglio **Liste**, colonna **Manutentori**: un nome per cella, formato `COGNOME N
 - **Tecnico che lascia** → cancella la cella. Lo storico resta (fermi e KPI); non potrà più registrare (lo blocca anche lo script). Nel foglio Telefoni metti **BLOCCATO** sulle sue righe. Se conosceva il codice reparto, **cambialo** (vedi 9).
 - Il nome scritto qui è quello che finisce nella colonna **Manutentore** del foglio Fermi.
 
-**Coordinatori**: stesso foglio **Liste**, colonna **Coordinatori** (la crea lo script; ne basta una — se ne vedi due, cancella quella vuota): i nomi scritti come nella colonna Manutentori (devono esserci anche lì). Il coordinatore approva le soluzioni nuove dei tecnici (vedi sotto) e le sue soluzioni sono già verificate.
+**Coordinatori**: stesso foglio **Liste**, colonna **Coordinatori** (la crea lo script; ne basta una — se ne vedi due, cancella quella vuota), nomi scritti `COGNOME Nome`. **Non serve** ripeterli nella colonna Manutentori: un coordinatore vale anche come tecnico (entra nell'app, riceve compiti, compare nella tendina Manutentore del foglio Fermi, in vestizioni e convalide). L'unica differenza: **non compare nel foglio KPI Risorse**, perché intervenire non è il suo primo ruolo. Il coordinatore approva le soluzioni nuove dei tecnici (vedi sotto), le sue soluzioni sono già verificate, assegna compiti e aggiunge documenti. Un coordinatore che non entra in sterile: scrivi **NO** in *Area sterile* nel foglio Vestizioni.
 
 **Soluzioni da approvare**: una soluzione aggiunta da un tecnico entra nel foglio **Soluzioni** con Stato **DA APPROVARE** e arriva un avviso su Telegram (o per mail se Telegram non è attivo). Finché non è approvata la vede solo chi l'ha scritta e i coordinatori. Il coordinatore la approva dall'app (**Soluzioni → Da approvare → Approva / Scarta**; nella home compare *"N soluzioni da approvare"*). Puoi farlo anche tu dal foglio scrivendo **VERIFICATA** o **SCARTATA** nella colonna Stato. Le righe con Stato vuoto (quelle già esistenti) valgono come verificate.
 
@@ -277,6 +286,9 @@ Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della
 - Non mettere tra i guasti RIAVVIO, PULIZIA, SOSTITUZIONE, REGOLAZIONE: sono **tipi di intervento**, non guasti.
 - Macchina nuova: aggiungi la riga anche qui. Macchina senza riga o con la riga vuota: compaiono solo i guasti di `TUTTE`.
 - Per costruire le liste delle altre linee guarda le descrizioni dei fermi chiusi con **ALTRO**: le voci che si ripetono diventano un guasto.
+- **Stessa famiglia, stessa lista**: tutte le astucciatrici, cartonatrici, bilance… con le stesse voci scritte allo stesso modo, così i Pareto si confrontano tra linee.
+- Rinominare una voce già usata spezza lo storico (i vecchi fermi restano col nome vecchio e l'ordine per frequenza riparte da zero): meglio correggere i nomi prima che vengano usati.
+- Le modifiche arrivano ai telefoni alla sincronizzazione successiva: non serve ripubblicare lo script.
 
 ### 5.5 KPI
 Foglio **KPI**. In alto le celle gialle sono i **filtri**:
@@ -320,7 +332,7 @@ Le colonne ID e Data si possono lasciare vuote. Il file resta dove è: l'app mos
 1. Nel Google Sheet *Pharma-Fix Fermi*: **File → Importa → Carica** → scegli il file → **Inserisci nuovi fogli**.
 2. Dalla scheda importata *Soluzioni* copia dalla riga 2 in giù (colonne A–K) e incolla in **Soluzioni**, cella A2.
 3. Allo stesso modo *Documenti* (A–H) → **Documenti** e *Anomalie* (A–N) → **Anomalie**.
-4. Elimina le schede importate (compresa *Mappa*, che serviva solo a controllare gli abbinamenti).
+4. Elimina le schede importate (compresa *Mappa* / *Mappa (controllo)*, che serviva solo a controllare gli abbinamenti: lo script non la usa).
 
 > Non eseguire anche **importaPharmaFix** sugli stessi dati: le righe raddoppierebbero. (importaPharmaFix resta per un eventuale altro file della vecchia app: incollalo in una scheda **Import_PharmaFix**, esegui una volta, controlla i codici in **Mappa_import**, esegui di nuovo.)
 
@@ -338,7 +350,7 @@ Foglio **Telefoni**: una riga per ogni coppia tecnico + telefono, con modello, p
 - **Telefono nuovo** (cambio telefono) o **telefono di un collega**: riga gialla con Stato **DA APPROVARE**; il tecnico non può registrare finché non scrivi **OK**. Se è un tentativo di usare il nome di un altro, scrivi **BLOCCATO**.
 - **Telefono perso o cambiato**: metti **BLOCCATO** sulla riga vecchia.
 
-Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana).
+Menu **Pharma-Fix → Controlla registrazioni**: crea il foglio **Controlli** con i casi da guardare — telefoni da approvare, stesso telefono usato da più tecnici, fermi sovrapposti dello stesso tecnico, fermi di chi quel giorno risultava a riposo, in ferie o assente nel foglio Turni, orari dichiarati inseriti più di 4 ore dopo la fine. Fallo ogni tanto (es. una volta a settimana). Il foglio Controlli si svuota e si riscrive a ogni controllo: se lo cancelli, ricompare al prossimo.
 
 **Correzioni**: la **prima** correzione di un fermo chiuso la fa direttamente chi l'ha registrato (o un coordinatore): dettaglio del fermo → **Correggi il fermo** (orari, categoria, tipo intervento, guasto, descrizione, lotto, pezzo; orari cambiati = *dichiarati*). Resta nel foglio **Correzioni** come *Modifica diretta: campo: prima → dopo* (FATTA) e come nota sulla riga. **Dalla seconda in poi** (o se è già stata chiesta una correzione) l'app mostra solo **Hai sbagliato qualcosa? Chiedi una correzione** e scrive cosa cambiare. La richiesta finisce nel foglio **Correzioni** (con la riga del foglio Fermi) e arriva un avviso su Telegram; sulla cella della descrizione compare una nota. Correggi a mano la riga in Fermi e metti **FATTA** nel foglio Correzioni.
 
@@ -406,8 +418,8 @@ Poi menu **Pharma-Fix → Completa fermi scritti a mano (da carta)**: lo script 
 
 ### 5.15 Vestizioni (accesso all'area sterile)
 Il foglio **Vestizioni** si crea da solo (con l'elenco dei Manutentori) alla prima apertura dell'app dopo l'aggiornamento. Per ogni tecnico scrivi la **Data vestizione** (ultima qualifica) e, se diversa da 12, la **Durata (mesi)**; *Scadenza* e *Giorni mancanti* si calcolano da soli. Un tecnico nuovo: aggiungi una riga con il nome scritto come in Liste.
-- **Tecnico**: da **60 giorni** prima della scadenza vede nel menu del nome il box giallo *in scadenza* e il pallino rosso sul nome; da scaduta il box rosso *SCADUTA* (resta finché non aggiorni la data). Se è valida non compare nulla.
-- **Coordinatori**: menu del nome → **Vestizioni del reparto** (tutti, ordinati per scadenza, più chi è senza data).
+- **Tecnico**: dal **preavviso** (60 giorni, si cambia nel riquadro Impostazioni, vedi 5.15b) vede nel menu del nome il box giallo *in scadenza* e il pallino rosso sul nome; da scaduta il box rosso *SCADUTA* (resta finché non aggiorni la data). Se è valida non compare nulla. Il pallino si spegne quando il tecnico apre il menu del nome e si riaccende a 14 giorni, a 7 giorni e alla scadenza.
+- **Coordinatori**: menu del nome → **Scadenze del reparto** (vedi 5.15b).
 - **Riepilogo del lunedì**: riga 🧤 VESTIZIONI con chi è in scadenza e chi è scaduto (solo se ce n'è).
 
 ### 5.15b Convalide GMP (foglio Convalide)
@@ -421,13 +433,15 @@ Le convalide per gli interventi GMP in area sterile (Cat. G regolazione, Cat. H 
   - *Ultima convalida Cat. G*, *Cat. H*… (gialle): le compila lo script come *scadenza dello scadenziario − durata standard*; se una convalida viene rinnovata scrivi tu la data nuova e risulta subito valida (scadenza = data + durata standard) senza aspettare lo scadenziario;
   - riquadro **Impostazioni** a destra: *Durata standard vestizione (mesi)* (vale quando la colonna Durata è vuota), *Durata standard convalide interventi (mesi)* (per l'ultima convalida), *Preavviso vestizione* e *Preavviso convalide GMP* (giorni prima della scadenza). Valgono per app, pallino e riepilogo;
   - colori: giallo = in preavviso, rosso = scaduta o MANCA, grigio = esonerato.
-- **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (60 giorni) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
+- **Tecnico:** avviso nel menu col nome quando una convalida è in scadenza (dal preavviso convalide) o scaduta, pallino rosso con le stesse soglie della vestizione, e *Le mie abilitazioni* (vestizione + convalide).
 - **Coordinatore:** *Scadenze del reparto* (al posto di Vestizioni del reparto): tabella per persona con vestizione e categorie, filtri Da rinnovare / Scadute, tocca un nome per il dettaglio.
 - **Riepilogo settimanale:** riga *🧾 CONVALIDE GMP* con quelle in scadenza e scadute.
 
 ### 5.16 Turni
 Il foglio **Turni** si crea da solo (vuoto) alla prima apertura dell'app dopo l'aggiornamento. Ogni mese **incolla la tabella dall'Excel dei turni** sotto il mese precedente, così com'è: la riga con le date e una riga per persona (nomi scritti come in Liste). Va bene anche un foglio per mese, purché il nome inizi con *Turni* (es. "Turni novembre").
 Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), **R** riposo, **F** ferie, **C** corso/formazione, **A** (o qualsiasi altro codice) assente; un secondo numero è il turno originale (**3 1** = fa il 3, era nell'1). Per una malattia usa **A**: nell'app compare solo *assente*, mai il motivo.
+
+> **Attenzione a "3/1" con la barra:** Google Fogli lo trasforma in una **data** (3 gennaio). Lo script dalla versione 17/10/2026 la rilegge giusta come *3 1*, ma per sicurezza scrivi il cambio con lo **spazio** (`3 1`), oppure seleziona l'area dei turni e fai **Formato → Numero → Testo normale** prima di incollare.
 - **Tutti**, nel menu del nome: **I miei turni** (prossimi 14 giorni, cambi evidenziati) e **Chi c'è** (oggi, domani, dopodomani: turno 1, 2, 3, giornata, assenti e ferie, riposo).
 - **Compiti a un turno**: li vede chi quel giorno è in quel turno secondo il foglio (senza turni nel foglio, conta l'orario).
 - **Passaggio di turno**: prima riga *👷 In turno: …* con chi doveva esserci ed è assente.
@@ -435,6 +449,7 @@ Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), 
 
 ### 5.17 Programma produzione
 Crea nel file Google un foglio chiamato **Programma**. Ogni volta che il programma cambia, copia **tutto** il foglio dell'Excel del programma (quello dell'anno, con le settimane e gli appunti) e incollalo in **A1** con **Incolla speciale → solo valori**, al posto del contenuto precedente. Lo script trova da solo la riga delle date e usa solo le righe di **riempimento** (*st1 rip pomate/gel* → ST1 TGM, *st1 rip liquidi* → ST1 MAR, *orl rip*, *st2/st3/st4/st5 rip*, *rip st6*) e di confezionamento (*spl1*, *spl2*); le righe *prep* e le altre le ignora. Se in colonna A scrivi direttamente il nome di una linea come in Equipment (es. *ST3*), vale quello.
+Incolla **solo l'area con i dati** e **solo valori**: copiando il foglio intero con la formattazione si portano dietro migliaia di colonne vuote che rendono il file enorme e lento (era arrivato a 42 MB). Se succede: menu **Pharma-Fix → Alleggerisci foglio Programma (colonne vuote)**, oppure seleziona le colonne vuote a destra dei dati (Ctrl+Maiusc+→) → tasto destro → **Elimina colonne**.
 Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto è il primo numero di 6 cifre; una cella che inizia con **cf** è un cambio formato.
 - **Scheda macchina**: *In produzione oggi* (e domani) per la linea della macchina.
 - **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto). Per le linee a ciclo continuo (cella F7 del foglio Avvisi, es. ST3) compaiono prima anche i lotti del giorno precedente.
@@ -474,6 +489,9 @@ Indicatori per tecnico (i **coordinatori** della colonna Coordinatori del foglio
   1. Estensioni → Apps Script → incolla il nuovo `Code.gs` → salva.
   2. **Esegui il deployment → Gestisci deployment** → matita ✏️ → Versione: **Nuova versione** → **Esegui il deployment**.
   3. L'indirizzo `/exec` **resta lo stesso**: non serve toccare `config.js`.
+  4. Controllo: menu **Pharma-Fix → Versione dello script** nel foglio dice quale versione è installata (deve essere quella indicata con il file nuovo).
+
+  > ⚠️ **Mai** *Nuovo deployment* e mai il tipo **Libreria**: si crea un indirizzo diverso e l'app smette di collegarsi (tutti i telefoni in *Non connesso*). Si aggiorna **sempre** con la matita sul deployment **App web** esistente. Se per errore il deployment App web viene archiviato o cancellato: creane uno nuovo (tipo **App web**, Esegui come **Me**, accesso **Chiunque**), copia il nuovo indirizzo `/exec` e aggiorna `config.js` su GitHub. I dati nel foglio non si perdono e i fermi rimasti in coda sui telefoni partono appena l'app si ricollega.
   - Se l'aggiornamento cambia il foglio KPI, esegui **aggiornaKpi** (menu delle funzioni → aggiornaKpi → Esegui): ricrea il foglio KPI; va reinserito solo il valore delle ore di funzionamento.
   - `setup()` si può rieseguire senza rischi: crea solo i fogli che mancano (es. Guasti, Soluzioni, Documenti, Anomalie, Telefoni), aggiunge le colonne nuove di Fermi e trasforma le aree Sterile/Secondario in Filling/Packaging e risistema la formula della durata; non tocca Fermi, Equipment, Liste, Guasti e KPI già esistenti.
 
@@ -497,6 +515,11 @@ I dati calcolati restano pronti nella memoria dello script: con tanti telefoni i
 | La fotocamera non si apre per lo scanner | Permesso negato: impostazioni del telefono → app/browser → Fotocamera → Consenti. Intanto usa **Fotografa QR** o **Scegli macchina a mano**. |
 | "QR non riconosciuto" | L'etichetta è di un'altra app o la macchina non è nel foglio Equipment (o ha Attivo = NO). |
 | Pallino rosso fisso con rete funzionante | `API_URL` in `config.js` sbagliato, oppure lo script non è pubblicato con accesso **Chiunque**. Apri nel browser `API_URL?action=ping&key=CODICE_REPARTO`: deve rispondere `{"ok":true}`. |
+| Tutti i telefoni in *Non connesso* nello stesso momento | Il deployment App web è cambiato o non esiste più (vedi 7). Apri `API_URL?action=ping` nel browser: se Google dice *Impossibile aprire il file* l'indirizzo non è più valido. |
+| iPhone: il tecnico deve rifare accesso e codice reparto | Sta aprendo l'app da Safari/Chrome (avviso giallo *Stai usando il browser*) o inquadra il QR con la fotocamera dell'iPhone. Va aperta dall'icona sulla schermata Home e i QR si scansionano col pulsante dentro l'app. |
+| Coordinatore con il triangolino rosso nella colonna E di Fermi | Script vecchio: aggiorna Code.gs (la tendina comprende i coordinatori). Per forzarla: **Pharma-Fix → Aggiorna menu a tendina foglio Fermi**. |
+| Controlli: *"risultava assente"* ma il tecnico era in turno | Nel foglio Turni la cella è diventata una data (es. *3/1*, vedi 5.16) o manca un cambio turno. Correggi la cella e rilancia il controllo. |
+| Il file del foglio è diventato molto pesante o lento | Quasi sempre il foglio Programma incollato con la formattazione (vedi 5.17). |
 | "Codice reparto errato" / "Il codice reparto è cambiato" | Il codice inserito non corrisponde a **KEY** nelle Proprietà script. Dopo averlo cambiato, ogni tecnico lo reinserisce una volta. |
 | Un fermo è stato chiuso con dati sbagliati | Correggilo a mano nel foglio Fermi (non toccare Stato e ID fermo). |
 | Fermo rimasto aperto (giallo) da giorni | Qualcuno ha dimenticato di chiuderlo: chiudilo dall'app (scansione QR o **Chiudi** nella home) e correggi poi a mano l'Ora Fine nel foglio se serve. |
