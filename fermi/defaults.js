@@ -71,7 +71,7 @@
     equipment,
     liste: {
       'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
-      'Tipo intervento': ['SOSTITUZIONE', 'REGOLAZIONE', 'PULIZIA', 'RIAVVIO', 'ALTRO'],
+      'Tipo intervento': ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'],
       'Guasto Sterile': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H32 CTG, rimessa in dima pinze ctg',
         'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi',
         'H10, Sostituzione e regolazione fotocellula della macchina', 'H19, Rimessa in fase della Stella',

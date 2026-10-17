@@ -191,11 +191,14 @@ Con un fermo aperto, nella pagina della macchina (sotto **Chiudi fermo**) c'è *
 
 ### Chiudere un fermo (~20–30 secondi)
 1. **Scansiona di nuovo il QR** della stessa macchina → pulsante verde **PREMI QUI PER CHIUDERE FERMO** (oppure, nella home, **Chiudi** sul fermo).
-2. In alto il riepilogo: aperto alle, durata, lotto, aperto da; poi **Quando è ripartita?** **ADESSO** o **SCEGLI ORARIO** (fine scritta a mano = *dichiarata*; solo turno in corso o entro 2 ore dal cambio turno). Il modulo si sblocca **un passo alla volta**: **Categoria** → **Tipo intervento** → **Tipo guasto** (uno solo, come nel template; in ordine di frequenza su quella macchina, con il numero). Sotto il guasto compaiono le **soluzioni verificate** più adatte (*Prova prima*).
+2. In alto il riepilogo: aperto alle, durata, lotto, aperto da; poi **Quando è ripartita?** **ADESSO** o **SCEGLI ORARIO** (fine scritta a mano = *dichiarata*; solo turno in corso o entro 2 ore dal cambio turno). Poi tre domande (classificazione dal 17/10/2026):
+   - **Cosa si è guastato**: componente o zona dal foglio Guasti, in ordine di frequenza su quella macchina. La **Categoria** si scrive da sola dal foglio **Voci guasto** (vedi 5.4b); il tecnico la sceglie solo per ALTRO o per una voce non ancora classificata. Sotto compaiono le **soluzioni verificate** (*Prova prima*).
+   - **Cosa hai fatto**: **REGOLAZIONE** (spostato o registrato), **SOSTITUZIONE** (pezzo nuovo, codice obbligatorio), **RIPRISTINO** (reset, riavvio, sblocco, homing: niente regolato né cambiato), **PULIZIA**. È già scelto quello usato più spesso per quel guasto su quella macchina (almeno 2 volte negli ultimi 90 giorni).
+   - **Perché** (facoltativo): usura, formato / regolazione persa, materiale fuori spec., errore operatore, elettrica / alimentazione, non nota. Va nella colonna **Causa** (Y) del foglio Fermi.
 3. **Foto della zona di intervento** (consigliata) → scatta → **tocca la foto per cerchiare** il punto (tocca il cerchio per toglierlo).
 4. **Descrizione breve**: **sempre obbligatoria**. Per chiusure astucci scrivi zona, lato macchina/OP, n° nonio. Con **Proponi come soluzione** (e il problema in una riga) la descrizione diventa anche una soluzione *da approvare* nel foglio Soluzioni (già verificata se chiude un coordinatore).
 5. **Lotto**: è già scritto quello dell'apertura; correggilo se nel frattempo è cambiato. **Obbligatorio**: senza, il fermo non si chiude.
-6. **Codice pezzo sostituito**: compare solo se il tipo intervento è **SOSTITUZIONE**, e allora è obbligatorio.
+6. **Codice pezzo montato**: compare sotto *Cosa hai fatto* solo con **SOSTITUZIONE**, e allora è obbligatorio.
 7. **Chiudi fermo**.
 
 Il fermo lo può chiudere (o annullare) **solo chi l'ha aperto**, oppure un coordinatore. Un fermo chiuso non si modifica dall'app: nel dettaglio c'è **Chiedi correzione** (vedi 5.9).
@@ -291,6 +294,14 @@ Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della
 - **Stessa famiglia, stessa lista**: tutte le astucciatrici, cartonatrici, bilance… con le stesse voci scritte allo stesso modo, così i Pareto si confrontano tra linee.
 - Rinominare una voce già usata spezza lo storico (i vecchi fermi restano col nome vecchio e l'ordine per frequenza riparte da zero): meglio correggere i nomi prima che vengano usati.
 - Le modifiche arrivano ai telefoni alla sincronizzazione successiva: non serve ripubblicare lo script.
+
+### 5.4b Categoria automatica (foglio Voci guasto)
+Una riga per ogni voce del foglio Guasti con la sua **Categoria** (MECCANICO / ELETTRICO / AUTOMATION / ALTRO). La decidi una volta e l'app la scrive da sola a ogni chiusura: lo stesso guasto ha sempre la stessa categoria.
+- Il foglio lo crea lo script con una categoria **proposta**: bianca se viene dallo storico (quella usata più spesso, almeno 3 fermi), **gialla** se dedotta dal nome della voce (CAM., VIDEOJET, PARAM… → AUTOMATION; SENSORE, FOTOCELLULA, SICUREZZE… → ELETTRICO; il resto MECCANICO). **Controlla le gialle.**
+- Una voce nuova scritta nel foglio Guasti compare qui da sola, in giallo. Le categorie che hai deciso non vengono mai toccate.
+- Le cause (FORMATO, USURA, SPIKE CORRENTE) e gli interventi (RIAVVIO, RIPARAZIONE, SOSTITUZIONE…) non sono voci di guasto: al passaggio alla nuova classificazione lo script li ha tolti dalla riga TUTTE.
+
+**Passaggio alla nuova classificazione** (fatto da solo dallo script la prima volta che l'app si collega dopo l'aggiornamento): colonna *Tipo intervento* del foglio Liste = REGOLAZIONE, SOSTITUZIONE, RIPRISTINO, PULIZIA; nello storico RIAVVIO diventa RIPRISTINO (gli altri valori vecchi, es. ALTRO, restano come erano); colonna **Causa** aggiunta in fondo al foglio Fermi; foglio Voci guasto creato.
 
 ### 5.5 KPI
 Foglio **KPI**. In alto le celle gialle sono i **filtri**:
@@ -406,7 +417,8 @@ I **coordinatori** (colonna Coordinatori del foglio Liste) assegnano lavori ai t
 ### 5.13b Menu a tendina nel foglio Fermi
 Per chi scrive o corregge i fermi a mano nel foglio, le colonne hanno il menu a tendina (come nel vecchio template):
 - **E Manutentore**: i tecnici, cioè colonne *Manutentori* + *Coordinatori* del foglio **Liste**;
-- **G Categoria**, **H Tipo intervento**: solo i valori delle colonne *Categoria* e *Tipo intervento* del foglio **Liste**;
+- **G Categoria**: solo i valori della colonna *Categoria* del foglio **Liste**; **H Tipo intervento**: le 4 voci della colonna *Tipo intervento* (i valori vecchi dello storico sono solo segnalati);
+- **Y Causa**: le 6 cause (facoltativa);
 - **F Macchina**: le macchine attive del foglio **Equipment**;
 - **I Tipo guasto**: tutti i tipi scritti nel foglio **Guasti** (TUTTE + le singole macchine).
 
