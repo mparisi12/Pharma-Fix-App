@@ -221,4 +221,17 @@ console.log('\nFoglio Programma pesante');
   ctx.pulisciProgramma_(sh);
   ok(mc === 310 && fatto.filter(x => x[0] === 'col').every(x => x[2] <= 2000) && fatto.some(x => x[0] === 'row'), 'colonne vuote eliminate a blocchi da 2000 (16.370 → 310), righe in eccesso tolte');
 }
+
+console.log('\nTurni: cella "3/1" diventata data');
+{
+  const date = ['OTTOBRE'].concat([9, 10, 11, 12, 13, 14, 15].map(g => 'x/' + g + '/10/26'));
+  const sheets = { Liste: new Sheet('Liste', [['Manutentori'], ['ROSSI Mario']]), Equipment: new Sheet('Equipment', [['Codice (QR)']]),
+    Turni: new Sheet('Turni', [['Incolla'], date]) };
+  const { ctx } = carica(sheets);
+  sheets.Turni.rows.push(['ROSSI Mario', new ctx.DD(2026, 0, 3), new ctx.DD(2026, 2, 1), '3/2', 'R', 2, '3 1', 'F']);
+  const p = ctx.turniTutti_(ctx.SpreadsheetApp.getActiveSpreadsheet())['ROSSI Mario'];
+  ok(p['2026-10-09'] === '3 1' && p['2026-10-10'] === '1 3' && p['2026-10-11'] === '3 2', 'data 3 gennaio → "3 1", 1 marzo → "1 3", "3/2" → "3 2"');
+  ok(p['2026-10-12'] === 'R' && p['2026-10-13'] === '2' && p['2026-10-14'] === '3 1', 'celle normali invariate');
+}
+
 fine('Script');
