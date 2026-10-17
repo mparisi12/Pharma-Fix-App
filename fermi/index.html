@@ -170,6 +170,10 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .pp-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:var(--steel)}.pp-h svg{width:18px;height:18px}.pp-h b{font:700 17px var(--display);letter-spacing:.04em;text-transform:uppercase}.pp-h span{flex-basis:100%;font-size:12px;color:var(--muted)}
 #pg .chip.extra{display:none}#pg.all .chip.extra{display:inline-flex}.chip.ghost{border-style:dashed;color:var(--steel)}.chip.ghost[aria-pressed="true"]{color:var(--steel-ink);border-style:solid}
 .chip .cnt{font:500 11px var(--mono);opacity:.75;margin-left:4px}
+.chips.ich2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chips.ich2 .chip{padding:9px 11px;font-weight:600;line-height:1.15}
+.chips.ich2 .chip small{display:block;font-weight:400;font-size:11.5px;opacity:.75;margin-top:3px;line-height:1.25}
+.autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
+.prop{font:500 11px var(--mono);color:var(--ok,#0b6b3a);margin-left:6px;text-transform:none;letter-spacing:0}
 .provaprima .sugg{margin-top:0;background:none;border:0;padding:0}.provaprima .sugg-i{border:1px solid var(--line);background:var(--surface2)}
 .sugg{margin-top:10px;background:var(--steel-soft);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .sugg-h{display:flex;align-items:center;gap:8px;color:var(--steel);font-size:14px}.sugg-h svg{width:18px;height:18px}
@@ -654,10 +658,11 @@ function applyInit(j) {
   if (j.equipment && j.equipment.length) S.equipment = j.equipment;
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
+  if (j.vociCat) S.vociCat = j.vociCat;
   S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.sterileNo = j.sterileNo || []; S.convalide = j.convalide || { list: [], ignote: [] }; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || []; S.avviso = j.avviso || null;
   S.ver = j.ver || ''; S.loaded = true; S.cacheOk = true; S.net = 'ok'; S.lastSync = Date.now();
   if (S.man && !abilitati().includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 let NET_KO = 0, RETRY_NET = null; // tentativi falliti di fila per mancanza di rete
 async function refresh() {
@@ -976,7 +981,7 @@ function intSheet(f, eq) {
   sheet(`<div class="sheet-h"><div><div class="code">${esc(eq.code)} · ${esc(eq.macchina)}</div><h3 style="margin-top:4px">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(f.int) : ''}</h3></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="ctxbar"><div><div class="hint" style="margin:0">${dayLabel(f.start).toLowerCase().replace(/^./, c => c.toUpperCase())} · turno ${turnoOf(f.start)}</div><div class="ore big">${hhmm(f.start)} → ${hhmm(f.end)}</div></div><span class="dur big${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
     ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
-    <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? (isFill(eq) ? 'Dichiarati (batch record)' : 'Scritti a mano (registrato dopo)') : f.orari === 'CARTACEO' ? 'Da foglio cartaceo' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}</div>
+    <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? (isFill(eq) ? 'Dichiarati (batch record)' : 'Scritti a mano (registrato dopo)') : f.orari === 'CARTACEO' ? 'Da foglio cartaceo' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}${f.causa ? cell('Causa', f.causa) : ''}</div>
     ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}
     ${puoCorreggere(f) && !f.pending && !(f.nCorr > 0) ? `<div style="margin-top:12px"><button class="morebtn" id="modf">Correggi il fermo</button><div class="hint center">La prima correzione la fai tu. Le successive andranno chieste al responsabile.</div></div>`
     : puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
@@ -996,22 +1001,24 @@ function intSheet(f, eq) {
 }
 // Prima correzione: la fa direttamente chi ha registrato il fermo (o un coordinatore)
 function modSheet(f, eq) {
-  const M = { cat: U(f.cat) ? (S.liste['Categoria'] || []).find(x => U(x) === U(f.cat)) || f.cat : null, int: (S.liste['Tipo intervento'] || []).find(x => U(x) === U(f.int)) || f.int || null, guasto: f.guasto || null };
+  const M = { cat: U(f.cat) ? (S.liste['Categoria'] || []).find(x => U(x) === U(f.cat)) || f.cat : null, int: intNorm(f.int), guasto: f.guasto || null, causa: f.causa || null };
+  M.catScelta = M.cat;
   sheet(`<div class="sheet-h"><div><h3>Correggi il fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · ${fmtDT(f.start)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="banner" style="margin-top:10px">Prima e unica correzione diretta: dopo, per cambiare ancora, dovrai chiederlo al responsabile.</div>
     <div class="group"><span class="label">Orari del fermo</span><div class="times"><label>Inizio<input class="field" type="time" id="mini" value="${hhmm(f.start)}"></label><label>Fine<input class="field" type="time" id="mfin" value="${hhmm(f.end)}"></label></div>
       <div class="hint">Se li cambi vengono segnati come <b>dichiarati</b>.</div></div>
-    <div class="group"><span class="label">Categoria</span><div class="chips" id="mcat">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>
-    <div class="group"><span class="label">Tipo intervento</span><div class="chips" id="mint">${chips(S.liste['Tipo intervento'] || [], M.int)}</div></div>
-    <div class="group"><span class="label">Tipo guasto</span><div class="chips" id="mgua">${guaChips(eq, M.guasto)}</div></div>
+    <div class="group"><span class="label">Cosa si è guastato</span><div class="chips" id="mgua">${guaChips(eq, M.guasto)}</div><div id="mcatbox"></div></div>
+    <div class="group"><span class="label">Cosa hai fatto</span><div class="chips ich2" id="mint">${intChips(M.int)}</div></div>
+    <div class="group"><span class="label">Perché · facoltativo</span><div class="chips" id="mcau">${chips(CAUSE, M.causa)}</div></div>
     <div class="group"><label class="label" for="malt">Descrizione breve</label><textarea class="field" id="malt">${esc(f.altro || '')}</textarea></div>
     <div class="group"><label class="label" for="mlot">Lotto</label><input class="field" id="mlot" inputmode="numeric" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}"></div>
     <div class="group" id="mpzg" ${U(M.int) === 'SOSTITUZIONE' ? '' : 'hidden'}><label class="label" for="mpz">Codice pezzo sostituito</label><input class="field" id="mpz" value="${esc(f.pezzo || '')}"></div>
     <div class="err" id="merr" hidden></div>
     <button class="submit blue" id="mgo">Salva la correzione</button>`);
-  singleChoice($('#mcat'), v => M.cat = v);
+  catBox($('#mcatbox'), M.guasto, M);
   singleChoice($('#mint'), v => { M.int = v; $('#mpzg').hidden = U(v) !== 'SOSTITUZIONE'; });
-  singleChoice($('#mgua'), v => M.guasto = v);
+  singleChoice($('#mgua'), v => { M.guasto = v; catBox($('#mcatbox'), v, M); });
+  toggleChoice($('#mcau'), v => { M.causa = v; });
   $('#mgo').onclick = () => needMan(() => {
     const e = $('#merr'), alt = $('#malt').value.trim(), lot = $('#mlot').value.trim(), pz = $('#mpz').value.trim();
     // orari: stesso giorno dell'inizio originale (fine dopo mezzanotte → giorno dopo)
@@ -1019,10 +1026,10 @@ function modSheet(f, eq) {
     let ini = at($('#mini').value, f.start), fin = at($('#mfin').value, f.start);
     if (ini != null && fin != null && fin <= ini) fin += 864e5;
     const tmsg = ini == null || fin == null ? 'Scrivi ora di inizio e di fine.' : fin > Date.now() + 60000 ? 'La fine non può essere nel futuro.' : fin - ini > 12 * 3600e3 ? 'Fermo più lungo di 12 ore: controlla gli orari.' : '';
-    const msg = tmsg || !M.cat || !M.int || !M.guasto ? 'Scegli categoria, tipo intervento e tipo guasto.' : alt.length < 4 ? 'La descrizione è obbligatoria.' : !LOTTO_OK(lot) ? LOTTO_MSG : U(M.int) === 'SOSTITUZIONE' && !pz ? 'Con SOSTITUZIONE scrivi il codice del pezzo.' : '';
+    const msg = tmsg || !M.cat || !M.int || !M.guasto ? 'Scegli cosa si è guastato, la categoria e cosa hai fatto.' : alt.length < 4 ? 'La descrizione è obbligatoria.' : !LOTTO_OK(lot) ? LOTTO_MSG : U(M.int) === 'SOSTITUZIONE' && !pz ? 'Con SOSTITUZIONE scrivi il codice del pezzo.' : '';
     if (msg) { e.textContent = msg; e.hidden = false; return; }
     const cambiati = Math.abs(ini - f.start) >= 60000 || Math.abs(fin - f.end) >= 60000;
-    enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, inizio: cambiati ? ini : undefined, fine: cambiati ? fin : undefined, categoria: M.cat, intervento: M.int, guasto: M.guasto, altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
+    enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, inizio: cambiati ? ini : undefined, fine: cambiati ? fin : undefined, categoria: M.cat, intervento: M.int, guasto: M.guasto, causa: M.causa || '', altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
     closeSh(); toast('Fermo corretto. Altre modifiche: Chiedi correzione', 3500);
   });
 }
@@ -1065,7 +1072,7 @@ function renderSol() {
   bindCommon();
 }
 // Soluzioni verificate più adatte al guasto scelto: stesso tipo guasto, oppure parole del guasto nel testo
-const STOP = new Set(['DELLA', 'DELLE', 'DEGLI', 'ALTRO', 'MACCHINA', 'REGOLAZIONE', 'REGOLARE', 'SOSTITUZIONE', 'PULIZIA', 'RIAVVIO', 'CONTROLLO']);
+const STOP = new Set(['DELLA', 'DELLE', 'DEGLI', 'ALTRO', 'MACCHINA', 'REGOLAZIONE', 'REGOLARE', 'SOSTITUZIONE', 'PULIZIA', 'RIAVVIO', 'RIPRISTINO', 'CONTROLLO']);
 function suggerite(eq, guasto, max = 3) {
   const g = U(guasto); if (!g || g === 'ALTRO') return [];
   const words = g.replace(/[^A-Z0-9À-Ù ]/g, ' ').split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w));
@@ -1682,6 +1689,30 @@ function guaChips(eq, sel) {
   const l = guastiFor(eq).map((g, i) => ({ g, n: U(g) === 'ALTRO' ? -1 : cnt[U(g)] || 0, i })).sort((a, b) => b.n - a.n || a.i - b.i);
   return l.map(x => `<button class="chip" type="button" data-v="${esc(x.g)}" aria-pressed="${sel === x.g}">${esc(x.g)}${x.n > 0 ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('');
 }
+/* Classificazione: 1) cosa si è guastato 2) cosa hai fatto (4 voci con regola) 3) perché (facoltativo). Categoria dal foglio Voci guasto. */
+const INTERVENTI = [['REGOLAZIONE', 'spostato o registrato (nonio, guida, parametro)'], ['SOSTITUZIONE', 'pezzo nuovo montato · codice obbligatorio'],
+  ['RIPRISTINO', 'reset, riavvio, sblocco, homing: niente regolato né cambiato'], ['PULIZIA', 'pulito, tolto residui o inceppamenti']];
+const CAUSE = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
+const intNorm = v => { const u = U(v); return u === 'RIAVVIO' ? 'RIPRISTINO' : INTERVENTI.some(x => x[0] === u) ? u : null; };
+const catDi = g => g && U(g) !== 'ALTRO' ? (S.vociCat || {})[U(g)] || null : null;
+const intChips = sel => INTERVENTI.map(([v, d]) => `<button class="chip" type="button" data-v="${v}" aria-pressed="${intNorm(sel) === v}">${v}<small>${d}</small></button>`).join('');
+// L'intervento usato più spesso per questo guasto su questa macchina (almeno 2 volte): viene proposto già scelto
+function intProposto(code, g) {
+  const c = {}; allFermi().forEach(f => { if (f.code === code && f.stato === 'CHIUSO' && U(f.guasto) === U(g)) { const i = intNorm(f.int); if (i) c[i] = (c[i] || 0) + 1; } });
+  const t = Object.keys(c).sort((a, b) => c[b] - c[a])[0]; return t && c[t] >= 2 ? t : null;
+}
+// Categoria: automatica se la voce è nel foglio Voci guasto, altrimenti (ALTRO o voce nuova) la sceglie il tecnico
+function catBox(el, g, M, onPick) {
+  const c = catDi(g); M.cat = c || (M.catScelta || null);
+  if (!g) { el.innerHTML = ''; return; }
+  if (c) { el.innerHTML = `<div class="autotag">Categoria <b>${esc(c)}</b> · automatica</div>`; return; }
+  el.innerHTML = `<div style="margin-top:10px"><span class="label">Categoria${U(g) === 'ALTRO' ? '' : ' · voce non ancora classificata'}</span><div class="chips">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>`;
+  singleChoice(el.querySelector('.chips'), v => { M.cat = M.catScelta = v; onPick && onPick(); });
+}
+// Come singleChoice, ma un secondo tocco toglie la scelta (per le domande facoltative)
+function toggleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const on = b.getAttribute('aria-pressed') !== 'true';
+  el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', on && x === b)); onPick(on ? b.dataset.v : null); }; }
+
 function closeSheet(f, opt = {}) {
   const eq = eqBy(f.code) || { area: 'Packaging', code: f.code, linea: f.linea };
   const C = { img: null, circles: [], cat: null, int: null, guasto: PRE_G[f.id] || null };
@@ -1697,16 +1728,16 @@ function closeSheet(f, opt = {}) {
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${hhmm(Date.now())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>è ripartita prima</small></button></div>
       <div id="cfwrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="cfin"><div class="hint">L'orario scritto a mano viene segnato come <b>dichiarato</b>.</div></div></div>`}
-    <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Categoria</span><div class="chips" id="cat">${chips(S.liste['Categoria'] || [])}</div></div>
-    <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Tipo intervento <i class="lockhint">· scegli prima la categoria</i></span><div class="chips" id="int">${chips(S.liste['Tipo intervento'] || [])}</div></div>
-    <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Tipo guasto <i class="lockhint">· scegli prima il tipo intervento</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="solsug"></div></div>
+    <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Cosa si è guastato <i class="lockhint" style="display:inline">· il componente / la zona</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="catbox"></div><div id="solsug"></div></div>
+    <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Cosa hai fatto <span class="prop" id="iprop"></span><i class="lockhint">· scegli prima cosa si è guastato</i></span><div class="chips ich2" id="int">${intChips(null)}</div>
+      <div id="pzgrp" hidden style="margin-top:10px"><label class="label" for="pezzo">Codice pezzo montato · obbligatorio</label><input class="field" id="pezzo" autocomplete="off" placeholder="Codice del ricambio montato"></div></div>
+    <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Perché <i class="lockhint" style="display:inline">· facoltativo, se lo sai</i></span><div class="chips" id="cau">${chips(CAUSE)}</div></div>
     <div class="group" id="phgrp"></div>
     <div class="step locked" id="st4">
-      <div class="group"><label class="label" for="altro"><em class="stepn">4</em>Descrizione breve · obbligatoria <i class="lockhint">· scegli prima il tipo guasto</i></label><textarea class="field" id="altro" placeholder="Cosa hai trovato e cosa hai fatto (anche corta). Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea>
+      <div class="group"><label class="label" for="altro"><em class="stepn">4</em>Descrizione breve · obbligatoria <i class="lockhint">· scegli prima cosa hai fatto</i></label><textarea class="field" id="altro" placeholder="Cosa hai trovato e cosa hai fatto (anche corta). Per chiusure astucci: zona, lato macchina/OP, n° nonio"></textarea>
         <label class="propsol"><input type="checkbox" id="psol"><div><b>Proponi come soluzione</b><span>la descrizione diventa una soluzione per questo guasto e questa macchina (la approva il coordinatore)</span></div></label>
         <div id="pswrap" hidden style="margin-top:8px"><label class="label" for="pprob">Il problema, in una riga</label><input class="field" id="pprob" placeholder="Es. scatola piena si incastra in ingresso nastratrice"></div></div>
       <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
-      <div class="group" id="pzgrp" hidden><label class="label" for="pezzo">Codice pezzo sostituito · obbligatorio con SOSTITUZIONE</label><input class="field" id="pezzo" autocomplete="off" placeholder="Codice del ricambio montato"></div>
     </div>
     <div class="err" id="err" hidden></div>
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
@@ -1716,14 +1747,23 @@ function closeSheet(f, opt = {}) {
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pprob').value) $('#pprob').value = C.guasto && U(C.guasto) !== 'ALTRO' ? C.guasto.split(',')[0] + ': ' : ''; };
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
   const sblocca = id => { const el = $('#' + id); if (!el || !el.classList.contains('locked')) return; el.classList.remove('locked'); setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
-  singleChoice($('#cat'), v => { C.cat = v; sblocca('st2'); });
   const sost = () => U(C.int) === 'SOSTITUZIONE';
-  singleChoice($('#int'), v => { C.int = v; $('#pzgrp').hidden = !sost(); sblocca('st3'); if (C.guasto) sblocca('st4'); });
-  singleChoice($('#gua'), v => { C.guasto = v; showSuggest(eq, v); sblocca('st4'); });
-  if (C.guasto) showSuggest(eq, C.guasto);
+  const setInt = v => { C.int = v; $$('#int [data-v]').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === v)); $('#pzgrp').hidden = !sost(); };
+  const pronto2 = () => { if (!C.guasto || !C.cat) return; sblocca('st2'); if (C.int) { sblocca('st3'); sblocca('st4'); } };
+  singleChoice($('#int'), v => { setInt(v); $('#iprop').textContent = ''; pronto2(); if (sost()) setTimeout(() => $('#pezzo').focus(), 80); });
+  toggleChoice($('#cau'), v => { C.causa = v; });
+  const sceltoGuasto = v => {
+    C.guasto = v; showSuggest(eq, v); catBox($('#catbox'), v, C, pronto2);
+    const pr = intProposto(eq.code, v);
+    if (pr && !C.intToccato) { setInt(pr); $('#iprop').textContent = '✓ proposto: il più usato qui'; } else if (!C.intToccato) { setInt(null); $('#iprop').textContent = ''; }
+    pronto2();
+  };
+  $('#int').addEventListener('click', () => { C.intToccato = true; });
+  singleChoice($('#gua'), sceltoGuasto);
+  if (C.guasto) sceltoGuasto(C.guasto);
   $('#go').onclick = () => {
     const altro = $('#altro').value.trim();
-    const miss = [!C.cat && 'categoria', !C.int && 'tipo intervento', !C.guasto && 'tipo guasto'].filter(Boolean);
+    const miss = [!C.guasto && 'cosa si è guastato', C.guasto && !C.cat && 'categoria', !C.int && 'cosa hai fatto'].filter(Boolean);
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
     if (!msg && altro.length < 4) { msg = 'Scrivi una descrizione breve: cosa hai trovato e cosa hai fatto.'; $('#altro').focus(); }
     const psol = $('#psol').checked, pprob = $('#pprob').value.trim();
@@ -1755,7 +1795,7 @@ function closeSheet(f, opt = {}) {
     if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
     const lotto = $('#clotto').value.trim();
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
-    enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto,
+    enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined,
       altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now });
     if (psol) enqueue({ action: 'soluzione', id: uid('S'), code: eq.code, linea: eq.linea, guasto: C.guasto || '', problema: pprob, soluzione: altro, ricambi: sost() ? $('#pezzo').value.trim() : '', ts: now, manutentore: S.man });
     delete PRE_G[f.id]; save('preg', PRE_G);
@@ -1790,7 +1830,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   S.cacheOk = !!(c && c.liste);
-  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.fermi = c.fermi || [];
+  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };

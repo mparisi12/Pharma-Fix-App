@@ -234,4 +234,28 @@ console.log('\nTurni: cella "3/1" diventata data');
   ok(p['2026-10-12'] === 'R' && p['2026-10-13'] === '2' && p['2026-10-14'] === '3 1', 'celle normali invariate');
 }
 
+
+console.log('\nClassificazione: voci guasto, interventi a 4, causa');
+{
+  const { ctx, sheets, props } = nuovo();
+  const C = ctx.C, riga = (int, gua, cat) => { const r = new Array(ctx.HEAD.length).fill(''); r[C.ID - 1] = 'F' + Math.random(); r[C.INT - 1] = int; r[C.GUASTO - 1] = gua; r[C.CAT - 1] = cat; r[C.STATO - 1] = 'CHIUSO'; return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('RIAVVIO', 'CAM. OMRON', 'AUTOMATION'), riga('REGOLAZIONE', 'CAM. OMRON', 'AUTOMATION'), riga('REGOLAZIONE', 'CAM. OMRON', 'MECCANICO'), riga('ALTRO', 'GUIDE', 'MECCANICO')]);
+  sheets.Liste.rows = [['Categoria', 'Tipo intervento', 'Manutentori'], ['MECCANICO', 'SOSTITUZIONE', 'ROSSI Mario'], ['ELETTRICO', 'REGOLAZIONE', ''], ['AUTOMATION', 'PULIZIA', ''], ['ALTRO', 'RIAVVIO', ''], ['', 'ALTRO', '']];
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO', 'RIAVVIO', 'RIPARAZIONE'], ['ST3-04', '', 'CAM. OMRON', 'GUIDE', 'PARAM VIDEOJET']]);
+  const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  ctx.classificazione_(ss);
+  ok(sheets.Liste.rows.slice(1).map(r => r[1]).filter(Boolean).join() === 'REGOLAZIONE,SOSTITUZIONE,RIPRISTINO,PULIZIA', 'Liste: Tipo intervento a 4 voci (RIAVVIO, ALTRO tolti)');
+  ok(sheets.Fermi.rows[1][C.INT - 1] === 'RIPRISTINO' && sheets.Fermi.rows[4][C.INT - 1] === 'ALTRO', 'storico: RIAVVIO → RIPRISTINO, il resto invariato');
+  ok(sheets.Fermi.rows[0][C.CAUSA - 1] === 'Causa', 'foglio Fermi: colonna Causa aggiunta');
+  ok(sheets.Guasti.rows[1].slice(2).filter(Boolean).join() === 'SENSORE,ARIA COMPRESSA,ALTRO', 'TUTTE: tolte cause e interventi (FORMATO, USURA, SPIKE, RIAVVIO, RIPARAZIONE)');
+  const v = ctx.vociCat_(ss);
+  ok(v['CAM. OMRON'] === 'AUTOMATION' && /storico/.test(sheets['Voci guasto'].rows.find(r => r[0] === 'CAM. OMRON')[2]), 'Voci guasto: CAM. OMRON = AUTOMATION dallo storico (2 su 3)');
+  ok(v['SENSORE'] === 'ELETTRICO' && v['PARAM VIDEOJET'] === 'AUTOMATION' && v['GUIDE'] === 'MECCANICO' && !v['ALTRO'], 'voci senza storico: categoria dal nome; ALTRO escluso');
+  sheets.Guasti.rows[2].push('NASTRATORI'); ctx.classificazione_(ss);
+  const n = sheets['Voci guasto'].rows.length;
+  ok(sheets['Voci guasto'].rows.some(r => r[0] === 'NASTRATORI') && sheets.Liste.rows[1][1] === 'REGOLAZIONE', 'voce nuova nel foglio Guasti: aggiunta in Voci guasto (la migrazione non si ripete)');
+  sheets['Voci guasto'].rows.find(r => r[0] === 'GUIDE')[1] = 'ELETTRICO'; ctx.classificazione_(ss);
+  ok(sheets['Voci guasto'].rows.length === n && sheets['Voci guasto'].rows.find(r => r[0] === 'GUIDE')[1] === 'ELETTRICO', 'le categorie decise dal responsabile non vengono toccate');
+}
+
 fine('Script');
