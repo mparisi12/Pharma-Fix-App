@@ -311,6 +311,15 @@ Una riga per ogni voce del foglio Guasti con la sua **Categoria** (MECCANICO / E
 
 **Passaggio alla nuova classificazione** (fatto da solo dallo script la prima volta che l'app si collega dopo l'aggiornamento): colonna *Tipo intervento* del foglio Liste = REGOLAZIONE, SOSTITUZIONE, RIPRISTINO, PULIZIA; nello storico RIAVVIO diventa RIPRISTINO (gli altri valori vecchi, es. ALTRO, restano come erano); colonna **Causa** aggiunta in fondo al foglio Fermi; foglio Voci guasto creato.
 
+### 5.4c Ricodificare i fermi vecchi
+Per portare i fermi registrati prima del 17/10/2026 sulla nuova classificazione:
+1. Menu **Pharma-Fix → Ricodifica fermi vecchi: prepara**. Crea il foglio **Ricodifica**: una riga per fermo chiuso, con a sinistra i valori di prima e la descrizione, a destra (colonne blu) la proposta per *Cosa si è guastato*, *Cosa hai fatto*, *Perché* e *Codice pezzo*. La proposta viene dal guasto vecchio (se è già una voce della macchina) e dalle parole della descrizione (es. "sostituito" → SOSTITUZIONE, "sblocco homing" → RIPRISTINO, "usurato" → USURA, un numero lungo → codice pezzo).
+   Colori: **bianco** = invariato, **giallo** = proposta da controllare, **rosso** = da compilare (descrizione vuota o nessuna voce adatta).
+2. Correggi e completa dalle tendine. In *Cosa si è guastato* puoi scrivere anche una voce nuova (es. LAMA SBUCCIATRICE sull'etichettatrice): all'applicazione viene aggiunta al foglio Guasti della macchina e al foglio Voci guasto.
+3. Menu **Pharma-Fix → Ricodifica fermi vecchi: applica**. Scrive nel foglio Fermi per ID fermo: guasto, categoria (dal foglio Voci guasto), intervento, causa e codice pezzo (solo se era vuoto). Le celle lasciate vuote non cambiano niente. Ogni fermo modificato ha una nota sulla cella del guasto (*Ricodificato il … : prima → dopo*); la colonna **Applicato** segna data e ora, così rilanciando *applica* le righe già fatte non vengono riscritte.
+
+Puoi farlo a pezzi (ad esempio una linea alla volta): *applica* salta le righe già applicate. Rilanciando *prepara* il foglio Ricodifica si rifà da zero.
+
 ### 5.5 KPI
 Foglio **KPI**. In alto le celle gialle sono i **filtri**:
 
