@@ -630,6 +630,9 @@ const SH_EL_FERMI = 'Elenchi_Fermi';
    3) perché (facoltativo). La CATEGORIA non la sceglie più: sta nel foglio "Voci guasto" (una riga per voce, la decide il responsabile). */
 const INTERVENTI = ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'];
 const CAUSE = ['USURA', 'FORMATO / REGOLAZIONE PERSA', 'MATERIALE FUORI SPEC.', 'ERRORE OPERATORE', 'ELETTRICA / ALIMENTAZIONE', 'NON NOTA'];
+const INT_DESC = { REGOLAZIONE: 'spostato o registrato (nonio, guida, parametro)', SOSTITUZIONE: 'pezzo nuovo montato · codice obbligatorio',
+  RIPRISTINO: 'reset, riavvio, sblocco, homing: niente regolato né cambiato', PULIZIA: 'pulito, tolto residui o inceppamenti' };
+const LI_DESC = 'Tipo intervento · spiegazione', LI_CAUSA = 'Causa';
 const NON_VOCI = ['FORMATO', 'USURA', 'SPIKE CORRENTE', 'RIPARAZIONE', 'SOSTITUZIONE', 'PULIZIA', 'RIAVVIO', 'REGOLAZIONE']; // cause o interventi, non componenti
 const SH_VOCI = 'Voci guasto', VOCI_H = ['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene (giallo = da controllare)'];
 let VOCI_MEMO = null;
@@ -673,6 +676,26 @@ function classificazione_(ss) {
       if (i > 0) { const resto = v[i].slice(2).filter(x => String(x).trim() && NON_VOCI.indexOf(String(x).trim().toUpperCase()) < 0);
         g.getRange(i + 1, 3, 1, v[0].length - 2).clearContent(); if (resto.length) g.getRange(i + 1, 3, 1, resto.length).setValues([resto]); } }
     props.setProperty('CLASS_V1', '1');
+  }
+  // V2: le liste di intervento (con la spiegazione per il tecnico) e di cause stanno nel foglio Liste, modificabili dal responsabile
+  if (props.getProperty('CLASS_V2') !== '1') {
+    const li = ss.getSheetByName(SH_LISTE);
+    if (li) {
+      const v = li.getDataRange().getValues(), testa = v[0].map(h => String(h).trim().toUpperCase());
+      const cInt = testa.indexOf('TIPO INTERVENTO');
+      let col = testa.length;
+      if (cInt >= 0 && testa.indexOf(LI_DESC.toUpperCase()) < 0) {
+        col++; li.getRange(1, col).setValue(LI_DESC).setFontWeight('bold');
+        const righe = v.slice(1).map(r => [INT_DESC[String(r[cInt]).trim().toUpperCase()] || '']);
+        if (righe.length) li.getRange(2, col, righe.length, 1).setValues(righe);
+      }
+      if (testa.indexOf(LI_CAUSA.toUpperCase()) < 0) {
+        col++; li.getRange(1, col).setValue(LI_CAUSA).setFontWeight('bold');
+        li.getRange(2, col, CAUSE.length, 1).setValues(CAUSE.map(x => [x]));
+      }
+      LISTE_MEMO = null;
+    }
+    props.setProperty('CLASS_V2', '1');
   }
   vociSync_(ss);
 }
@@ -722,7 +745,8 @@ function fermiConvalida_(ss, forza) {
   });
   if (macc.length) metti(C.MACC, dv(el.getRange(2, 1, macc.length, 1), false, 'Macchine del foglio Equipment.'));
   if (tipi.length) metti(C.GUASTO, dv(el.getRange(2, 2, tipi.length, 1), false, 'Tipi di guasto del foglio Guasti.'));
-  if (sh.getMaxColumns() >= C.CAUSA) metti(C.CAUSA, SpreadsheetApp.newDataValidation().requireValueInList(CAUSE, true).setAllowInvalid(true).setHelpText('Perché si è guastato (facoltativo).').build());
+  const cC = colL(LI_CAUSA);
+  if (sh.getMaxColumns() >= C.CAUSA) metti(C.CAUSA, (cC ? SpreadsheetApp.newDataValidation().requireValueInRange(li.getRange(2, cC, li.getMaxRows() - 1, 1), true) : SpreadsheetApp.newDataValidation().requireValueInList(CAUSE, true)).setAllowInvalid(true).setHelpText('Perché si è guastato (facoltativo).').build());
   props.setProperty('FERMI_DV', firma);
   return true;
 }
@@ -1540,6 +1564,9 @@ function init_() {
   const lv = listeVal_(ss);
   const liste = {};
   lv[0].forEach((h, i) => { if (h) liste[h] = lv.slice(1).map(r => String(r[i]).trim()).filter(Boolean); });
+  // spiegazione accanto a ogni tipo intervento (stessa riga del foglio Liste)
+  const intDesc = {}, hi = lv[0].map(h => String(h).trim().toUpperCase()), ci = hi.indexOf('TIPO INTERVENTO'), cd = hi.indexOf(LI_DESC.toUpperCase());
+  if (ci >= 0 && cd >= 0) lv.slice(1).forEach(r => { const k = String(r[ci]).trim().toUpperCase(); if (k && String(r[cd]).trim()) intDesc[k] = String(r[cd]).trim(); });
   // Fermi: aperti + chiusi ultimi 90 giorni
   const sh = ss.getSheetByName(SH_FERMI);
   const last = sh.getLastRow();
@@ -1561,7 +1588,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), intDesc: intDesc, vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -2124,7 +2151,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 15:30';
+const VERSIONE_SCRIPT = '17/10/2026 16:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
