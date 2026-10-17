@@ -2049,7 +2049,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 00:55';
+const VERSIONE_SCRIPT = '17/10/2026 09:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2382,7 +2382,8 @@ function pulisciProgramma_(sh) {
   try {
     const lc = sh.getLastColumn(), mc = sh.getMaxColumns(), lr = sh.getLastRow(), mr = sh.getMaxRows();
     let fatto = false;
-    if (mc > lc + 5) { sh.deleteColumns(lc + 6, mc - lc - 5); fatto = true; }
+    // a blocchi da 2000 colonne: un'unica cancellazione di 16.000 colonne può andare in timeout
+    for (let m = mc; m > lc + 5; m = sh.getMaxColumns()) { const n = Math.min(2000, m - lc - 5); sh.deleteColumns(m - n + 1, n); fatto = true; SpreadsheetApp.flush(); }
     if (mr > lr + 20) { sh.deleteRows(lr + 21, mr - lr - 20); fatto = true; }
     return fatto;
   } catch (e) { Logger.log(e); return false; }
@@ -2398,7 +2399,7 @@ function programmaTutto_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheets().find(s => /^programma/i.test(s.getName()));
   if (!sh || sh.getLastRow() < 3) return {};
-  if (sh.getMaxColumns() > sh.getLastColumn() + 50) pulisciProgramma_(sh);
+  // (la pulizia delle colonne vuote NON si fa qui: su un foglio enorme blocca la risposta all'app; solo dal menu)
   const v = sh.getDataRange().getValues(), linee = [...new Set(equipment_(ss).map(e => String(e.linea).trim()))];
   const data = x => x instanceof Date && x.getFullYear() >= 2000 ? x : null;
   let hr = -1, best = 0; // riga delle date: quella con più date (nel file del programma è la 3)
