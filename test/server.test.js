@@ -217,8 +217,8 @@ console.log('\nKPI Risorse');
 console.log('\nFoglio Programma pesante');
 {
   const { ctx } = nuovo(); const fatto = [];
-  const sh = { getLastColumn: () => 305, getMaxColumns: () => 16370, getLastRow: () => 972, getMaxRows: () => 1000, deleteColumns: (a, n) => fatto.push(['col', a, n]), deleteRows: (a, n) => fatto.push(['row', a, n]) };
+  let mc = 16370; const sh = { getLastColumn: () => 305, getMaxColumns: () => mc, getLastRow: () => 972, getMaxRows: () => 1000, deleteColumns: (a, n) => { fatto.push(['col', a, n]); mc -= n; }, deleteRows: (a, n) => fatto.push(['row', a, n]) };
   ctx.pulisciProgramma_(sh);
-  ok(JSON.stringify(fatto) === JSON.stringify([['col', 311, 16060], ['row', 993, 8]]), 'colonne e righe vuote oltre i dati eliminate (16.370 → 310 colonne)');
+  ok(mc === 310 && fatto.filter(x => x[0] === 'col').every(x => x[2] <= 2000) && fatto.some(x => x[0] === 'row'), 'colonne vuote eliminate a blocchi da 2000 (16.370 → 310), righe in eccesso tolte');
 }
 fine('Script');
