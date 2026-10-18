@@ -15,7 +15,7 @@
 
 | Indicatore | Cosa dice | Meglio se |
 |---|---|---|
-| **N° fermi** | Quante volte si è fermata la macchina/linea | Scende |
+| **N° fermi** | Quante volte si è fermata la macchina/linea. Se per ripartire servono più interventi, conta comunque **un** fermo | Scende |
 | **Tempo di fermo** | Ore perse per guasti | Scende |
 | **MTTR** | Tempo medio per rimettere in marcia (tempo di fermo ÷ n° fermi): misura la **rapidità della manutenzione** | Scende |
 | **MTBF** | Ore di funzionamento medie tra un fermo e l'altro: misura l'**affidabilità della macchina**. Le ore sono quelle di produzione, oppure una stima dal programma (giorni con lotti × 24 h) | Sale |
