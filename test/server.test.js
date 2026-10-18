@@ -332,4 +332,34 @@ console.log('\nRaccolta uniforme: definizioni, rivisto, correzioni');
   ok(d.F9 && d.F9.da === 'VERDI Anna' && d.F9.txt === 'Tipo guasto: A → B', 'correzioni: chi e cosa, per il messaggio al tecnico');
 }
 
+console.log('\nFermo con più interventi (giri)');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C;
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice()]);
+  const t0 = Date.now() - 50 * 60000, t1 = t0 + 20 * 60000, t2 = t1 + 25 * 60000;
+  const base = { code: 'ST3-04', lotto: '012345', manutentore: 'ROSSI Mario' };
+  ctx.openFermo_({ ...base, id: 'F1', ts: t0 });
+  ctx.closeFermo_({ ...base, id: 'F1', ts: t1, guasto: 'GUIDE', categoria: 'MECCANICO', intervento: 'REGOLAZIONE', altro: 'guida regolata', gruppo: 'F1', giro: 1 });
+  ctx.openFermo_({ ...base, id: 'F2', ts: t1, gruppo: 'F1', giro: 2 });
+  const R = sheets.Fermi.rows;
+  ok(R[1][C.GRUPPO - 1] === 'F1' && R[1][C.GIRO - 1] === 1 && R[1][C.STATO - 1] === 'CHIUSO', 'intervento 1: chiuso, Fermo n. F1, Intervento n. 1');
+  ok(R[2][C.GRUPPO - 1] === 'F1' && R[2][C.GIRO - 1] === 2 && R[2][C.STATO - 1] === 'APERTO' && R[2][C.INIZIO - 1].getTime() === t1, 'intervento 2: aperto dallo stesso istante, stesso Fermo n.');
+  ok(R[0][C.GRUPPO - 1] === 'Fermo n.' && R[0][C.GIRO - 1] === 'Intervento n.' && R[0][C.MULTI - 1] === 'Più interventi?', 'intestazioni delle colonne nuove');
+  ctx.closeFermo_({ ...base, id: 'F2', ts: t2, guasto: 'INCASTRO', categoria: 'MECCANICO', intervento: 'PULIZIA', altro: 'pulito e poi sostituito sensore', multi: 'Descrizione con più interventi: confermato "uno solo" dal tecnico' });
+  ok(R[2][C.GIRO - 1] === 2 && /uno solo/.test(R[2][C.MULTI - 1]), 'chiusura: il numero d\'intervento resta 2, avviso "più interventi" registrato');
+  const f = ctx.init_().fermi;
+  ok(f.length === 2 && f.every(x => x.gruppo === 'F1') && f.find(x => x.id === 'F2').giro === 2 && /uno solo/.test(f.find(x => x.id === 'F2').multi), 'l\'app riceve Fermo n., Intervento n. e avviso');
+  ctx.openFermo_({ ...base, id: 'F3', ts: t2 + 60000 });
+  ok(!R[3][C.GRUPPO - 1] && !ctx.init_().fermi.find(x => x.id === 'F3').gruppo, 'fermo normale: nessun Fermo n.');
+  ctx.controllaRegistrazioni();
+  const ctl = sheets.Controlli.rows;
+  {
+    const { ctx: c3, sheets: s3 } = nuovo(); const h = c3.HEAD.slice(); h[C.GRUPPO - 1] = 'Note mie';
+    s3.Fermi = new Sheet('Fermi', [h]);
+    c3.openFermo_({ ...base, id: 'X1', ts: t0, gruppo: 'X1', giro: 2 });
+    ok(s3.Fermi.rows[0][C.GRUPPO - 1] === 'Note mie' && !s3.Fermi.rows[1][C.GRUPPO - 1] && s3.Fermi.rows[0][C.CAUSA - 1] === 'Causa', 'colonna AB già usata per altro: non viene sovrascritta');
+  }
+  ok(ctl.some(r => r[0] === 'Più interventi in un fermo?' && /ROSSI/.test(r[1]) && r[2] === 'Fermi riga 3') && !ctl.some(r => r[0] === 'Fermi sovrapposti'), 'Controlli: segnala l\'avviso ignorato; interventi consecutivi non sono "sovrapposti"');
+}
+
 fine('Script');
