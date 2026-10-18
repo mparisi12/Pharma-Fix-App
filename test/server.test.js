@@ -362,4 +362,26 @@ console.log('\nFermo con più interventi (giri)');
   ok(ctl.some(r => r[0] === 'Più interventi in un fermo?' && /ROSSI/.test(r[1]) && r[2] === 'Fermi riga 3') && !ctl.some(r => r[0] === 'Fermi sovrapposti'), 'Controlli: segnala l\'avviso ignorato; interventi consecutivi non sono "sovrapposti"');
 }
 
+
+console.log('\nFermi (macchina ferma) e interventi separati');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C, DD = ctx.DD, oggi = new DD(); oggi.setHours(0, 0, 0, 0);
+  const riga = (gg, ini, min, gua) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new DD(oggi.getTime() - gg * 864e5 + ini * 60000);
+    Object.assign(r, { [C.STATO - 1]: 'CHIUSO', [C.DATA - 1]: new DD(a.getFullYear(), a.getMonth(), a.getDate()), [C.INIZIO - 1]: a, [C.FINE - 1]: new DD(a.getTime() + min * 60000),
+      [C.GUASTO - 1]: gua, [C.INT - 1]: 'REGOLAZIONE', [C.LINEA - 1]: 'ST3', [C.MACC - 1]: 'AST', [C.EQ - 1]: 'ST3-04', [C.LOTTO - 1]: '601095' }); return r; };
+  // fermo 1 = 3 interventi consecutivi (gruppo G1), fermo 2 = un intervento solo
+  const vals = [riga(1, 600, 20, 'GUIDE'), riga(1, 620, 10, 'SENSORE'), riga(1, 630, 30, 'GUIDE'), riga(2, 600, 15, 'INCASTRO')];
+  const k = ctx.calcolaKpi_(vals, { from: new DD(oggi.getTime() - 29 * 864e5), toEnd: new DD(oggi.getTime() + 864e5), linea: 'TUTTE', area: '', aree: {}, code: '', ore: 100, cause: [], gruppi: ['G1', 'G1', 'G1', ''] });
+  ok(k.n === 2 && k.nInt === 4, 'N° fermi = 2 (macchina ferma), N° interventi = 4');
+  ok(k.mtbf === 50 && Math.abs(k.durFermo * 1440 - 37.5) < 0.01 && Math.abs(k.mttr * 1440 - 18.75) < 0.01, 'MTBF sui fermi (100 h / 2), durata media fermo 37,5 min, MTTR sugli interventi 18,75 min');
+  ok(k.macchine[0][2] === 2 && k.pareto.find(r => r[0] === 'GUIDE')[1] === 2, 'fermi per macchina: 2 fermi; Pareto: GUIDE 2 interventi');
+  const f = (min0, min, gua, g, id) => ({ id: id, gruppo: g, a: new DD(oggi.getTime() + min0 * 60000), b: new DD(oggi.getTime() + (min0 + min) * 60000), guasto: gua, linea: 'ST3', macc: 'AST', area: 'PACKAGING', orari: '' });
+  const L = [f(600, 20, 'GUIDE', 'G1', 'a'), f(620, 10, 'SENSORE', 'G1', 'b'), f(630, 30, 'GUIDE', 'G1', 'c'), f(700, 45, 'INCASTRO', '', 'd')];
+  const rr = ctx.righeReparti_(L, ['ST3']).join('|');
+  ok(/\(2 fermi · 4 int\.\)/.test(rr) && /1h 45/.test(rr), 'passaggio turno / riepilogo: "(2 fermi · 4 int.)", ore totali uguali');
+  const pl = ctx.piuLunghi_(L, (l, m) => m, false).join('|');
+  ok(/GUIDE \+ SENSORE · 1h \(3 interventi\)/.test(pl) && pl.indexOf('GUIDE + SENSORE') < pl.indexOf('INCASTRO'), 'più lunghi: il fermo con 3 interventi conta intero (1h, guasti in fila)');
+  ok(ctx.righeReparti_([L[3]], ['ST3']).join().includes('(1)'), 'fermo con un solo intervento: resta "(1)" come prima');
+}
+
 fine('Script');

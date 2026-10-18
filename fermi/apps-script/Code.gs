@@ -275,26 +275,26 @@ function buildKpi_(ss, keep) {
   sh.getRange('D6:D7').setBackground(Y).setNumberFormat('dd/MM/yyyy');
 
   if (sh.getMaxColumns() < KPI_C2 + 4) sh.insertColumnsAfter(sh.getMaxColumns(), KPI_C2 + 4 - sh.getMaxColumns());
-  sh.getRange('A9:I9').setValues([['N° fermi', 'Tempo di fermo', 'MTTR (senza micro-fermi)', 'N° lotti', 'Occurrancy (fermi/lotti)',
-    'Ore funzionamento (vuoto = stima)', 'MTBF (h)', 'Guasto n°1 · RFR', 'Micro-fermi (< ' + MICRO_MIN + ' min)']])
+  sh.getRange('A9:K9').setValues([['N° fermi (macchina ferma)', 'Tempo di fermo', 'MTTR per intervento (senza micro)', 'N° lotti', 'Occurrancy (fermi/lotti)',
+    'Ore funzionamento (vuoto = stima)', 'MTBF (h, sui fermi)', 'Guasto n°1 · RFR', 'Micro-interventi (< ' + MICRO_MIN + ' min)', 'N° interventi', 'Durata media di un fermo']])
     .setFontWeight('bold').setBackground(H).setWrap(true).setVerticalAlignment('middle');
-  sh.getRange('A10:I10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('A10:K10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange('F10').setBackground(Y);
   sh.getRange('F11').setValue('vuota = stima dal Programma (giorni con lotti × 24 h); scrivi le ore vere se le hai').setFontColor(G).setFontSize(9).setWrap(true);
-  sh.getRange('H11').setValue('RFR = n° fermi di quel guasto / totale fermi').setFontColor(G).setFontSize(9);
+  sh.getRange('H11').setValue('RFR = interventi su quel guasto / totale interventi').setFontColor(G).setFontSize(9);
 
   // grafici in alto (righe 12-29), tabelle sotto (da riga KPI_T)
   const t = KPI_T;
   sh.getRange(t - 1, 1).setValue('Pareto per FREQUENZA — quante volte succede').setFontWeight('bold');
-  sh.getRange(t, 1, 1, 5).setValues([['Tipo guasto', 'N° fermi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, 1, 1, 5).setValues([['Tipo guasto', 'N° interventi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, 7).setValue('Pareto per DURATA — quanto ferma la linea').setFontWeight('bold');
-  sh.getRange(t, 7, 1, 5).setValues([['Tipo guasto', 'Ore di fermo', 'N° fermi', '% cumulata', '% del tempo']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, 7, 1, 5).setValues([['Tipo guasto', 'Ore di fermo', 'N° interventi', '% cumulata', '% del tempo']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, 13).setValue('Fermi per macchina').setFontWeight('bold');
-  sh.getRange(t, 13, 1, 6).setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR', 'Guasto n°1 · RFR']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, 13, 1, 6).setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR per intervento', 'Guasto n°1 · RFR']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, KPI_C1).setValue('Per CAUSA — perché si guasta').setFontWeight('bold');
-  sh.getRange(t, KPI_C1, 1, 5).setValues([['Causa', 'N° fermi', 'Ore di fermo', '% dei fermi', '% del tempo']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, KPI_C1, 1, 5).setValues([['Causa', 'N° interventi', 'Ore di fermo', '% degli interventi', '% del tempo']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, KPI_C2).setValue('Per COSA HAI FATTO').setFontWeight('bold');
-  sh.getRange(t, KPI_C2, 1, 4).setValues([['Intervento', 'N° fermi', 'Ore di fermo', '% dei fermi']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, KPI_C2, 1, 4).setValues([['Intervento', 'N° interventi', 'Ore di fermo', '% degli interventi']]).setFontWeight('bold').setBackground(H);
   [[KPI_C1, 220], [KPI_C1 + 1, 80], [KPI_C1 + 2, 90], [KPI_C1 + 3, 90], [KPI_C1 + 4, 90], [KPI_C2, 160], [KPI_C2 + 1, 80], [KPI_C2 + 2, 90], [KPI_C2 + 3, 90]].forEach(([c, w]) => sh.setColumnWidth(c, w));
 
   [[1, 260], [2, 260], [3, 110], [4, 110], [5, 110], [6, 150], [7, 230], [8, 200], [9, 90], [10, 90], [11, 90], [12, 30],
@@ -414,9 +414,10 @@ function calcolaKpi_(vals, f) {
     let dur = (fin - ini) / 864e5; if (dur < 0) dur = ((dur % 1) + 1) % 1; // ore scritte senza data
     rows.push({ lotto: String(r[C.LOTTO - 1]).trim(), linea: String(r[C.LINEA - 1]), macc: String(r[C.MACC - 1]),
       guasto: String(r[C.GUASTO - 1]).trim() || '(vuoto)', dur: dur,
+      g: String((f.gruppi && f.gruppi[ix]) || '').trim() || 'r' + ix,
       causa: String((f.cause && f.cause[ix]) || '').trim() || '(non indicata)', int: (u => u === 'RIAVVIO' ? 'RIPRISTINO' : u || '(vuoto)')(String(r[C.INT - 1]).trim().toUpperCase()) });
   });
-  const n = rows.length, tot = rows.reduce((a, x) => a + x.dur, 0);
+  const n = rows.length, tot = rows.reduce((a, x) => a + x.dur, 0), nF = new Set(rows.map(x => x.g)).size; // n = interventi, nF = fermi (macchina ferma)
   const lotti = new Set(rows.map(x => x.lotto).filter(Boolean)).size;
   const grp = (key) => { const m = {}; rows.forEach(x => { const k = key(x); m[k] = m[k] || { n: 0, t: 0 }; m[k].n++; m[k].t += x.dur; }); return m; };
   const g = grp(x => x.guasto);
@@ -429,19 +430,19 @@ function calcolaKpi_(vals, f) {
   const mm = {};
   rows.forEach(x => {
     const k = x.linea + '\u0001' + x.macc;
-    const m = mm[k] = mm[k] || { n: 0, t: 0, g: {} };
-    m.n++; m.t += x.dur; m.g[x.guasto] = (m.g[x.guasto] || 0) + 1;
+    const m = mm[k] = mm[k] || { n: 0, t: 0, g: {}, f: new Set() };
+    m.n++; m.f.add(x.g); m.t += x.dur; m.g[x.guasto] = (m.g[x.guasto] || 0) + 1;
   });
   const top1 = (gg, tn) => { const k = Object.keys(gg).sort((a, b) => gg[b] - gg[a])[0]; return k ? k + ' · ' + Math.round(gg[k] / tn * 100) + '%' : ''; };
-  const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'), m = mm[k]; return [p[0], p[1], m.n, m.t, m.t / m.n, top1(m.g, m.n)]; })
+  const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'), m = mm[k]; return [p[0], p[1], m.f.size, m.t, m.t / m.n, top1(m.g, m.n)]; })
     .sort((a, b) => b[3] - a[3]);
   const micro = rows.filter(x => x.dur * 1440 < MICRO_MIN), norm = rows.filter(x => x.dur * 1440 >= MICRO_MIN), totN = norm.reduce((a, x) => a + x.dur, 0);
   const tab = (key, conT) => { const m = grp(key); return Object.keys(m).map(k => conT ? [k, m[k].n, m[k].t * 24, m[k].n / n, tot ? m[k].t / tot : 0] : [k, m[k].n, m[k].t * 24, m[k].n / n])
     .sort((a, b) => (a[0].charAt(0) === '(') - (b[0].charAt(0) === '(') || b[2] - a[2]); };
   const oreOk = f.ore !== '' && f.ore != null && !isNaN(Number(f.ore)) && Number(f.ore) > 0;
-  return { n: n, tot: tot, mttr: norm.length ? totN / norm.length : '', lotti: lotti, occ: lotti ? n / lotti : '', micro: micro.length,
+  return { n: nF, nInt: n, durFermo: nF ? tot / nF : '', tot: tot, mttr: norm.length ? totN / norm.length : '', lotti: lotti, occ: lotti ? nF / lotti : '', micro: micro.length,
     perCausa: n ? tab(x => x.causa, true) : [], perInt: n ? tab(x => x.int, false) : [],
-    mtbf: (n && oreOk) ? Number(f.ore) / n : '',
+    mtbf: (nF && oreOk) ? Number(f.ore) / nF : '',
     top: pareto.length ? pareto[0][0] + ' · ' + Math.round(pareto[0][4] * 100) + '%' : '',
     pareto: pareto, paretoT: paretoT, macchine: macchine, senzaArea: senzaArea };
 }
@@ -453,7 +454,7 @@ function aggiornaValoriKpi() {
   if (!sh) return;
   // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
   if (!KPI_NUOVO && (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico %: guasto' ||
-      sh.getMaxColumns() < KPI_C2 + 4 || sh.getRange(KPI_T, KPI_C1).getValue() !== 'Causa')) {
+      sh.getMaxColumns() < KPI_C2 + 4 || sh.getRange(KPI_T, KPI_C1).getValue() !== 'Causa' || sh.getRange('J9').getValue() !== 'N° interventi')) {
     const area = KPI_AREE.indexOf(String(sh.getRange('B2').getValue()).toUpperCase()) >= 0 ? String(sh.getRange('B2').getValue()).toUpperCase() : '';
     const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
     ss.deleteSheet(sh);
@@ -490,7 +491,7 @@ function aggiornaValoriKpi() {
   let ore = manuali ? Number(oreIn) : '', stima = null;
   if (!manuali) { try { stima = oreStimate_(ss, p, area, linea); ore = stima.ore || ''; } catch (e) { Logger.log(e); } }
   const k = calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, area: area, aree: aree, code: mSel === 'TUTTE' ? '' : mSel.split(' · ')[0],
-    ore: ore, cause: cause });
+    ore: ore, cause: cause, gruppi: gruppiCol_(fsh, last) });
   sh.getRange('F11').setValue(manuali ? 'ore scritte a mano (cancella la cella per tornare alla stima)'
     : stima && stima.ore ? 'stima: ' + stima.giorni + ' giorni con lotti nel Programma × ' + ORE_GIORNO + ' h = ' + stima.ore + ' h' + (stima.linee > 1 ? ' (' + stima.linee + ' linee)' : '') + '. Scrivi qui le ore vere se le hai.'
     : 'nessun lotto nel Programma per il periodo: scrivi qui le ore di funzionamento').setFontColor('#5a6873').setFontSize(9).setWrap(true);
@@ -500,7 +501,9 @@ function aggiornaValoriKpi() {
   sh.getRange('A11').setValue(ex ? '⚠ ' + (ex === 1 ? '1 fermo escluso' : ex + ' fermi esclusi') + ', macchina non trovata in Equipment: ' +
     k.senzaArea.slice(0, 5).join('; ') + (ex > 5 ? '; …' : '') + '. Correggi Linea/Macchina nel foglio Fermi oppure aggiungi la macchina in Equipment.' : '')
     .setFontColor('#a3402d').setFontSize(9).setWrap(false);
-  sh.getRange('G10:I10').setValues([[k.mtbf, k.top, k.micro]]);
+  sh.getRange('G10:K10').setValues([[k.mtbf, k.top, k.micro, k.nInt, k.durFermo]]);
+  sh.getRange('K10').setNumberFormat('[h]:mm');
+  sh.getRange('J11').setValue(k.nInt > k.n ? 'più interventi nello stesso fermo: ' + (k.nInt - k.n) + ' in più dei fermi' : '').setFontColor('#5a6873').setFontSize(9).setWrap(true);
   sh.getRange('I11').setValue(k.micro ? 'contano nel n° fermi e nei Pareto, non nell\'MTTR: controlla che gli orari siano giusti' : '').setFontColor('#5a6873').setFontSize(9).setWrap(true);
   sh.getRange('B10:C10').setNumberFormat('[h]:mm'); sh.getRange('E10').setNumberFormat('0.00'); sh.getRange('G10').setNumberFormat('0.0');
 
@@ -681,6 +684,11 @@ function causaCol_(sh) {
   sh.getRange(1, C.CAUSA, 1, libere ? EXTRA_H.length : 3).setValues([libere ? EXTRA_H : EXTRA_H.slice(0, 3)]).setFontWeight('bold').setBackground('#fff3d6');
   if (!libere) Logger.log('Foglio Fermi: colonne AB–AD già usate, Fermo n./Intervento n. non scritti');
   return libere;
+}
+// Colonna "Fermo n." (solo se è nostra): un valore per riga, '' se il fermo ha un solo intervento
+function gruppiCol_(sh, last) {
+  if (last < 2 || sh.getMaxColumns() < C.GRUPPO || String(sh.getRange(1, C.GRUPPO).getValue()).trim() !== EXTRA_H[3]) return [];
+  return sh.getRange(2, C.GRUPPO, last - 1, 1).getValues().map(x => String(x[0] || '').trim());
 }
 // Fermo con più interventi: ogni intervento è una riga; "Fermo n." lega le righe dello stesso fermo
 function gruppoFermo_(sh, r, p) {
@@ -1322,8 +1330,9 @@ const nice_ = s => String(s || '').split(' ').map(w => /\d/.test(w) || w.length 
 function fermiTutti_() {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, HEAD.length).getValues().filter(r => r[C.INIZIO - 1] instanceof Date).map(r => ({
-    a: r[C.INIZIO - 1], b: r[C.FINE - 1] instanceof Date ? r[C.FINE - 1] : null, stato: r[C.STATO - 1], linea: String(r[C.LINEA - 1] || ''),
+  const gr = gruppiCol_(sh, last);
+  return sh.getRange(2, 1, last - 1, HEAD.length).getValues().map((r, i) => [r, gr[i] || '']).filter(([r]) => r[C.INIZIO - 1] instanceof Date).map(([r, g]) => ({
+    id: String(r[C.ID - 1] || ''), gruppo: g, a: r[C.INIZIO - 1], b: r[C.FINE - 1] instanceof Date ? r[C.FINE - 1] : null, stato: r[C.STATO - 1], linea: String(r[C.LINEA - 1] || ''),
     macc: String(r[C.MACC - 1] || ''), guasto: String(r[C.GUASTO - 1] || ''), man: String(r[C.MAN - 1] || r[C.APERTO_DA - 1] || ''),
     altro: String(r[C.ALTRO - 1] || ''), lotto: r[C.LOTTO - 1], orari: r[C.ORARI - 1], eq: String(r[C.EQ - 1] || '').trim() }));
 }
@@ -1361,15 +1370,29 @@ function macchinaBreve_() {
 /* Fermi per reparto (linea), divisi in Filling e Packaging: niente somme tra linee diverse.
    "ST3 · Filling 1h 10′ (2) · Packaging 7′ (1)"; con prec (settimana prima) anche ▲/▼ per area. In fondo le linee senza fermi. */
 const NOME_AREA_ = { FILLING: 'Filling', PACKAGING: 'Packaging', '': 'area?' };
+// Un fermo = la macchina ferma: gli interventi con lo stesso "Fermo n." contano una volta sola
+let UNICO_ = 0;
+const chiaveFermo_ = f => f.gruppo || f.id || (f._k = f._k || 'u' + (++UNICO_)); // senza ID (righe di prova): ognuna è un fermo a sé
+const contaTxt_ = (nI, nF) => nF === nI ? String(nI) : nF + (nF === 1 ? ' fermo' : ' fermi') + ' · ' + nI + ' int.';
+// Interventi dello stesso fermo uniti: inizio del primo, fine dell'ultimo, guasti in fila
+function unisciFermi_(lista) {
+  const m = {};
+  lista.forEach(f => { const k = chiaveFermo_(f), x = m[k];
+    if (!x) { m[k] = Object.assign({}, f, { nInt: 1 }); return; }
+    if (f.a < x.a) x.a = f.a; if (f.b && (!x.b || f.b > x.b)) x.b = f.b; x.nInt++;
+    if (f.guasto && String(x.guasto).split(' + ').indexOf(f.guasto) < 0) x.guasto = x.guasto ? x.guasto + ' + ' + f.guasto : f.guasto;
+    if (f.orari === 'DICHIARATI') x.orari = 'DICHIARATI'; });
+  return Object.keys(m).map(k => m[k]);
+}
 function righeReparti_(lista, tutteLinee, prec) {
   const per = {}, ordA = ['FILLING', 'PACKAGING', ''];
-  const mett = (dove, f) => { const l = String(f.linea || '?').trim(), a = ordA.indexOf(f.area) >= 0 ? f.area : ''; const x = dove[l] = dove[l] || {}; const y = x[a] = x[a] || { n: 0, m: 0 }; y.n++; y.m += minDi_(f); };
+  const mett = (dove, f) => { const l = String(f.linea || '?').trim(), a = ordA.indexOf(f.area) >= 0 ? f.area : ''; const x = dove[l] = dove[l] || {}; const y = x[a] = x[a] || { n: 0, m: 0, k: new Set() }; y.n++; y.k.add(chiaveFermo_(f)); y.m += minDi_(f); };
   lista.forEach(f => mett(per, f));
   const pp = {}; (prec || []).forEach(f => mett(pp, f));
   const tot = l => Object.keys(per[l]).reduce((x, a) => x + per[l][a].m, 0), ord = tutteLinee || [];
   const righe = Object.keys(per).sort((x, y) => tot(y) - tot(x) || ord.indexOf(x) - ord.indexOf(y)).map(l => l + ' · ' + ordA.filter(a => per[l][a]).map(a => {
     const y = per[l][a], q = prec ? ((pp[l] || {})[a] || { m: 0 }).m : null, d = q === null ? 0 : y.m - q;
-    return NOME_AREA_[a] + ' ' + durTxt_(y.m) + ' (' + y.n + ')' + (prec && q && Math.abs(d) >= 1 ? ' ' + (d > 0 ? '▲+' : '▼−') + durTxt_(Math.abs(d)) : '');
+    return NOME_AREA_[a] + ' ' + durTxt_(y.m) + ' (' + contaTxt_(y.n, y.k.size) + ')' + (prec && q && Math.abs(d) >= 1 ? ' ' + (d > 0 ? '▲+' : '▼−') + durTxt_(Math.abs(d)) : '');
   }).join(' · '));
   const senza = ord.filter(l => !per[l]);
   if (senza.length) righe.push('Senza fermi: ' + senza.join(', '));
@@ -1381,9 +1404,9 @@ function lineeTutte_(soloLinee) {
   return out;
 }
 function piuLunghi_(lista, breve, conData) {
-  const ch = lista.filter(f => f.b).sort((x, y) => minDi_(y) - minDi_(x)).slice(0, 3);
+  const ch = unisciFermi_(lista.filter(f => f.b)).sort((x, y) => minDi_(y) - minDi_(x)).slice(0, 3);
   return ch.length ? ['', '🔝 PIÙ LUNGHI'].concat(ch.map(f => '  ' + (conData ? gm_(f.a) + ' ' : '') + f.linea + ' ' + breve(f.linea, f.macc) + ' · ' +
-    (f.guasto || 'guasto non indicato') + ' · ' + durTxt_(minDi_(f)) + (f.orari === 'DICHIARATI' ? ' [dich.]' : ''))) : [];
+    (f.guasto || 'guasto non indicato') + ' · ' + durTxt_(minDi_(f)) + (f.nInt > 1 ? ' (' + f.nInt + ' interventi)' : '') + (f.orari === 'DICHIARATI' ? ' [dich.]' : ''))) : [];
 }
 // Cognome da "COGNOME Nome": tutte le parole in maiuscolo all'inizio (DI MAIO, DE LUCA, LA ROSA…)
 // Le particelle (Di, De, La, Del, D'…) restano attaccate alla parola dopo anche se scritte in minuscolo: "Di Bello Mario" → Di Bello
@@ -2244,7 +2267,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '18/10/2026 18:45';
+const VERSIONE_SCRIPT = '18/10/2026 19:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
