@@ -310,4 +310,26 @@ console.log('\nKPI: per causa, per intervento, micro-fermi, MTBF stimato, guasti
   ok(rr.length === 4 && /H7 · ST3 AST ×2 · 2h ▲ \+1h 40/.test(rr[2]) && /GUIDE.*×2 · 1h ▼ −30/.test(rr[3]) && !rr.join().includes('ALTRO'), 'guasti cronici: ore delle ultime 4 settimane con tendenza (▲/▼), ALTRO escluso');
 }
 
+
+console.log('\nRaccolta uniforme: definizioni, rivisto, correzioni');
+{
+  const { ctx, sheets, props } = nuovo(); const C = ctx.C, ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  props.CLASS_V1 = '1'; props.CLASS_V2 = '1';
+  sheets['Voci guasto'] = new Sheet('Voci guasto', [['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene (giallo = da controllare)', '', 'Una riga per voce del foglio Guasti: …'], ['INCASTRO', 'MECCANICO', 'dal nome'], ['GUIDE', 'MECCANICO', 'dal nome']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'INCASTRO', 'GUIDE']]);
+  ctx.classificazione_(ss);
+  const V = sheets['Voci guasto'].rows;
+  ok(V[0][3] === 'Quando si usa (la legge il tecnico)' && /bloccato nel trasporto/.test(V[1][3]) && !V[2][3] && !V[0][4] && /^Una riga/.test(V[0][5]), 'Voci guasto: colonna "Quando si usa" (definizioni di partenza), nota spostata');
+  ok(/bloccato/.test(ctx.vociDesc_(ss).INCASTRO), 'definizioni lette per l\'app');
+  const r = new Array(ctx.HEAD.length).fill(''); r[C.ID - 1] = 'F9'; r[C.STATO - 1] = 'CHIUSO'; r[C.MAN - 1] = 'ROSSI Mario';
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), r]);
+  let err = ''; try { ctx.rivistoFermo_({ fermo: 'F9', manutentore: 'ROSSI Mario' }); } catch (e) { err = e.message; }
+  ok(/coordinatori/.test(err), 'solo un coordinatore può segnare "rivisto"');
+  ctx.rivistoFermo_({ fermo: 'F9', manutentore: 'VERDI Anna', ts: Date.now() });
+  ok(/^VERDI Anna · /.test(sheets.Fermi.rows[1][C.RIV - 1]) && sheets.Fermi.rows[0][C.PROP - 1] === 'Voce proposta (con ALTRO)', 'rivisto: nome e data nella colonna Rivisto; colonne in fondo create');
+  sheets.Correzioni = new Sheet('Correzioni', [['h'], [new ctx.DD(), 'F9', 2, 'ST3', 'X', '', 'VERDI Anna', 'Modifica diretta: Tipo guasto: A → B', 'FATTA']]);
+  const d = ctx.correzioniDett_(ss);
+  ok(d.F9 && d.F9.da === 'VERDI Anna' && d.F9.txt === 'Tipo guasto: A → B', 'correzioni: chi e cosa, per il messaggio al tecnico');
+}
+
 fine('Script');

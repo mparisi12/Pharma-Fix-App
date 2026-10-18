@@ -163,6 +163,33 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/reset allarme, homing/.test(await p.innerText('#int')) && /MANUTENZIONE NON ESEGUITA/.test(await p.innerText('#cau')), 'interventi, spiegazioni e cause presi dal foglio Liste');
   await p.evaluate(() => closeSh());
 
+  console.log('\nRaccolta uniforme: definizioni, voce mancante con ALTRO, Da rivedere, correzioni al tecnico');
+  D.vociDesc = { 'CAM. OMRON': 'telecamera Omron che scarta o non legge' };
+  D.fermi.push({ id: 'FC3', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' },
+    { id: 'RV1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 5 * 3600e3, end: Date.now() - 4.5 * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: 'REGOLAZIONE', altro: 'sostituito cavo telecamera', man: 'ROSSI Mario', lotto: '601095', orari: 'TEMPO REALE' },
+    { id: 'CR1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 8 * 3600e3, end: Date.now() - 7.5 * 3600e3, stato: 'CHIUSO', guasto: 'MAG. ISTRUZIONI', int: 'REGOLAZIONE', altro: 'x', man: 'ROSSI Mario', lotto: '601095', rivisto: 'VERDI Anna', corr: { da: 'VERDI Anna', ts: 123, txt: 'Tipo guasto: INCASTRO → MAG. ISTRUZIONI' } });
+  await p.evaluate(() => { S.ver = 'y'; return refresh(); }); await attesa(400);
+  await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC3')); }); await attesa(300);
+  await p.click('#gua [data-v="CAM. OMRON"]'); await attesa(150);
+  ok(/telecamera Omron che scarta/.test(await p.innerText('#catbox')), 'sotto la voce scelta compare "quando si usa" (foglio Voci guasto)');
+  await p.click('#gua [data-v="ALTRO"]'); await p.click('#catbox [data-v="MECCANICO"]').catch(() => {}); await p.click('#int [data-v="REGOLAZIONE"]');
+  await p.fill('#altro', 'lama tagliata'); await p.click('#go'); await attesa(200);
+  ok(await p.isVisible('#gprop') && /che voce manca/i.test(await p.innerText('#err')), 'con ALTRO: obbligatorio scrivere la voce che manca');
+  await p.fill('#gprop', 'lama sbucciatrice'); await p.click('#go'); await attesa(200); await p.click('#go').catch(() => {}); await attesa(600);
+  ok((posts.filter(o => o.action === 'close' && o.id === 'FC3').pop() || {}).proposta === 'lama sbucciatrice', 'la voce proposta viene inviata con il fermo');
+  await p.evaluate(() => { closeSh(); go('home'); }); await attesa(300);
+  ok(await p.isVisible('#corrban') && !(await p.isVisible('#revban')), 'tecnico: avviso "un tuo fermo è stato corretto"; nessuna lista Da rivedere');
+  await p.click('#corrban'); await attesa(200);
+  ok(/INCASTRO → MAG. ISTRUZIONI/.test(await p.innerText('#sheet')), 'il tecnico vede cosa ha cambiato il coordinatore');
+  await p.click('#corrok'); await attesa(300);
+  ok(!(await p.isVisible('#corrban')), 'dopo "Ho capito" l\'avviso sparisce');
+  await esci(); await entra('Anna', 'Verdi'); await p.evaluate(() => { S.ver = 'z'; return refresh(); }); await attesa(400); await p.evaluate(() => { closeSh(); go('home'); }); await attesa(300);
+  ok(await p.isVisible('#revban'), 'coordinatore: in home "N fermi da rivedere"');
+  await p.click('#revban'); await attesa(200);
+  ok(/parla di sostituzione/.test(await p.innerText('#sheet')), 'motivo mostrato: descrizione "sostituito" ma intervento REGOLAZIONE');
+  await p.click('[data-ok="RV1"]'); await attesa(600);
+  ok(posts.some(o => o.action === 'rivisto' && o.fermo === 'RV1' && o.manutentore === 'VERDI Anna'), '"Va bene": il fermo viene segnato come rivisto');
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
