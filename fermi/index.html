@@ -308,6 +308,9 @@ textarea.field{min-height:64px;resize:vertical}
 .csum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
 .csum > div{background:var(--surface);padding:8px 10px;min-width:0}.csum b{display:block;font:600 16px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .camtile.big{flex-direction:column;justify-content:center;gap:4px;min-height:96px;border-width:2px;font-size:16px}.camtile.big svg{width:30px;height:30px}.camtile.big small{font-weight:400;font-size:12px;color:var(--muted)}
+.giri{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:8px 12px;margin-top:10px}.giri .gr{display:flex;gap:8px;align-items:baseline;font-size:14px;padding:4px 0;border-top:1px solid var(--line)}.giri .gr:first-of-type{border-top:0}.giri .gr b{flex:none}.giri .gr span{flex:1;min-width:0}.giri .gr em{font:600 13px var(--mono);font-style:normal;color:var(--muted)}
+.submit.giro{background:var(--surface);color:var(--ok);border:2px solid var(--ok);font-size:17px;padding:14px;margin-top:12px}.submit.giro small{display:block;font:500 12px var(--body);letter-spacing:0;text-transform:none;margin-top:4px;color:var(--muted)}
+.mwarn{border:1px solid var(--crit);border-radius:12px;padding:10px 12px;color:var(--ink);background:var(--surface)}.mwarn b{color:var(--crit)}.mwarn .row{display:flex;gap:8px}.mwarn .row button{flex:1}
 .propsol{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer}
 .propsol input{width:22px;height:22px;margin:1px 0 0;flex:none;accent-color:var(--steel)}.propsol b{display:block;font-size:14px}.propsol span{font-size:12px;color:var(--muted)}
 .dangerzone{margin-top:28px;padding-top:14px;border-top:1px dashed var(--line);text-align:center}
@@ -425,9 +428,9 @@ function allFermi() {
   const m = new Map(S.fermi.map(f => [f.id, { ...f }]));
   for (const op of OUTBOX) {
     if (op.action === 'open' && !m.has(op.id)) {
-      m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, apertoDa: op.manutentore, pending: true });
+      m.set(op.id, { id: op.id, code: op.code, linea: op.linea, macchina: op.macchina, lotto: op.lotto, start: op.ts, stato: 'APERTO', man: op.manutentore, apertoDa: op.manutentore, gruppo: op.gruppo || '', giro: op.giro || 0, pending: true });
     } else if (op.action === 'close' && m.has(op.id)) {
-      Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, ...(op.inizio ? { start: op.inizio } : {}), ...(op.dichiarato ? { orari: 'DICHIARATI' } : {}), lotto: op.lotto || m.get(op.id).lotto, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, pending: true });
+      Object.assign(m.get(op.id), { stato: 'CHIUSO', end: op.ts, ...(op.inizio ? { start: op.inizio } : {}), ...(op.dichiarato ? { orari: 'DICHIARATI' } : {}), lotto: op.lotto || m.get(op.id).lotto, cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, man: op.manutentore, ...(op.gruppo ? { gruppo: op.gruppo, giro: op.giro } : {}), ...(op.multi ? { multi: op.multi } : {}), pending: true });
     } else if (op.action === 'cancel') m.delete(op.id);
     else if (op.action === 'modifica' && m.has(op.fermo)) Object.assign(m.get(op.fermo), op.inizio ? { start: op.inizio, end: op.fine, orari: 'DICHIARATI' } : {}, { cat: op.categoria, int: op.intervento, guasto: op.guasto, altro: op.altro, lotto: op.lotto, pezzo: op.pezzo, nCorr: (m.get(op.fermo).nCorr || 0) + 1 });
   }
@@ -440,6 +443,25 @@ const isCoord = (nome = S.man) => !!nome && Object.keys(S.liste).filter(k => /^\
 // Il fermo lo chiude (o annulla) solo chi l'ha aperto; i coordinatori possono chiudere tutti
 const apertoDa = f => String(f.apertoDa || f.man || '');
 const canClose = f => !!S.man && (U(apertoDa(f)) === U(S.man) || isCoord());
+// Fermo con più interventi: ogni intervento è un fermo a sé (una riga), "gruppo" (Fermo n.) li lega
+const interventiDi = f => f.gruppo ? allFermi().filter(x => x.gruppo === f.gruppo).sort((a, b) => (a.giro || 1) - (b.giro || 1) || a.start - b.start) : [f];
+const inizioFermo = f => Math.min(...interventiDi(f).map(x => x.start));
+const giroTxt = f => f.gruppo && (f.giro || 1) > 1 ? ' · intervento ' + f.giro : '';
+// Controllo antifurbi: una descrizione che racconta più interventi
+const VERBI_INT = { SOSTITUZIONE: /SOSTITU|CAMBIAT|MONTAT/, REGOLAZIONE: /REGOLA|REGISTRAT|CENTRAT|ALLINEAT/, PULIZIA: /PULIT|PULIZ/, RIPRISTINO: /RESET|RIAVVI|SBLOCC|HOMING|RIPRISTIN/ };
+function piuInterventi(txt) {
+  const d = ' ' + U(txt).replace(/[.,!]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const tipi = Object.keys(VERBI_INT).filter(k => VERBI_INT[k].test(d));
+  if (tipi.length >= 2) return 'la descrizione parla di ' + tipi.map(t => t.toLowerCase()).join(' e ');
+  if (/\+|;| POI | INOLTRE | IN SEGUITO | SUCCESSIVAMENTE | DOPODICH[EÉ] /.test(d) || /(^| )1[)\]].* 2[)\]]/.test(d)) return 'la descrizione sembra elencare più cose';
+  return '';
+}
+// Durata tipica (mediana) di un guasto su una macchina, con almeno 5 fermi chiusi
+function durTipica(code, guasto, escludi) {
+  const d = allFermi().filter(x => x.id !== escludi && x.code === code && x.stato === 'CHIUSO' && x.end && U(x.guasto) === U(guasto)).map(x => x.end - x.start).sort((a, b) => a - b);
+  return d.length >= 5 ? d[Math.floor(d.length / 2)] : null;
+}
+const durAnomala = (du, med) => med != null && du > 3 * med && du > 20 * 60000;
 function allSoluzioni() {
   const out = S.soluzioni.map(s => ({ ...s, stato: s.stato || 'VERIFICATA' }));
   for (const op of OUTBOX) {
@@ -886,14 +908,14 @@ function renderHome() {
 }
 function openCard(f) {
   return `<div class="ocard"><span class="bar"></span><button class="what" data-eq="${esc(f.code)}"><div class="ln">${esc(f.linea)} · ${esc(f.macchina)}</div>
-    <div class="mc">dal ${fmtDT(f.start)} · ${esc(apertoDa(f))}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}</div>
-    <div class="timer" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</div></button>
+    <div class="mc">dal ${fmtDT(inizioFermo(f))} · ${esc(apertoDa(f))}${f.lotto ? ' · lotto ' + esc(f.lotto) : ''}${giroTxt(f)}</div>
+    <div class="timer" data-since="${inizioFermo(f)}">${fmtTimer(Date.now() - inizioFermo(f))}</div></button>
     ${canClose(f) ? `<button class="closebtn" data-close="${esc(f.id)}">Chiudi</button>` : ''}</div>`;
 }
 function histRow(f) {
   const dur = f.end ? fmtDur((f.end - f.start) / 60000) : '';
   return `<button class="hrow" data-hint="${esc(f.id)}"><div><div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
-    <div class="t2">${fmtDT(f.start)} · ${esc(f.linea)} ${esc(f.macchina)}${f.altro ? ' · ' + esc(f.altro) : ''}</div></div>
+    <div class="t2">${fmtDT(f.start)} · ${esc(f.linea)} ${esc(f.macchina)}${f.gruppo ? ' · intervento ' + (f.giro || 1) : ''}${f.altro ? ' · ' + esc(f.altro) : ''}</div></div>
     <div class="dur">${dur}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div></button>`;
 }
 function anoCard(a) {
@@ -931,10 +953,10 @@ function renderEquip() {
     ${topline('', eq.code + ' · ' + eq.linea + ' · ' + areaLbl(eq.area), 'home')}
     <div class="eqtitle"><h1>${esc(eq.macchina)}</h1></div>
     ${open ? '' : progBox(eq)}
-    ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
+    ${open && !canClose(open) ? `<div class="bigbtn hero busy"><span class="bt">Fermo in corso</span><span class="timer" data-since="${inizioFermo(open)}">${fmtTimer(Date.now() - inizioFermo(open))}</span><span class="bs">aperto da <b>${esc(apertoDa(open))}</b> · può chiuderlo solo lui o un coordinatore</span></div>
       ${provaPrima(eq, open, hist)}`
-    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="ck"><span class="pre">Premi qui per</span><span class="bt">Chiudere fermo</span></span><span class="timer" data-since="${open.start}">${fmtTimer(Date.now() - open.start)}</span><span class="bs">fermo in corso da</span></button>
-      <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}</div>
+    : open ? `<button class="bigbtn hero ok" data-close="${esc(open.id)}"><span class="ck"><span class="pre">Premi qui per</span><span class="bt">Chiudere fermo</span></span><span class="timer" data-since="${inizioFermo(open)}">${fmtTimer(Date.now() - inizioFermo(open))}</span><span class="bs">fermo in corso da${giroTxt(open)}</span></button>
+      <div class="hint center">Fermo in corso${open.lotto ? ' · lotto ' + esc(open.lotto) : ''}${open.man ? ' · ' + esc(open.man) : ''}${giroTxt(open)}</div>
       ${provaPrima(eq, open, hist)}`
       : `<button class="bigbtn hero" id="openf">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo</span><span class="bs">macchina ferma? tocca qui</span></button>
         ${isFill(eq) ? '<div class="hint center">FILLING: apri il fermo prima di entrare in sterile; quando lo chiudi metti gli orari del batch record.</div><div class="center"><button class="linkbtn" id="regf">Fermo già finito? Registralo con gli orari del batch record</button></div>'
@@ -1712,7 +1734,9 @@ function motiviRev(f, all) {
   const stessa = all.filter(x => x.id !== f.id && x.code === f.code && x.stato === 'CHIUSO');
   if (U(f.guasto) !== 'ALTRO' && stessa.length >= 5 && !stessa.some(x => U(x.guasto) === U(f.guasto) && x.start < f.start)) m.push('Prima volta di questo guasto su questa macchina (ultimi 90 giorni)');
   const durs = stessa.filter(x => U(x.guasto) === U(f.guasto) && x.end).map(x => x.end - x.start).sort((a, b) => a - b);
-  if (durs.length >= 5 && f.end) { const med = durs[Math.floor(durs.length / 2)], du = f.end - f.start; if (du > 3 * med && du > 20 * 60000) m.push('Durata ' + fmtDur(du / 60000) + ', di solito ' + fmtDur(med / 60000)); }
+  if (durs.length >= 5 && f.end) { const med = durs[Math.floor(durs.length / 2)], du = f.end - f.start; if (durAnomala(du, med)) m.push('Durata ' + fmtDur(du / 60000) + ', di solito ' + fmtDur(med / 60000)); }
+  const pi = piuInterventi(f.altro);
+  if (pi || f.multi) m.push('Più interventi in un fermo? ' + (pi ? nice(pi.slice(0, 1)) + pi.slice(1) : '') + (f.multi ? (pi ? ' · ' : '') + 'avvisato, il tecnico ha confermato: uno solo' : ''));
   return m;
 }
 function daRivedere() {
@@ -1786,13 +1810,18 @@ function closeSheet(f, opt = {}) {
   const C = { img: null, circles: [], cat: null, int: null, guasto: PRE_G[f.id] || null };
   const REG = !!opt.reg, FILL = !REG && isFill(eq), ORE = REG || FILL, t0 = limiteDichiarati();
   const hhmm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
-  sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>' + esc(areaLbl(eq.area) || 'FERMO GIÀ FINITO') + '</b>' : ''}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
+  // più interventi nello stesso fermo: N = questo intervento, prima = quelli già registrati
+  const N = f.gruppo ? f.giro || 1 : 1, prima = f.gruppo ? interventiDi(f).filter(x => x.id !== f.id && x.stato === 'CHIUSO') : [];
+  const GIRO = !ORE; // "Intervento fatto, continuo" (tempo reale) solo in Packaging con il fermo aperto
+  sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}${N > 1 ? ' · intervento ' + N : ''}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>' + esc(areaLbl(eq.area) || 'FERMO GIÀ FINITO') + '</b>' : ''}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     ${ORE ? `<div class="group"><span class="label">Orari del fermo${isFill(eq) ? ' · come sul batch record' : ''}</span>
-      <div class="times"><label>Inizio<input class="field" type="time" id="tini" ${FILL ? `value="${hhmm(f.start)}"` : ''} required></label><label>Fine<input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
+      <div class="times"><label>Inizio<input class="field" type="time" id="tini" ${FILL || f.start ? `value="${hhmm(f.start)}"` : ''} required></label><label><span id="tfinl">Fine</span><input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
       <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : REG && !isFill(eq) ? 'Fermo non aperto in tempo: scrivi quando la macchina si è fermata e quando è ripartita. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
-    ${REG ? '' : `<div class="csum"><div><span class="label">Aperto</span><b>${hhmm(f.start)}</b></div><div><span class="label">Durata</span><b class="timer" style="color:inherit;font:600 16px var(--mono)" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</b></div><div><span class="label">Lotto</span><b>${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '—')}</b></div></div>
+    ${prima.length ? `<div class="giri"><span class="label">Già registrati in questo fermo</span>${prima.map(x => `<div class="gr"><b>${x.giro || 1}.</b><span>${esc(x.guasto || '—')} · ${esc(nice(x.int || ''))}</span><em>${x.end ? fmtDur((x.end - x.start) / 60000) : ''}</em></div>`).join('')}
+      <div class="hint">Ora compili l'intervento ${N}: solo quello che hai fatto da ${hhmm(f.start)}.</div></div>` : ''}
+    ${REG ? '' : `<div class="csum"><div><span class="label">${N > 1 ? 'Intervento da' : 'Aperto'}</span><b>${hhmm(f.start)}</b></div><div><span class="label">Durata</span><b class="timer" style="color:inherit;font:600 16px var(--mono)" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</b></div><div><span class="label">Lotto</span><b>${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '—')}</b></div></div>
     <div class="hint" style="margin-top:6px">Aperto da <b>${esc(apertoDa(f) || '—')}</b>${U(apertoDa(f)) !== U(S.man) ? ' · lo stai chiudendo tu (' + esc(S.man) + ')' : ''}</div>`}
-    ${ORE ? '' : `<div class="group"><span class="label">Quando è ripartita?</span><div class="when" id="cwhen">
+    ${ORE ? '' : `<div class="group" id="cwgrp"><span class="label">Quando è ripartita?</span><div class="when" id="cwhen">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${hhmm(Date.now())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>è ripartita prima</small></button></div>
       <div id="cfwrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="cfin"><div class="hint">L'orario scritto a mano viene segnato come <b>dichiarato</b>.</div></div></div>`}
@@ -1808,9 +1837,13 @@ function closeSheet(f, opt = {}) {
         <div id="pswrap" hidden style="margin-top:8px"><label class="label" for="pprob">Il problema, in una riga</label><input class="field" id="pprob" placeholder="Es. scatola piena si incastra in ingresso nastratrice"></div></div>
       <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
     </div>
+    <div class="group"><label class="propsol"><input type="checkbox" id="multi"><div><b>Ho fatto più di un intervento</b><span>${GIRO ? 'te ne sei accorto solo ora? ' : ''}registri questo come intervento ${N} con l'ora in cui l'hai finito, poi compili il successivo</span></div></label>
+      ${ORE ? '' : `<div id="mwrap" hidden style="margin-top:10px"><label class="label" for="mfin">Fine dell'intervento ${N}</label><input class="field lottobig" type="time" id="mfin"><div class="hint">Orario scritto a mano: segnato come <b>dichiarato</b>. L'intervento ${N + 1} parte da qui.</div></div>`}</div>
     <div class="err" id="err" hidden></div>
+    ${GIRO ? `<button class="submit giro" id="giro">⏱ Intervento fatto, continuo<small>la macchina è ancora ferma: registri l'intervento ${N} e parte il ${N + 1}</small></button>` : ''}
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
-    ${REG ? '' : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
+    ${REG ? '' : N > 1 ? '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Intervento ' + N + ' aperto per sbaglio (la macchina era già ripartita)? Gli interventi già registrati restano.</div><button class="linkbtn danger" id="canc">Annulla l\'intervento ' + N + '</button></div>'
+      : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
   C.big = true; photoBox($('#phgrp'), C, 'Foto della zona di intervento');
   C.fineOra = false; const cw = $('#cwhen'); if (cw) singleChoice(cw, v => { C.fineOra = v === 'ora'; $('#cfwrap').hidden = !C.fineOra; if (C.fineOra) $('#cfin').focus(); });
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pprob').value) $('#pprob').value = C.guasto && U(C.guasto) !== 'ALTRO' ? C.guasto.split(',')[0] + ': ' : ''; };
@@ -1830,7 +1863,12 @@ function closeSheet(f, opt = {}) {
   $('#int').addEventListener('click', () => { C.intToccato = true; });
   singleChoice($('#gua'), sceltoGuasto);
   if (C.guasto) sceltoGuasto(C.guasto);
-  $('#go').onclick = () => {
+  const goTxt = $('#go').textContent;
+  $('#multi').onchange = () => { const on = $('#multi').checked, mw = $('#mwrap'), cg = $('#cwgrp'), gb = $('#giro'), tl = $('#tfinl');
+    if (mw) mw.hidden = !on; if (cg) cg.hidden = on; if (gb) gb.hidden = on; if (tl) tl.textContent = on ? 'Fine intervento ' + N : 'Fine';
+    $('#go').textContent = on ? 'Salva intervento ' + N + ' e continua' : goTxt; if (on && mw) setTimeout(() => $('#mfin').focus(), 80); };
+  const invia = () => {
+    const modo = C.modo, DIV = modo === 'dividi', CONT = modo !== 'chiudi';
     const altro = $('#altro').value.trim();
     const miss = [!C.guasto && 'cosa si è guastato', C.guasto && !C.cat && 'categoria', !C.int && 'cosa hai fatto'].filter(Boolean);
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
@@ -1844,7 +1882,15 @@ function closeSheet(f, opt = {}) {
     const now = Date.now();
     let ini = f.start, fin = now;
     let dich = REG;
-    if (!msg && !ORE && C.fineOra) { // Packaging: fine fermo scritta a mano (è ripartita prima di chiudere nell'app)
+    if (!msg && !ORE && DIV) { // Packaging, diviso dopo: fine di questo intervento scritta a mano
+      fin = oraToTs($('#mfin').value, now);
+      if (fin == null) msg = 'Scrivi l\'ora in cui hai finito l\'intervento ' + N + '.';
+      else if (fin <= f.start) msg = 'La fine dell\'intervento deve essere dopo il suo inizio (' + hhmm(f.start) + ').';
+      else if (fin > now) msg = 'La fine dell\'intervento non può essere nel futuro.';
+      else if (fin < t0) msg = 'Si possono registrare solo interventi finiti dalle ' + hhmm(t0) + ' in poi.';
+      else dich = true;
+      if (msg) $('#mfin').focus();
+    } else if (!msg && !ORE && modo === 'chiudi' && C.fineOra) { // Packaging: fine fermo scritta a mano (è ripartita prima di chiudere nell'app)
       fin = oraToTs($('#cfin').value, now);
       if (fin == null) msg = 'Scrivi l\'ora in cui la macchina è ripartita.';
       else if (fin <= f.start) msg = 'La fine deve essere dopo l\'inizio del fermo (' + hhmm(f.start) + ').';
@@ -1863,22 +1909,46 @@ function closeSheet(f, opt = {}) {
         if (ini !== iniReale || fin !== finReale) dich = true; else { ini = f.start; fin = now; }
       }
     }
-    if (msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; return; }
+    if (msg) { const e = $('#err'); e.className = 'err'; e.textContent = msg; e.hidden = false; return; }
     // micro-fermo: sotto i 3 minuti chiedo conferma (spesso è un orario sbagliato); nei KPI conta a parte, non nell'MTTR
     if (fin - ini < MICRO_MIN * 60000 && !C.microOk) { C.microOk = true; const e = $('#err');
-      e.textContent = 'Fermo di ' + Math.max(0, Math.round((fin - ini) / 60000)) + ' min: è giusto? Se sì tocca di nuovo «' + $('#go').textContent + '». Se no correggi gli orari.'; e.hidden = false; return; }
+      e.className = 'err'; e.textContent = (CONT ? 'Intervento' : 'Fermo') + ' di ' + Math.max(0, Math.round((fin - ini) / 60000)) + ' min: è giusto? Se sì tocca di nuovo «' + (modo === 'giro' ? 'Intervento fatto, continuo' : $('#go').textContent) + '». Se no correggi gli orari.'; e.hidden = false; return; }
+    // controllo antifurbi: descrizione con più interventi, o durata molto oltre il solito → avviso prima di inviare
+    const perche = !C.multiOk && (piuInterventi(altro) || (durAnomala(fin - ini, durTipica(f.code, C.guasto, f.id)) ? 'dura ' + fmtDur((fin - ini) / 60000) + ', di solito ' + fmtDur(durTipica(f.code, C.guasto, f.id) / 60000) : ''));
+    if (perche) {
+      const e = $('#err'); e.className = 'err mwarn'; e.hidden = false;
+      e.innerHTML = `<b>Sembrano più interventi</b> · ${esc(perche)}.<div class="hint" style="margin:6px 0 0">${CONT ? 'Qui descrivi solo l\'intervento ' + N + ': il resto va nel successivo.' : 'Ogni cosa sistemata va registrata a parte, con il suo tempo.'}</div>
+        <div class="row"><button class="morebtn" type="button" id="mdiv">${CONT ? 'Correggo la descrizione' : 'Dividi in più interventi'}</button><button class="morebtn" type="button" id="muno">No, è un intervento solo</button></div>`;
+      e.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('#mdiv').onclick = () => { e.hidden = true; if (CONT) { $('#altro').focus(); return; } const mc = $('#multi'); mc.checked = true; mc.onchange(); mc.closest('.group').scrollIntoView({ behavior: 'smooth', block: 'center' }); if (ORE) $('#tfin').focus(); };
+      $('#muno').onclick = () => { C.multiOk = perche; e.hidden = true; invia(); };
+      return;
+    }
+    const multi = C.multiOk ? 'Avviso «' + C.multiOk + '» · il tecnico ha confermato: un intervento solo' : undefined;
+    const grp = CONT || f.gruppo ? f.gruppo || f.id : undefined, giro = grp ? N : undefined;
     const lotto = $('#clotto').value.trim();
-    if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
+    if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now, gruppo: grp, giro });
     enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined, proposta: gprop || undefined,
-      altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now });
+      altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now, gruppo: grp, giro, multi });
     if (psol) enqueue({ action: 'soluzione', id: uid('S'), code: eq.code, linea: eq.linea, guasto: C.guasto || '', problema: pprob, soluzione: altro, ricambi: sost() ? $('#pezzo').value.trim() : '', ts: now, manutentore: S.man });
     delete PRE_G[f.id]; save('preg', PRE_G);
-    closeSh(); toast((REG ? 'Fermo registrato · ' : 'Fermo chiuso · ') + fmtDur((fin - ini) / 60000) + (psol ? ' · soluzione proposta' : ''), 3500);
+    if (CONT) { // l'intervento successivo parte dalla fine di questo, stessa macchina e stesso lotto
+      const nx = { id: uid(), code: f.code, linea: f.linea, macchina: f.macchina, lotto, gruppo: grp, giro: N + 1 };
+      closeSh();
+      if (modo === 'giro') { enqueue({ action: 'open', ...nx, ts: fin, turno: turnoOf(fin), manutentore: S.man, foto: '' }); toast('Intervento ' + N + ' registrato · ' + fmtDur((fin - ini) / 60000) + ' · il fermo continua: intervento ' + (N + 1), 4000); return; }
+      if (REG) closeSheet({ ...nx, start: fin }, { reg: true });
+      else { enqueue({ action: 'open', ...nx, ts: fin, turno: turnoOf(fin), manutentore: S.man, foto: '', dichiarato: true, reg: now }); closeSheet(allFermi().find(x => x.id === nx.id)); }
+      toast('Intervento ' + N + ' salvato · ora compila l\'intervento ' + (N + 1), 3500);
+      return;
+    }
+    closeSh(); toast((REG ? 'Fermo registrato · ' : 'Fermo chiuso · ') + fmtDur((fin - ini) / 60000) + (prima.length ? ' · ' + (N) + ' interventi' : '') + (psol ? ' · soluzione proposta' : ''), 3500);
   };
+  $('#go').onclick = () => { C.modo = $('#multi').checked ? 'dividi' : 'chiudi'; C.multiOk = C.multiOk && C.modoOk === C.modo ? C.multiOk : null; C.modoOk = C.modo; invia(); };
+  const gb = $('#giro'); if (gb) gb.onclick = () => { C.modo = 'giro'; C.multiOk = C.multiOk && C.modoOk === 'giro' ? C.multiOk : null; C.modoOk = 'giro'; invia(); };
   const cb = $('#canc');
   if (cb) cb.onclick = () => {
     if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = 'Tocca ancora per annullare il fermo'; return; }
-    enqueue({ action: 'cancel', id: f.id, manutentore: S.man }); closeSh(); toast('Fermo annullato');
+    enqueue({ action: 'cancel', id: f.id, manutentore: S.man }); closeSh(); toast(N > 1 ? 'Intervento ' + N + ' annullato' : 'Fermo annullato');
   };
 }
 
