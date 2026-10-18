@@ -173,6 +173,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .chips.ich2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chips.ich2 .chip{padding:9px 11px;font-weight:600;line-height:1.15}
 .chips.ich2 .chip small{display:block;font-weight:400;font-size:11.5px;opacity:.75;margin-top:3px;line-height:1.25}
 .autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
+.vdef{margin-top:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-left:3px solid var(--steel);background:var(--surface);border-radius:0 8px 8px 0}
+.revc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--surface)}.revc .why{font-size:12.5px;color:#a3402d;margin:4px 0}.revc .row{display:flex;gap:8px;margin-top:8px}.revc .row button{flex:1}
 .prop{font:500 11px var(--mono);color:var(--ok,#0b6b3a);margin-left:6px;text-transform:none;letter-spacing:0}
 .provaprima .sugg{margin-top:0;background:none;border:0;padding:0}.provaprima .sugg-i{border:1px solid var(--line);background:var(--surface2)}
 .sugg{margin-top:10px;background:var(--steel-soft);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
@@ -659,11 +661,12 @@ function applyInit(j) {
   if (j.liste && Object.keys(j.liste).length) S.liste = { ...PF_DEFAULTS.liste, ...j.liste };
   if (j.guasti) S.guasti = j.guasti;
   if (j.vociCat) S.vociCat = j.vociCat;
+  if (j.vociDesc) S.vociDesc = j.vociDesc;
   if (j.intDesc) S.intDesc = j.intDesc;
   S.fermi = j.fermi || []; S.soluzioni = j.soluzioni || []; S.documenti = j.documenti || []; S.anomalie = j.anomalie || []; S.compiti = j.compiti || []; S.vestizioni = j.vestizioni || []; S.sterileNo = j.sterileNo || []; S.convalide = j.convalide || { list: [], ignote: [] }; S.turni = j.turni || {}; S.programma = j.programma || {}; S.continuo = j.continuo || []; S.avviso = j.avviso || null;
   S.ver = j.ver || ''; S.loaded = true; S.cacheOk = true; S.net = 'ok'; S.lastSync = Date.now();
   if (S.man && !abilitati().includes(S.man)) { S.man = ''; salvaSess(null); setTimeout(showLogin, 0); }
-  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, intDesc: S.intDesc, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
+  save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, vociDesc: S.vociDesc, intDesc: S.intDesc, fermi: S.fermi, soluzioni: S.soluzioni, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 let NET_KO = 0, RETRY_NET = null; // tentativi falliti di fila per mancanza di rete
 async function refresh() {
@@ -858,6 +861,8 @@ function renderHome() {
   const coord = isCoord(), nApp = coord ? solDaApprovare().length : 0;
   const miei = open.filter(f => U(apertoDa(f)) === U(S.man)), altri = open.filter(f => U(apertoDa(f)) !== U(S.man));
   $('#view').innerHTML = `
+    ${coord && daRivedere().length ? `<button class="banner appban" id="revban">${I.sol}<span><b>${daRivedere().length} ${daRivedere().length === 1 ? 'fermo da rivedere' : 'fermi da rivedere'}</b> · registrazioni sospette, tocca per vederle</span></button>` : ''}
+    ${corrNuove().length ? `<button class="banner appban" id="corrban">${I.sol}<span><b>${corrNuove().length === 1 ? 'Un tuo fermo è stato corretto' : corrNuove().length + ' tuoi fermi sono stati corretti'}</b> dal coordinatore · tocca per vedere cosa</span></button>` : ''}
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
     <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
     <div class="center"><button class="linkbtn" id="manual">Problemi con il QR? Scegli la macchina a mano</button></div>
@@ -871,6 +876,8 @@ function renderHome() {
     <h2>Chiusi oggi · ${today.length}</h2>
     <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
+  const rb = $('#revban'); if (rb) rb.onclick = shRevisione;
+  const cb2 = $('#corrban'); if (cb2) cb2.onclick = shCorrNuove;
   $('#manual').onclick = () => pickSheet(afterScan); // come dopo il QR: scheda macchina + pop-up Apri fermo
   $$('[data-hint]').forEach(b => b.onclick = () => { const f = today.find(x => x.id === b.dataset.hint); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); }); // dettaglio del fermo chiuso
   bindCommon();
@@ -984,7 +991,7 @@ function intSheet(f, eq) {
     ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
     <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? (isFill(eq) ? 'Dichiarati (batch record)' : 'Scritti a mano (registrato dopo)') : f.orari === 'CARTACEO' ? 'Da foglio cartaceo' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}${f.causa ? cell('Causa', f.causa) : ''}</div>
     ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}
-    ${puoCorreggere(f) && !f.pending && !(f.nCorr > 0) ? `<div style="margin-top:12px"><button class="morebtn" id="modf">Correggi il fermo</button><div class="hint center">La prima correzione la fai tu. Le successive andranno chieste al responsabile.</div></div>`
+    ${puoCorreggere(f) && !f.pending && (!(f.nCorr > 0) || isCoord()) ? `<div style="margin-top:12px"><button class="morebtn" id="modf">Correggi il fermo</button><div class="hint center">La prima correzione la fai tu. Le successive andranno chieste al responsabile.</div></div>`
     : puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
       : `<div id="corrbox" style="margin-top:12px"><button class="linkbtn" id="corr" style="width:100%">Hai sbagliato qualcosa? Chiedi una correzione</button></div>`) : ''}`);
   const mf = $('#modf'); if (mf) mf.onclick = () => needMan(() => modSheet(f, eq));
@@ -1001,7 +1008,7 @@ function intSheet(f, eq) {
   };
 }
 // Prima correzione: la fa direttamente chi ha registrato il fermo (o un coordinatore)
-function modSheet(f, eq) {
+function modSheet(f, eq, opt = {}) {
   const M = { cat: U(f.cat) ? (S.liste['Categoria'] || []).find(x => U(x) === U(f.cat)) || f.cat : null, int: intNorm(f.int), guasto: f.guasto || null, causa: f.causa || null };
   M.catScelta = M.cat;
   sheet(`<div class="sheet-h"><div><h3>Correggi il fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · ${fmtDT(f.start)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
@@ -1030,8 +1037,8 @@ function modSheet(f, eq) {
     const msg = tmsg || !M.cat || !M.int || !M.guasto ? 'Scegli cosa si è guastato, la categoria e cosa hai fatto.' : alt.length < 4 ? 'La descrizione è obbligatoria.' : !LOTTO_OK(lot) ? LOTTO_MSG : U(M.int) === 'SOSTITUZIONE' && !pz ? 'Con SOSTITUZIONE scrivi il codice del pezzo.' : '';
     if (msg) { e.textContent = msg; e.hidden = false; return; }
     const cambiati = Math.abs(ini - f.start) >= 60000 || Math.abs(fin - f.end) >= 60000;
-    enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, inizio: cambiati ? ini : undefined, fine: cambiati ? fin : undefined, categoria: M.cat, intervento: M.int, guasto: M.guasto, causa: M.causa || '', altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
-    closeSh(); toast('Fermo corretto. Altre modifiche: Chiedi correzione', 3500);
+    enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, inizio: cambiati ? ini : undefined, fine: cambiati ? fin : undefined, categoria: M.cat, intervento: M.int, guasto: M.guasto, causa: M.causa || '', rivisto: opt.rivisto || undefined, altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
+    if (opt.rivisto) { f.rivisto = S.man; } closeSh(); toast(opt.rivisto ? 'Fermo corretto e rivisto' : 'Fermo corretto. Altre modifiche: Chiedi correzione', 3500); if (opt.back) setTimeout(opt.back, 150);
   });
 }
 // Correzioni: chi ha registrato il fermo (o un coordinatore) chiede la modifica, il responsabile la fa nel foglio
@@ -1690,6 +1697,56 @@ function guaChips(eq, sel) {
   const l = guastiFor(eq).map((g, i) => ({ g, n: U(g) === 'ALTRO' ? -1 : cnt[U(g)] || 0, i })).sort((a, b) => b.n - a.n || a.i - b.i);
   return l.map(x => `<button class="chip" type="button" data-v="${esc(x.g)}" aria-pressed="${sel === x.g}">${esc(x.g)}${x.n > 0 ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('');
 }
+/* ===== Da rivedere (coordinatori): solo i fermi sospetti degli ultimi 30 giorni, non i cartacei ===== */
+const REV_GG = 30;
+function motiviRev(f, all) {
+  const m = [], d = U(f.altro), i = intNorm(f.int) || U(f.int), sost = /SOSTITU|CAMBIAT|MONTAT/.test(d);
+  if (U(f.guasto) === 'ALTRO') m.push('Guasto ALTRO' + (f.prop ? ' · voce proposta: ' + f.prop : ''));
+  if (sost && i !== 'SOSTITUZIONE') m.push('La descrizione parla di sostituzione, l\'intervento è ' + (i || '—'));
+  if (i === 'SOSTITUZIONE' && !sost && /REGOLAT|RESET|RIAVVI|SBLOCC|PULIT/.test(d)) m.push('La descrizione parla di regolazione/reset/pulizia, l\'intervento è SOSTITUZIONE');
+  if (i === 'REGOLAZIONE' && /RESET|RIAVVI|SBLOCC/.test(d) && !/REGOL/.test(d)) m.push('La descrizione parla di reset/sblocco: forse è RIPRISTINO');
+  const stessa = all.filter(x => x.id !== f.id && x.code === f.code && x.stato === 'CHIUSO');
+  if (U(f.guasto) !== 'ALTRO' && stessa.length >= 5 && !stessa.some(x => U(x.guasto) === U(f.guasto) && x.start < f.start)) m.push('Prima volta di questo guasto su questa macchina (ultimi 90 giorni)');
+  const durs = stessa.filter(x => U(x.guasto) === U(f.guasto) && x.end).map(x => x.end - x.start).sort((a, b) => a - b);
+  if (durs.length >= 5 && f.end) { const med = durs[Math.floor(durs.length / 2)], du = f.end - f.start; if (du > 3 * med && du > 20 * 60000) m.push('Durata ' + fmtDur(du / 60000) + ', di solito ' + fmtDur(med / 60000)); }
+  return m;
+}
+function daRivedere() {
+  if (!isCoord()) return [];
+  const all = allFermi(), da = Date.now() - REV_GG * 864e5;
+  return all.filter(f => f.stato === 'CHIUSO' && !f.rivisto && !f.pending && f.end && f.end >= da && f.orari !== 'CARTACEO')
+    .map(f => ({ f, m: motiviRev(f, all) })).filter(x => x.m.length).sort((a, b) => b.f.end - a.f.end);
+}
+function shRevisione() {
+  const l = daRivedere(), prop = {};
+  allFermi().forEach(f => { if (f.prop) { const k = U(f.prop); (prop[k] = prop[k] || { n: 0, m: new Set() }).n++; prop[k].m.add(f.code); } });
+  const pl = Object.keys(prop).sort((a, b) => prop[b].n - prop[a].n);
+  sheet(`<div class="sheet-h"><div><h3>Da rivedere · ${l.length}</h3><div class="hint" style="margin-top:4px">Fermi degli ultimi ${REV_GG} giorni con qualcosa che non torna. <b>Va bene</b> = è giusto così; <b>Correggi</b> = lo sistemi tu.</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    ${pl.length ? `<div class="group"><span class="label">Voci proposte dai tecnici (con ALTRO)</span><div class="hint" style="margin:4px 0 0">${pl.slice(0, 8).map(k => '<b>' + esc(k) + '</b> ×' + prop[k].n + ' (' + esc([...prop[k].m].join(', ')) + ')').join(' · ')}</div><div class="hint">Quelle che tornano spesso vanno aggiunte al foglio Guasti.</div></div>` : ''}
+    ${l.length ? l.map(({ f, m }) => `<div class="revc" data-rid="${esc(f.id)}"><div class="t1"><b>${esc(f.linea)} · ${esc(f.macchina)}</b></div>
+      <div class="hint" style="margin:2px 0">${fmtDT(f.start)} · ${esc(f.man || '')} · ${fmtDur((f.end - f.start) / 60000)}</div>
+      <div>${esc(f.guasto || '—')} · ${esc(f.int || '—')}${f.causa ? ' · ' + esc(f.causa) : ''}</div>
+      ${f.altro ? `<div class="hint" style="margin:4px 0">“${esc(f.altro)}”</div>` : ''}
+      ${m.map(x => `<div class="why">⚠ ${esc(x)}</div>`).join('')}
+      <div class="row"><button class="morebtn" data-ok="${esc(f.id)}">Va bene</button><button class="morebtn" data-fix="${esc(f.id)}">Correggi</button></div></div>`).join('') : '<div class="empty">Niente da rivedere 👍</div>'}`);
+  $$('[data-ok]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.ok); if (!f) return;
+    enqueue({ action: 'rivisto', id: uid('R'), fermo: f.id, manutentore: S.man, ts: Date.now() }); f.rivisto = S.man;
+    const c = b.closest('.revc'); c.style.opacity = .4; c.querySelector('.row').innerHTML = '<div class="hint">✓ rivisto</div>'; render(); });
+  $$('[data-fix]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.fix); if (f) modSheet(f, eqBy(f.code) || { code: f.code, linea: f.linea, macchina: f.macchina }, { rivisto: true, back: shRevisione }); });
+}
+// Tecnico: le correzioni fatte dal coordinatore sui suoi fermi (una volta viste non ricompaiono)
+const corrVKey = () => 'corrVisti:' + U(S.man);
+function corrNuove() { if (!S.man) return []; const v = load(corrVKey(), []); return allFermi().filter(f => f.corr && U(f.man) === U(S.man) && !v.includes(f.id + '@' + f.corr.ts)); }
+function shCorrNuove() {
+  const l = corrNuove();
+  sheet(`<div class="sheet-h"><h3>Fermi corretti dal coordinatore</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
+    <div class="hint">Guarda cosa è stato cambiato: la prossima volta scegli così.</div>
+    ${l.map(f => `<div class="revc"><b>${esc(f.linea)} · ${esc(f.macchina)}</b><div class="hint" style="margin:2px 0">${fmtDT(f.start)} · corretto da ${esc(f.corr.da)}</div>
+      ${String(f.corr.txt).split('; ').map(x => `<div>• ${esc(x)}</div>`).join('')}</div>`).join('')}
+    <button class="submit blue" id="corrok">Ho capito</button>`);
+  $('#corrok').onclick = () => { save(corrVKey(), [...load(corrVKey(), []), ...l.map(f => f.id + '@' + f.corr.ts)].slice(-300)); closeSh(); render(); };
+}
+
 /* Classificazione: 1) cosa si è guastato 2) cosa hai fatto (4 voci con regola) 3) perché (facoltativo). Categoria dal foglio Voci guasto. */
 // Le liste stanno nel foglio Liste (colonne Tipo intervento, Tipo intervento · spiegazione, Causa); queste valgono finché il foglio non le ha
 const INT_DEF = { REGOLAZIONE: 'spostato o registrato (nonio, guida, parametro)', SOSTITUZIONE: 'pezzo nuovo montato · codice obbligatorio',
@@ -1711,8 +1768,9 @@ function intProposto(code, g) {
 function catBox(el, g, M, onPick) {
   const c = catDi(g); M.cat = c || (M.catScelta || null);
   if (!g) { el.innerHTML = ''; return; }
-  if (c) { el.innerHTML = `<div class="autotag">Categoria <b>${esc(c)}</b> · automatica</div>`; return; }
-  el.innerHTML = `<div style="margin-top:10px"><span class="label">Categoria${U(g) === 'ALTRO' ? '' : ' · voce non ancora classificata'}</span><div class="chips">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>`;
+  const def = (S.vociDesc || {})[U(g)], dh = def ? `<div class="vdef"><b>${esc(g.split(',')[0])}</b> = ${esc(def)}</div>` : '';
+  if (c) { el.innerHTML = dh + `<div class="autotag">Categoria <b>${esc(c)}</b> · automatica</div>`; return; }
+  el.innerHTML = dh + `<div style="margin-top:10px"><span class="label">Categoria${U(g) === 'ALTRO' ? '' : ' · voce non ancora classificata'}</span><div class="chips">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>`;
   singleChoice(el.querySelector('.chips'), v => { M.cat = M.catScelta = v; onPick && onPick(); });
 }
 // Come singleChoice, ma un secondo tocco toglie la scelta (per le domande facoltative)
@@ -1734,7 +1792,8 @@ function closeSheet(f, opt = {}) {
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${hhmm(Date.now())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>è ripartita prima</small></button></div>
       <div id="cfwrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="cfin"><div class="hint">L'orario scritto a mano viene segnato come <b>dichiarato</b>.</div></div></div>`}
-    <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Cosa si è guastato <i class="lockhint" style="display:inline">· il componente / la zona</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="catbox"></div><div id="solsug"></div></div>
+    <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Cosa si è guastato <i class="lockhint" style="display:inline">· il componente / la zona</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="catbox"></div>
+      <div id="propbox" hidden style="margin-top:10px"><label class="label" for="gprop">Che voce manca? · obbligatoria con ALTRO</label><input class="field" id="gprop" autocomplete="off" placeholder="2–3 parole, es. LAMA SBUCCIATRICE"><div class="hint">Se la stessa voce torna più volte, il responsabile la aggiunge all'elenco.</div></div><div id="solsug"></div></div>
     <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Cosa hai fatto <span class="prop" id="iprop"></span><i class="lockhint">· scegli prima cosa si è guastato</i></span><div class="chips ich2" id="int">${intChips(null)}</div>
       <div id="pzgrp" hidden style="margin-top:10px"><label class="label" for="pezzo">Codice pezzo montato · obbligatorio</label><input class="field" id="pezzo" autocomplete="off" placeholder="Codice del ricambio montato"></div></div>
     <div class="group step locked" id="st3"><span class="label"><em class="stepn">3</em>Perché <i class="lockhint" style="display:inline">· facoltativo, se lo sai</i></span><div class="chips" id="cau">${chips(causeL())}</div></div>
@@ -1759,7 +1818,7 @@ function closeSheet(f, opt = {}) {
   singleChoice($('#int'), v => { setInt(v); $('#iprop').textContent = ''; pronto2(); if (sost()) setTimeout(() => $('#pezzo').focus(), 80); });
   toggleChoice($('#cau'), v => { C.causa = v; });
   const sceltoGuasto = v => {
-    C.guasto = v; showSuggest(eq, v); catBox($('#catbox'), v, C, pronto2);
+    C.guasto = v; showSuggest(eq, v); catBox($('#catbox'), v, C, pronto2); $('#propbox').hidden = U(v) !== 'ALTRO';
     const pr = intProposto(eq.code, v);
     if (pr && !C.intToccato) { setInt(pr); $('#iprop').textContent = '✓ proposto: il più usato qui'; } else if (!C.intToccato) { setInt(null); $('#iprop').textContent = ''; }
     pronto2();
@@ -1771,6 +1830,8 @@ function closeSheet(f, opt = {}) {
     const altro = $('#altro').value.trim();
     const miss = [!C.guasto && 'cosa si è guastato', C.guasto && !C.cat && 'categoria', !C.int && 'cosa hai fatto'].filter(Boolean);
     let msg = miss.length ? 'Manca: ' + miss.join(', ') + '.' : '';
+    const gprop = U(C.guasto) === 'ALTRO' ? $('#gprop').value.trim() : '';
+    if (!msg && U(C.guasto) === 'ALTRO' && gprop.length < 3) { msg = 'Con ALTRO scrivi in 2–3 parole che voce manca.'; $('#gprop').focus(); }
     if (!msg && altro.length < 4) { msg = 'Scrivi una descrizione breve: cosa hai trovato e cosa hai fatto.'; $('#altro').focus(); }
     const psol = $('#psol').checked, pprob = $('#pprob').value.trim();
     if (!msg && psol && pprob.replace(/^[^:]*:\s*$/, '').length < 4) { msg = 'Proponi come soluzione: scrivi il problema in una riga.'; $('#pprob').focus(); }
@@ -1804,7 +1865,7 @@ function closeSheet(f, opt = {}) {
       e.textContent = 'Fermo di ' + Math.max(0, Math.round((fin - ini) / 60000)) + ' min: è giusto? Se sì tocca di nuovo «' + $('#go').textContent + '». Se no correggi gli orari.'; e.hidden = false; return; }
     const lotto = $('#clotto').value.trim();
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now });
-    enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined,
+    enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined, proposta: gprop || undefined,
       altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now });
     if (psol) enqueue({ action: 'soluzione', id: uid('S'), code: eq.code, linea: eq.linea, guasto: C.guasto || '', problema: pprob, soluzione: altro, ricambi: sost() ? $('#pezzo').value.trim() : '', ts: now, manutentore: S.man });
     delete PRE_G[f.id]; save('preg', PRE_G);
@@ -1839,7 +1900,7 @@ async function checkUpdate() {
 (function boot() {
   const c = load('cache', null);
   S.cacheOk = !!(c && c.liste);
-  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.intDesc = c.intDesc || {}; S.fermi = c.fermi || [];
+  if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.vociDesc = c.vociDesc || {}; S.intDesc = c.intDesc || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
   if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };

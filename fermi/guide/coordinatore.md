@@ -29,6 +29,17 @@ Obiettivo: **nessuna anomalia critica aperta a fine turno** senza che qualcuno l
 - **Filling**: il fermo si apre prima di entrare in sterile (così lo vedi tra i fermi aperti) e si chiude all'uscita con gli orari del batch record. Se nel batch record c'è un fermo che non compare nel passaggio di turno, va registrato (al massimo entro 2 ore dal cambio turno).
 - **Descrizioni**: una descrizione corta ma vera serve a tutti (e alle soluzioni future). I fermi senza descrizione compaiono nel passaggio di turno, in **Da sistemare**, con il nome di chi li ha registrati: sono quelli da far completare.
 
+## 3b. Fermi da rivedere
+
+Nella home, **"N fermi da rivedere"**: non tutti i fermi, solo quelli degli ultimi 30 giorni in cui qualcosa non torna:
+- guasto **ALTRO** (con la voce proposta dal tecnico);
+- la descrizione dice "sostituito" ma l'intervento non è SOSTITUZIONE, o il contrario (regolato/reset/pulito ma SOSTITUZIONE);
+- "reset/sblocco" registrato come REGOLAZIONE (forse è RIPRISTINO);
+- un guasto mai visto prima su quella macchina;
+- una durata più di 3 volte quella solita per quel guasto.
+
+Per ogni fermo: **Va bene** (è giusto così) oppure **Correggi** (lo sistemi tu: guasto, intervento, causa, descrizione…). Il tecnico vede la correzione nella sua home e impara la scelta giusta. In alto trovi anche le **voci proposte dai tecnici** con ALTRO: quelle che tornano vanno aggiunte al foglio Guasti (dillo al responsabile).
+
 ## 4. Soluzioni: sei tu ad approvarle
 
 Quando un tecnico risolve qualcosa di nuovo, chiedigli di aggiungerlo in **Soluzioni → + Aggiungi soluzione**. Le soluzioni nuove **non le vede nessuno finché non le approvi tu**: solo dopo compaiono a tutti in **Soluzioni**, **Cosa provare** e **Prova prima**.

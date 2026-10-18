@@ -32,7 +32,8 @@ Conosci una soluzione nuova? In fondo alla pagina c'è il link **Conosci una sol
 1. **Scansiona di nuovo il QR** → pulsante verde **PREMI QUI PER CHIUDERE FERMO** (oppure **Chiudi** sul fermo nella home). In alto vedi quando è stato aperto, da chi, la durata e il lotto.
    **Quando è ripartita?** **ADESSO**, oppure **SCEGLI ORARIO** se la macchina è ripartita prima e chiudi solo ora (l'orario viene segnato come dichiarato).
 2. Tre domande, in ordine:
-   - **Cosa si è guastato**: il componente o la zona (i più frequenti su quella macchina sono in cima). La **categoria** (meccanico, elettrico, automation) la mette l'app da sola; la scegli tu solo con ALTRO.
+   - **Cosa si è guastato**: il componente o la zona (i più frequenti su quella macchina sono in cima). Sotto la voce scelta leggi **quando si usa**: se non corrisponde a quello che hai trovato, scegline un'altra. La **categoria** (meccanico, elettrico, automation) la mette l'app da sola; la scegli tu solo con ALTRO.
+     Con **ALTRO** scrivi in 2–3 parole **che voce manca** (es. LAMA SBUCCIATRICE): se torna più volte, il responsabile la aggiunge all'elenco.
    - **Cosa hai fatto**, con una regola sola:
      - **REGOLAZIONE**: hai spostato o registrato qualcosa (nonio, guida, parametro);
      - **SOSTITUZIONE**: hai montato un pezzo nuovo → codice pezzo obbligatorio. Niente pezzo nuovo = non è una sostituzione;
@@ -45,6 +46,8 @@ Conosci una soluzione nuova? In fondo alla pagina c'è il link **Conosci una sol
 5. Hai risolto qualcosa che può servire ai colleghi? Spunta **Proponi come soluzione** e scrivi il problema in una riga: diventa una soluzione (la approva il coordinatore).
 6. Controlla il **lotto**.
 7. **Chiudi fermo**. Se il fermo è durato meno di 3 minuti l'app chiede conferma: se è giusto tocca di nuovo, altrimenti correggi l'orario.
+
+Se il coordinatore corregge un tuo fermo, nella home compare **"Un tuo fermo è stato corretto"**: toccalo per vedere cosa è cambiato (es. guasto INCASTRO → MAG. ISTRUZIONI) e la volta dopo scegli così.
 
 Il fermo lo chiude **chi l'ha aperto** (o un coordinatore). Hai sbagliato qualcosa in un fermo già chiuso? Toccalo nello storico o in *Chiusi oggi* → **Correggi il fermo**: la **prima** correzione la fai tu, anche degli orari. Per correggere ancora → **Chiedi correzione** e scrivi cosa va cambiato: lo sistema il responsabile.
 
