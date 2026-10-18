@@ -176,6 +176,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
 .vdef{margin-top:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-left:3px solid var(--steel);background:var(--surface);border-radius:0 8px 8px 0}
 .revc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--surface)}.revc .why{font-size:12.5px;color:#a3402d;margin:4px 0}.revc .row{display:flex;gap:8px;margin-top:8px}.revc .row button{flex:1}
+.fbn .fbt{display:inline-flex;align-items:center;gap:8px}.fbn .fbt svg{width:22px;height:22px;flex:none}
+.fmth{display:flex;align-items:center;gap:8px}.fmth svg{width:26px;height:26px;flex:none;color:var(--steel)}
 .fbn{border-radius:12px;padding:10px 12px;margin:10px 0;font:700 16px var(--display);letter-spacing:.03em;text-align:center}.fbn small{display:block;font:500 12px var(--body);letter-spacing:0;margin-top:2px}
 .fbn.red{background:#f8d7d3;color:#8a2416}.fbn.yel{background:#fff1c7;color:#6b4f00}.fbn.grn{background:#d9f0e0;color:#1d5c34}.fbn.gry{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .fm{border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin:6px 0;background:var(--surface)}.fm .h{display:flex;gap:8px;align-items:baseline}.fm .h b{flex:1;min-width:0}.fm .tag{font:600 11px var(--mono);padding:2px 7px;border-radius:999px;white-space:nowrap}
@@ -1430,7 +1432,7 @@ $('#manbtn').onclick = () => {
     ${Object.keys(S.programma || {}).length ? `<button class="mbtn" id="mprog">${IK.cal}Programma produzione<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
     ${menuCompiti()}
     ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Scadenze del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(personeRep().filter(p => scadDi(p).some(x => /warn|exp/.test(vestStato(x)))).length) : ''}
-    ${isCoord() ? `<button class="mbtn" id="mfmt">${IK.cal}Formati e cambi formato<span class="cnt">solo coordinatori</span></button>` : ''}
+    ${isCoord() ? `<button class="mbtn" id="mfmt">${IK.fmt}Formati e cambi formato<span class="cnt">solo coordinatori</span></button>` : ''}
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
     <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
     <button class="submit red" id="logout">Esci</button>`);
@@ -1542,7 +1544,8 @@ function shScadRep(filtro) {
   $('#sbk').onclick = () => $('#manbtn').click();
 }
 const IK = { cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>', vest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
-  team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.5 4.6 4.5"/></svg>' };
+  team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.5 4.6 4.5"/></svg>',
+  fmt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/><path d="M14 7h6M17 4v6M4 17h7"/></svg>' };
 function menuCompiti() {
   const n = kAperti(mieiCompiti().filter(kMio)).length, rit = isCoord() ? kAperti(allCompiti()).filter(kLate).length : 0;
   return `<button class="mbtn" id="mk">${IK.task}I miei compiti<span class="cnt ${n ? 'r' : ''}">${n} da fare</span></button>
@@ -1793,7 +1796,7 @@ function fmtCerca(q) {
   return FMT.prod.filter(p => p.c.indexOf(t) === 0 || U(p.d).indexOf(t) >= 0).slice(0, 15);
 }
 async function shFormati(stato = {}) {
-  sheet(`<div class="sheet-h"><div><h3>Formati e cambi formato</h3><div class="hint" style="margin-top:4px">Solo coordinatori · dati dal file Base Gestione Formati</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtb"><div class="hint">Carico i formati…</div></div>`);
+  sheet(`<div class="sheet-h"><div><h3 class="fmth">${IK.fmt}Formati e cambi formato</h3><div class="hint" style="margin-top:4px">Solo coordinatori · dati dal file Base Gestione Formati</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtb"><div class="hint">Carico i formati…</div></div>`);
   try { await caricaFormati(); } catch (e) { $('#fmtb').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
   const modo = stato.modo || 'cambio';
   $('#fmtb').innerHTML = `<div class="chips" id="fmod">${chips(['Cambio formato', 'Cerca codice'], modo === 'cambio' ? 'Cambio formato' : 'Cerca codice')}</div><div id="fcont" style="margin-top:10px"></div>
@@ -1830,7 +1833,7 @@ function fmtUiCambio(stato) {
     const A = FMT.prod.find(x => x.c === $('#fa').value.trim()), B = FMT.prod.find(x => x.c === $('#fb').value.trim());
     if (!A || !B) { $('#fres').innerHTML = `<div class="hint">${!$('#fa').value.trim() || !$('#fb').value.trim() ? 'Scrivi i due codici SAP.' : (!A ? 'Codice in produzione non trovato. ' : '') + (!B ? 'Codice da produrre non trovato.' : '')}</div>`; return; }
     const c = fmtConfronto(A, B, stato.linea);
-    $('#fres').innerHTML = `<div class="fbn ${c.cls}">${c.banner}<small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
+    $('#fres').innerHTML = `<div class="fbn ${c.cls}"><span class="fbt">${IK.fmt}${c.banner}</span><small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
       ${c.comuni && c.comuni.length > 1 ? `<div class="chips" id="flin">${chips(c.comuni, c.linea)}</div>` : ''}
       ${c.ricette && c.ricette.length ? `<div class="hint">${c.ricette.map(([n, a, b]) => 'Ricetta ' + n + ': ' + esc(a || '—') + ' → <b>' + esc(b || '—') + '</b>').join('<br>')}</div>` : ''}
       ${c.banner !== 'NON CONFRONTABILE' && !c.primUguale ? '<div class="hint">Primario non coinvolto: i due codici arrivano da linee diverse.</div>' : ''}
