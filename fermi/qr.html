@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Etichette QR · Pharma-Fix</title>
 <style>
@@ -50,7 +51,7 @@ function updSel() {
   document.getElementById('clear').hidden = !n;
 }
 function clearSel() { SEL.clear(); document.body.classList.remove('only'); draw(); }
-let EQ = PF_DEFAULTS.equipment;
+let EQ = (window.PF_CONFIG || {}).API_URL ? [] : PF_DEFAULTS.equipment; // macchine vere solo dal foglio Equipment
 const areaLbl = a => /^(FILL|STERIL)/i.test(String(a || '').trim()) ? 'FILLING' : /^(PACK|SECOND)/i.test(String(a || '').trim()) ? 'PACKAGING' : String(a || '').toUpperCase();
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function draw() {
@@ -73,14 +74,14 @@ async function loadEq() {
   const cfg = window.PF_CONFIG || {}, src = document.getElementById('src');
   const pin = document.getElementById('pin').value.trim() || getPin();
   if (getPin()) document.getElementById('pin').hidden = true;
-  if (!cfg.API_URL || !pin) { src.textContent = 'Macchine: elenco di partenza. Inserisci il codice reparto per leggere il foglio Equipment.'; return; }
+  if (!cfg.API_URL || !pin) { src.textContent = cfg.API_URL ? 'Inserisci il codice reparto per caricare le macchine dal foglio Equipment.' : 'Modalità demo: macchine di esempio.'; return; }
   src.textContent = 'Carico…';
   try {
     const j = await (await fetch(cfg.API_URL + '?action=init&key=' + encodeURIComponent(pin))).json();
     if (!j.ok) { src.textContent = /Codice/.test(j.error) ? 'Codice reparto errato.' : j.error; return; }
     try { localStorage.setItem('pf_pin', JSON.stringify(pin)); } catch {}
     EQ = j.equipment; src.textContent = 'Macchine: dal foglio Equipment (' + EQ.length + ')'; fillLines(); draw();
-  } catch { src.textContent = 'Foglio non raggiungibile: uso l\'elenco di partenza'; }
+  } catch { src.textContent = 'Foglio non raggiungibile: riprova tra poco'; }
 }
 if (SEL.size) document.body.classList.add('only'); // aperta da una scheda macchina: mostra solo quella
 fillLines(); draw(); loadEq();

@@ -96,7 +96,7 @@ Finché `API_URL` è vuoto l'app gira in **modalità demo**: i dati restano solo
 |---|---|---|
 | `index.html` | L'app: accesso, scanner QR, scheda macchina, apertura e chiusura fermo, coda offline. | No |
 | `config.js` | Indirizzo dello script (`API_URL`). Il codice reparto **non** va qui. | **Sì, una volta**, dopo l'installazione |
-| `defaults.js` | Liste e macchine "di partenza", usate finché il foglio non risponde. Non contiene i nomi dei tecnici (stanno solo nel foglio). Con il foglio collegato vale quello che c'è nel foglio. | No (le liste si cambiano nel foglio) |
+| `defaults.js` | Solo dati **di esempio**: macchine finte per la modalità demo e liste generiche finché il foglio non risponde. Con il foglio collegato macchine e liste arrivano **solo** dal foglio, dopo l'accesso. | No: qui non vanno mai dati reali (macchine, nomi, codici prodotto) |
 | `qr.html` | Pagina per stampare le etichette QR, una per macchina, prese dal foglio Equipment. | No |
 | `manifest.webmanifest` | Nome e icona quando si installa l'app sul telefono. | No |
 | `sw.js` | Permette all'app di aprirsi anche senza rete. | No |
@@ -255,8 +255,8 @@ Una riga per ogni macchina che deve avere il suo QR:
 
 | Codice (QR) | Linea | Area | Macchina | Attivo |
 |---|---|---|---|---|
-| ST3-04 | ST3 | Packaging | ASTUCCIATRICE ROMACO PC4400 | SI |
-| ST3-02 | ST3 | Filling | RIEMPITRICE + TAPPATRICE FLEXFILL F940 | SI |
+| ST3-04 | ST3 | Packaging | ASTUCCIATRICE | SI |
+| ST3-02 | ST3 | Filling | RIEMPITRICE | SI |
 
 - **Codice (QR)**: unico, senza spazi, è quello stampato nell'etichetta. Consigliato `LINEA-SIGLA`. **Non cambiarlo** dopo aver attaccato l'etichetta.
 - **Linea**: come vuoi vederla nei KPI (ST1 MAR, ST3, SPL1…).
@@ -282,7 +282,7 @@ Foglio **Liste**: colonne **Categoria** e **Tipo intervento**, uguali per tutte 
 | A: Codice (QR) / Linea / TUTTE | B: Macchina (promemoria) | C, D, E… : tipi di guasto |
 |---|---|---|
 | TUTTE | vale per tutte le macchine | FORMATO · SENSORE · USURA · SPIKE CORRENTE · ARIA COMPRESSA · ALTRO |
-| ST3-04 | ST3 · ASTUCCIATRICE ROMACO PC4400 | MAG. ISTRUZIONI · CHIUSURE AST · MAG. ASTUCCI · … |
+| ST3-04 | ST3 · ASTUCCIATRICE | MAG. ISTRUZIONI · CHIUSURE AST · MAG. ASTUCCI · … |
 | ST6 | (riga facoltativa: vale per tutte le macchine di ST6) | … |
 
 Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della sua linea → quelli di `TUTTE`, con **ALTRO sempre in fondo**.
@@ -575,7 +575,8 @@ I dati calcolati restano pronti nella memoria dello script: con tanti telefoni i
 
 - Il **repository è pubblico**: chiunque vede il codice e l'indirizzo dello script, ma **senza il codice reparto non può leggere né scrivere** nel foglio. Il codice non è su GitHub: sta nelle Proprietà script e sui telefoni dei tecnici.
 - **Cambia il codice reparto** quando un tecnico lascia l'azienda o se pensi che sia uscito dal reparto: Apps Script → Impostazioni progetto → **Proprietà script** → `KEY` → Modifica → Salva. Effetto immediato, senza nuove versioni; i tecnici lo reinseriscono al prossimo uso.
-- Nel repository non ci sono nomi di persone: l'elenco dei tecnici sta solo nel foglio Liste.
+- Nel repository **non ci sono dati aziendali**: niente nomi di persone (l'elenco dei tecnici sta solo nel foglio Liste), niente elenco macchine (solo nel foglio Equipment), niente codici prodotto o ricette. Anche i test usano nomi e macchine inventati. Regola: ogni dato reale va nel foglio, mai nei file del repository.
+- Le pagine hanno l'indicazione `noindex`: i motori di ricerca non le mostrano. Non le rende private: chi ha il link vede la schermata di accesso, ma senza codice reparto non vede dati.
 - L'**accesso** con nome e cognome è legato al **telefono personale** del tecnico (foglio Telefoni) e protetto dal blocco schermo del telefono. Non è una firma elettronica: chi conosce bene il sistema potrebbe aggirarlo, ma ogni registrazione lascia traccia (telefono, ora vera di inserimento) e i casi sospetti finiscono nel foglio Controlli.
 - Le **foto** restano private nella cartella Drive del tuo account; nel foglio c'è solo il link.
 - Il foglio è sul tuo account Google: se cambi account o lasci l'incarico, trasferisci la proprietà del foglio e della cartella foto.
