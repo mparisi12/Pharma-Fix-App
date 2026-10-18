@@ -39,7 +39,7 @@ const HEAD = [
   'Orari', 'Registrato alle', 'Telefono'
 ];
 const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT: 8, GUASTO: 9, ALTRO: 10,
-  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25 }; // CAUSA è fuori da HEAD: la colonna si aggiunge solo quando serve
+  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25, PROP: 26, RIV: 27 }; // CAUSA è fuori da HEAD: la colonna si aggiunge solo quando serve
 
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
@@ -674,12 +674,18 @@ const INT_DESC = { REGOLAZIONE: 'spostato o registrato (nonio, guida, parametro)
   RIPRISTINO: 'reset, riavvio, sblocco, homing: niente regolato né cambiato', PULIZIA: 'pulito, tolto residui o inceppamenti' };
 const LI_DESC = 'Tipo intervento · spiegazione', LI_CAUSA = 'Causa';
 const NON_VOCI = ['FORMATO', 'USURA', 'SPIKE CORRENTE', 'RIPARAZIONE', 'SOSTITUZIONE', 'PULIZIA', 'RIAVVIO', 'REGOLAZIONE']; // cause o interventi, non componenti
-const SH_VOCI = 'Voci guasto', VOCI_H = ['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene (giallo = da controllare)'];
+const SH_VOCI = 'Voci guasto', VOCI_H = ['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene (giallo = da controllare)', 'Quando si usa (la legge il tecnico)'];
+const DEF_QUANDO = { 'INCASTRO': 'prodotto o astuccio bloccato nel trasporto, nessun pezzo rotto', 'SENSORE': 'sensore, fotocellula o fibra che non legge o legge male',
+  'ARIA COMPRESSA': 'pressione bassa, perdite, tubi o raccordi dell\'aria', 'SICUREZZE / EMERGENZE': 'porte, micro, barriere o moduli di sicurezza che fermano la macchina',
+  'PARAMETRI PANNELLO': 'valori del pannello o della ricetta da correggere' };
+let VDESC_MEMO = null;
 let VOCI_MEMO = null;
+// Colonne in fondo al foglio Fermi (fuori da HEAD): Causa, Voce proposta (con ALTRO), Rivisto (coordinatore)
+const EXTRA_H = ['Causa', 'Voce proposta (con ALTRO)', 'Rivisto (coordinatore)'];
 function causaCol_(sh) {
-  if (sh.getMaxColumns() < C.CAUSA) sh.insertColumnsAfter(sh.getMaxColumns(), C.CAUSA - sh.getMaxColumns());
-  const h = sh.getRange(1, C.CAUSA);
-  if (String(h.getValue()) !== 'Causa') h.setValue('Causa').setFontWeight('bold').setBackground('#fff3d6');
+  if (sh.getMaxColumns() < C.RIV) sh.insertColumnsAfter(sh.getMaxColumns(), C.RIV - sh.getMaxColumns());
+  const h = sh.getRange(1, C.CAUSA, 1, 3);
+  if (h.getValues()[0].join('|') !== EXTRA_H.join('|')) h.setValues([EXTRA_H]).setFontWeight('bold').setBackground('#fff3d6');
 }
 // Categoria proposta per una voce: quella più usata nello storico (almeno 3 fermi), altrimenti dal nome
 function catProposta_(voce, storico) {
@@ -689,6 +695,13 @@ function catProposta_(voce, storico) {
   if (/CAM\.|VIDEOJET|PARAM|PANNELLO|RICETTA|STAMPA DATI|SEA VISION|COGNEX|ANTARES|CHECKWEIGHER|ZONA ROBOT|VELOCIT/.test(voce)) return ['AUTOMATION', 'dal nome'];
   if (/SENSOR|FOTOCELL|FINE CORSA|SICUREZZ|SELETTOR|TEMPERATUR|LETTURA|H10|BARRIERE|FIBRA/.test(voce)) return ['ELETTRICO', 'dal nome'];
   return ['MECCANICO', 'dal nome'];
+}
+// { VOCE: "quando si usa" } dal foglio Voci guasto
+function vociDesc_(ss) {
+  if (VDESC_MEMO) return VDESC_MEMO;
+  const sh = ss.getSheetByName(SH_VOCI), out = {};
+  if (sh && sh.getLastRow() > 1 && sh.getMaxColumns() >= 4) sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(r => { const v = String(r[0]).trim().toUpperCase(), d = String(r[3]).trim(); if (v && d) out[v] = d; });
+  return VDESC_MEMO = out;
 }
 // { VOCE: CATEGORIA } dal foglio Voci guasto
 function vociCat_(ss) {
@@ -737,22 +750,33 @@ function classificazione_(ss) {
     }
     props.setProperty('CLASS_V2', '1');
   }
+  // V3: colonna "Quando si usa" nel foglio Voci guasto (definizione di ogni voce, la legge il tecnico)
+  if (props.getProperty('CLASS_V3') !== '1') {
+    const vs = ss.getSheetByName(SH_VOCI);
+    if (vs) {
+      if (/^Una riga per voce/.test(String(vs.getRange(1, 5).getValue()))) { vs.getRange(1, 6).setValue(vs.getRange(1, 5).getValue()).setWrap(true).setFontStyle('italic'); vs.getRange(1, 5).clearContent(); }
+      if (String(vs.getRange(1, 4).getValue()).trim() !== VOCI_H[3]) { vs.getRange(1, 4).setValue(VOCI_H[3]).setFontWeight('bold').setBackground('#dfe7ec').setFontStyle('normal'); vs.setColumnWidth(4, 380); }
+      if (vs.getLastRow() > 1) { const v = vs.getRange(2, 1, vs.getLastRow() - 1, 4).getValues();
+        vs.getRange(2, 4, v.length, 1).setValues(v.map(r => [String(r[3]).trim() || DEF_QUANDO[String(r[0]).trim().toUpperCase()] || ''])); }
+    }
+    props.setProperty('CLASS_V3', '1');
+  }
   vociSync_(ss);
 }
 function vociSync_(ss) {
   const g = guasti_(ss), voci = [...new Set(Object.keys(g).flatMap(k => g[k]).map(x => String(x).trim()).filter(x => x && x.toUpperCase() !== 'ALTRO' && NON_VOCI.indexOf(x.toUpperCase()) < 0))];
   let sh = ss.getSheetByName(SH_VOCI);
   const nuovo = !sh;
-  if (nuovo) { sh = ss.insertSheet(SH_VOCI); sh.getRange(1, 1, 1, 3).setValues([VOCI_H]).setFontWeight('bold').setBackground('#dfe7ec'); sh.setFrozenRows(1); sh.setColumnWidth(1, 340); sh.setColumnWidth(2, 130); sh.setColumnWidth(3, 260);
-    sh.getRange('E1').setValue('Una riga per voce del foglio Guasti: la categoria la decidi qui una volta e l\'app la scrive da sola alla chiusura del fermo. Le voci nuove del foglio Guasti compaiono qui da sole, in giallo.').setWrap(true).setFontStyle('italic'); sh.setColumnWidth(5, 380); }
+  if (nuovo) { sh = ss.insertSheet(SH_VOCI); sh.getRange(1, 1, 1, 4).setValues([VOCI_H]).setFontWeight('bold').setBackground('#dfe7ec'); sh.setFrozenRows(1); sh.setColumnWidth(1, 340); sh.setColumnWidth(2, 130); sh.setColumnWidth(3, 260); sh.setColumnWidth(4, 380);
+    sh.getRange('F1').setValue('Una riga per voce del foglio Guasti: la categoria la decidi qui una volta e l\'app la scrive da sola alla chiusura del fermo. Le voci nuove del foglio Guasti compaiono qui da sole, in giallo.').setWrap(true).setFontStyle('italic'); sh.setColumnWidth(6, 380); }
   const gia = new Set(sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim().toUpperCase()) : []);
   const manca = voci.filter(x => !gia.has(x.toUpperCase()));
   if (!manca.length) return;
   const storico = {}, f = ss.getSheetByName(SH_FERMI);
   if (f && f.getLastRow() > 1) f.getRange(2, C.CAT, f.getLastRow() - 1, 3).getValues().forEach(r => { const v = String(r[2]).trim().toUpperCase(), c = String(r[0]).trim().toUpperCase(); if (!v) return; (storico[v] = storico[v] || {})[c] = (storico[v][c] || 0) + 1; });
-  const righe = manca.map(x => { const [c, da] = catProposta_(x.toUpperCase(), storico); return [x, c, da]; });
+  const righe = manca.map(x => { const [c, da] = catProposta_(x.toUpperCase(), storico); return [x, c, da, DEF_QUANDO[x.toUpperCase()] || '']; });
   const r0 = sh.getLastRow() + 1;
-  sh.getRange(r0, 1, righe.length, 3).setValues(righe);
+  sh.getRange(r0, 1, righe.length, 4).setValues(righe);
   righe.forEach((r, i) => sh.getRange(r0 + i, 2).setBackground(/^storico/.test(r[2]) ? null : '#fff2cc'));
   sh.getRange(2, 2, sh.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'], true).setAllowInvalid(false).build());
   VOCI_MEMO = null;
@@ -1536,6 +1560,7 @@ function doPost(e) {
     else if (p.action === 'approvaSol') res = approvaSoluzione_(p);
     else if (p.action === 'correzione') res = correzione_(p);
     else if (p.action === 'modifica') res = modificaFermo_(p);
+    else if (p.action === 'rivisto') res = rivistoFermo_(p);
     else if (p.action === 'documento') res = addDocumento_(p);
     else if (p.action === 'compito') res = addCompito_(p);
     else if (p.action === 'compitoStato') res = statoCompito_(p);
@@ -1626,7 +1651,8 @@ function init_() {
   if (last > 1) {
     const vals = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
     const fotoC = sh.getRange(2, C.FOTO_C, last - 1, 1).getFormulas(); // link della foto di chiusura
-    const cause = sh.getMaxColumns() >= C.CAUSA ? sh.getRange(2, C.CAUSA, last - 1, 1).getValues() : [];
+    const nx = Math.min(3, sh.getMaxColumns() - C.CAUSA + 1), extra = nx > 0 ? sh.getRange(2, C.CAUSA, last - 1, nx).getValues() : [];
+    const cause = extra, corr = correzioniDett_(ss);
     const from = Date.now() - 90 * 864e5, nCorr = correzioniPerFermo_(ss);
     vals.forEach((r, i) => {
       const start = r[C.INIZIO - 1] instanceof Date ? r[C.INIZIO - 1].getTime() : null;
@@ -1635,12 +1661,12 @@ function init_() {
       if (stato !== 'APERTO' && start < from) return;
       const end = r[C.FINE - 1] instanceof Date ? r[C.FINE - 1].getTime() : null;
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
-        start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1], causa: String((cause[i] || [])[0] || ''),
+        start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1], causa: String((cause[i] || [])[0] || ''), prop: String((extra[i] || [])[1] || ''), rivisto: String((extra[i] || [])[2] || ''),
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
-        pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
+        pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, corr: (c => c && String(c.da).toUpperCase() !== String(r[C.MAN - 1]).trim().toUpperCase() ? c : null)(corr[String(r[C.ID - 1])]), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), intDesc: intDesc, vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), intDesc: intDesc, vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), vociDesc: (() => { try { return vociDesc_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -1772,7 +1798,9 @@ function closeFermo_(p) {
   if (daAltri) sh.getRange(r, C.MAN).setNote('Chiuso da ' + p.manutentore + ' (coordinatore) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
   const cat = String(p.categoria || '').trim() || (vociCat_(SpreadsheetApp.getActiveSpreadsheet())[String(p.guasto || '').trim().toUpperCase()] || '');
   sh.getRange(r, C.CAT, 1, 4).setValues([[cat, p.intervento || '', p.guasto || '', p.altro || '']]);
-  if (p.causa) { causaCol_(sh); sh.getRange(r, C.CAUSA).setValue(String(p.causa).trim()); }
+  if (p.causa || p.proposta) causaCol_(sh);
+  if (p.causa) sh.getRange(r, C.CAUSA).setValue(String(p.causa).trim());
+  if (p.proposta) sh.getRange(r, C.PROP).setValue(String(p.proposta).trim().toUpperCase());
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
@@ -2203,7 +2231,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '17/10/2026 20:30';
+const VERSIONE_SCRIPT = '18/10/2026 11:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2593,11 +2621,28 @@ function rigaCambiFormato_(b) {
 
 /* Correzione diretta: la PRIMA correzione di un fermo chiuso la fa chi l'ha registrato (o un coordinatore) dall'app;
    dalla seconda in poi si chiede al responsabile (Chiedi correzione). Ogni modifica resta nel foglio Correzioni. */
+// Ultima correzione diretta di ogni fermo: chi, quando, cosa (per far vedere al tecnico cosa ha corretto il coordinatore)
+function correzioniDett_(ss) {
+  const sh = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(SH_CORR), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().forEach(r => { const t = String(r[7] || '');
+    if (r[1] && /^Modifica diretta: /.test(t)) out[String(r[1])] = { da: String(r[6] || ''), ts: r[0] instanceof Date ? r[0].getTime() : 0, txt: t.replace(/^Modifica diretta: /, '') }; });
+  return out;
+}
 function correzioniPerFermo_(ss) {
   const sh = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(SH_CORR), out = {};
   if (!sh || sh.getLastRow() < 2) return out;
   sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues().forEach(r => { const k = String(r[0]); if (k) out[k] = (out[k] || 0) + 1; });
   return out;
+}
+// Coordinatore: "Va bene" su un fermo della lista Da rivedere
+function rivistoFermo_(p) {
+  if (!isCoordinatore_(p.manutentore)) throw new Error('Solo i coordinatori possono rivedere i fermi');
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_FERMI), r = findRow_(sh, p.fermo);
+  if (!r) throw new Error('Fermo ' + p.fermo + ' non trovato');
+  causaCol_(sh);
+  sh.getRange(r, C.RIV).setValue(String(p.manutentore).trim() + ' · ' + Utilities.formatDate(new Date(Number(p.ts) || Date.now()), TZ, 'dd/MM/yyyy HH:mm'));
+  return { ok: true };
 }
 function modificaFermo_(p) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), fsh = ss.getSheetByName(SH_FERMI);
@@ -2609,7 +2654,8 @@ function modificaFermo_(p) {
   if (String(v[C.STATO - 1]) !== 'CHIUSO') throw new Error('Si possono correggere solo fermi chiusi');
   const io = String(p.manutentore || '').trim(), chi = [v[C.MAN - 1], v[C.APERTO_DA - 1]].map(x => String(x || '').trim().toUpperCase());
   if (chi.indexOf(io.toUpperCase()) < 0 && !isCoordinatore_(io)) throw new Error('La correzione la può fare solo chi ha registrato il fermo o un coordinatore');
-  if ((correzioniPerFermo_(ss)[String(p.fermo)] || 0) > 0) throw new Error('Questo fermo è già stato corretto: per altre modifiche usa Chiedi correzione');
+  if (!isCoordinatore_(io) && (correzioniPerFermo_(ss)[String(p.fermo)] || 0) > 0) throw new Error('Questo fermo è già stato corretto: per altre modifiche usa Chiedi correzione');
+  if (p.rivisto && isCoordinatore_(io)) { causaCol_(fsh); fsh.getRange(r, C.RIV).setValue(io + ' · ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm')); }
   if (!String(p.altro || '').trim()) throw new Error('La descrizione è obbligatoria');
   if (String(p.intervento || '').toUpperCase() === 'SOSTITUZIONE' && !String(p.pezzo || '').trim()) throw new Error('Con SOSTITUZIONE il codice pezzo è obbligatorio');
   const campi = [['Categoria', C.CAT, p.categoria], ['Tipo intervento', C.INT, p.intervento], ['Tipo guasto', C.GUASTO, p.guasto], ['Descrizione', C.ALTRO, p.altro],
