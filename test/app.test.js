@@ -283,6 +283,33 @@ let ver = 1, full = 0, same = 0; const posts = [];
     'antifurbi nell\'app: due operazioni unite da "e" riconosciute, una sola no');
   await gc.close();
 
+  console.log('\nFormati e cambi formato (solo coordinatori)');
+  const FX = { ok: true, car: ['Contenitore', 'Tappo', 'Contagocce', 'Dosaggio', 'Etichetta', 'Astuccio', 'Istruzione', 'Pezzi/astuccio', 'Cartone', 'Fardello', 'Prodotto'], letto: Date.now(), avvisi: [],
+    linee: [{ id: 'SPL2', rep: 'SPL2', pro: '' }],
+    prod: [{ c: '6000001', d: 'PROVA A', lp: 'ST6', ls: ['SPL2'], a: ['FL.A', '', '', '5 ml', 'E1', 'A1', '', '1', 'C1', 'BUND'], f: 'SECONDARIO', fmt: 'FP-A', ff: 'FF-A', es: 'OK' },
+           { c: '6000002', d: 'PROVA B', lp: 'ST5', ls: ['SPL1', 'SPL2'], a: ['FL.B', '', '', '10 ml', 'E2', 'A1', '', '1', 'C2', ''], f: 'SECONDARIO', fmt: 'FP-B', ff: 'FF-B', es: 'OK' },
+           { c: '6000003', d: 'PROVA A2', lp: 'ST6', ls: ['SPL2'], a: ['FL.A', '', '', '5 ml', 'E9', 'A1', '', '1', 'C1', 'BUND'], f: 'SECONDARIO', fmt: 'FP-A', ff: 'FF-A', es: 'OK' }],
+    macc: [{ id: 'SPL2-01', l: 'SPL2', pos: 1, n: 'ETICHETTATRICE', fase: 'SECONDARIO', q: 'SEMPRE', m: ['P', '', '', '', 'R', '', '', '', '', '', ''], ver: true },
+           { id: 'SPL2-02', l: 'SPL2', pos: 2, n: 'CARTONATRICE PAK', fase: 'SECONDARIO', q: 'SOLO SENZA FARDELLO', m: ['', '', '', '', '', '', '', '', 'P', '', ''], ver: true },
+           { id: 'SPL2-03', l: 'SPL2', pos: 3, n: 'FARDELLATRICE', fase: 'SECONDARIO', q: 'SOLO CON FARDELLO', m: ['', '', '', '', '', '', '', '', '', 'P', ''], ver: true }] };
+  let fmtReq = 0; await ctx.unroute(/script\.google\.com/);
+  await ctx.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url()); if (/action=formati/.test(u)) { fmtReq++; return r.fulfill({ contentType: 'application/json', body: /VERDI/.test(u) ? JSON.stringify(FX) : '{"ok":false,"error":"Sezione riservata ai coordinatori"}' }); }
+    if (r.request().method() === 'POST') return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+    r.fulfill({ contentType: 'application/json', body: /action=login/.test(u) ? '{"ok":true}' : JSON.stringify({ ok: true, ...D, ver: 'F' }) }); });
+  await esci(); await entra('Mario', 'Rossi'); await p.evaluate(() => closeSh()); await p.click('#manbtn'); await attesa(200);
+  ok(!(await p.isVisible('#mfmt')) && fmtReq === 0, 'tecnico: nessuna voce Formati e nessun dato dei formati scaricato');
+  await esci(); await entra('Anna', 'Verdi'); await p.evaluate(() => closeSh()); await p.click('#manbtn'); await attesa(200);
+  ok(await p.isVisible('#mfmt'), 'coordinatore: voce "Formati e cambi formato" nel menu del nome');
+  await p.click('#mfmt'); await attesa(500);
+  await p.fill('#fa', '6000001'); await p.fill('#fb', '6000002'); await p.dispatchEvent('#fb', 'input'); await attesa(200);
+  const ftx = await p.innerText('#fres');
+  ok(/CAMBIO FORMATO/.test(ftx) && /FP-A → FP-B/.test(ftx) && /ETICHETTATRICE\s*CAMBIO PEZZI/.test(ftx) && /Contenitore: FL\.A → FL\.B/.test(ftx), 'cambio formato: banner, macchina con cambio pezzi (da → a)');
+  ok(/CARTONATRICE PAK\s*DA AVVIARE/.test(ftx) && /FARDELLATRICE\s*SI FERMA/.test(ftx), 'regola fardello: cartonatrice da avviare, fardellatrice si ferma');
+  await p.fill('#fb', '6000003'); await p.dispatchEvent('#fb', 'input'); await attesa(200);
+  ok(/STESSO FORMATO – SOLO RICETTE/.test(await p.innerText('#fres')) && /Etichetta: E1 → E9/.test(await p.innerText('#fres')), 'stesso formato, cambia solo l\'etichetta: solo ricetta');
+  ok(await p.evaluate(() => !Object.keys(localStorage).some(k => /FP-A|6000002/.test(localStorage.getItem(k) || ''))), 'i dati dei formati non restano salvati sul telefono');
+  await p.evaluate(() => closeSh());
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -519,6 +519,13 @@ Indicatori per tecnico (i **coordinatori** della colonna Coordinatori del foglio
 - **Quadrante:** Riferimento / Da coinvolgere di più / Carico alto: verificare tempi / Affiancamento – formazione (MTTR relativo rispetto a 1,00 e interventi per turno rispetto alla mediana).
 - **Matrice competenze:** interventi per tecnico e linea; la riga *Esperti* conta chi ne ha almeno 5 e segna ⚠ le linee che conosce bene una sola persona (o nessuna).
 
+### 5.19 Formati e cambi formato (solo coordinatori)
+Dal codice SAP l'app dice linea, formato e cosa fare su ogni macchina; nel cambio formato confronta il codice in produzione con quello da produrre (CAMBIO FORMATO / SOLO RICETTE / NESSUN CAMBIO) e per ogni macchina: cambio pezzi (da → a), solo ricetta, da avviare, si ferma. Stesse regole del file **Base Gestione Formati Packaging** (matrice P/R del foglio MACCHINE, regola del fardello, bypass).
+- **I dati non sono nell'app né su GitHub**: restano nel file dei formati, nel tuo Drive. Lo script lo legge solo quando un **coordinatore** apre la sezione dal **suo telefono**; a un tecnico lo script risponde "Sezione riservata ai coordinatori" e nell'app la voce non compare. Sul telefono i dati restano solo in memoria finché l'app è aperta.
+- **Collegare il file** (una volta): carica *Base_Gestione_Formati_Packaging.xlsx* su Google Drive → aprilo → **File → Salva come Fogli Google** → copia l'indirizzo dalla barra del browser. Nel foglio Pharma-Fix: menu **Pharma-Fix → Formati: collega il file** → incolla l'indirizzo. Lo script controlla i fogli PRODOTTI, MACCHINE e LINEE e dice quanti codici ha trovato. L'ID resta solo nelle Proprietà dello script.
+- **Aggiornare i dati**: si lavora nella versione Fogli Google del file (oppure si ricarica e si ricollega). L'app rilegge il file al massimo ogni 15 minuti; nella sezione c'è anche *ricarica*.
+- Nell'app: menu del nome → **Formati e cambi formato** → *Cambio formato* (due codici, linea se ce n'è più d'una in comune) oppure *Cerca codice* (codice o parte della descrizione). Le macchine con *Verificata = NO* hanno il bordo tratteggiato.
+
 ## 6. I dati in Excel
 
 - **Copia veloce**: dal Google Sheet **File → Scarica → Microsoft Excel (.xlsx)**.
