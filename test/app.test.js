@@ -265,6 +265,20 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(ra && rb && Math.abs(ra.ts - rb.ts) < 60000, 'l\'intervento 2 inizia dove finisce l\'1');
   ok(await g.evaluate(() => /Più interventi/.test(motiviRev({ id: 'x', code: 'ST3-04', guasto: 'GUIDE', int: 'SOSTITUZIONE', altro: 'sostituita cinghia, regolato nonio', stato: 'CHIUSO' }, []).join()) && !piuInterventi('regolato sensore ingresso') && !!piuInterventi('pulito + resettato')),
     'coordinatore: "Più interventi in un fermo?" tra i motivi da rivedere');
+  // giro con "Scegli orario": l'intervento finisce all'ora scritta e il successivo parte da lì (dichiarati)
+  D2.fermi.unshift({ id: 'GB', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 40 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  await g.evaluate(() => { S.ver = 'gb'; return refresh(); }); await g.waitForTimeout(300);
+  await g.evaluate(() => { closeSh(); closeSheet(allFermi().find(f => f.id === 'GB')); }); await g.waitForTimeout(300);
+  const tg = Date.now() - 20 * 60000;
+  await g.click('#gua [data-v="GUIDE"]'); await g.click('#int [data-v="REGOLAZIONE"]'); await g.fill('#altro', 'regolate guide');
+  await g.click('#cwhen [data-v="ora"]'); await g.fill('#cfin', hm(tg)); await g.click('#giro'); await g.waitForTimeout(1500);
+  const gbc = P2.find(o => o.action === 'close' && o.id === 'GB') || {}, gbo = P2.find(o => o.action === 'open' && o.gruppo === 'GB') || {};
+  ok(hm(gbc.ts) === hm(tg) && gbc.dichiarato && gbo.ts === gbc.ts && gbo.dichiarato, 'giro con "Scegli orario": intervento chiuso all\'ora scritta, il successivo parte da lì (dichiarati)');
+  await g.evaluate(id => { closeSh(); closeSheet(allFermi().find(f => f.id === id)); }, gbo.id); await g.waitForTimeout(300);
+  await g.click('#canc');
+  ok(/annullare l'intervento 2/.test(await g.innerText('#canc')), 'annulla intervento 2: la conferma parla dell\'intervento, non del fermo');
+  await g.click('#canc'); await g.waitForTimeout(1500);
+  ok(P2.some(o => o.action === 'cancel' && o.id === gbo.id) && !P2.some(o => o.action === 'cancel' && o.id === 'GB'), 'annulla intervento 2: cancellato solo quello, l\'intervento 1 resta');
   await gc.close();
 
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
