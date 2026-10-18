@@ -176,6 +176,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
 .vdef{margin-top:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-left:3px solid var(--steel);background:var(--surface);border-radius:0 8px 8px 0}
 .revc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--surface)}.revc .why{font-size:12.5px;color:#a3402d;margin:4px 0}.revc .row{display:flex;gap:8px;margin-top:8px}.revc .row button{flex:1}
+.fbn .fbt{display:inline-flex;align-items:center;gap:8px}.fbn .fbt svg{width:22px;height:22px;flex:none}
 .fmth{display:flex;align-items:center;gap:8px}.fmth svg{width:26px;height:26px;flex:none;color:var(--steel)}
 .fbn{border-radius:12px;padding:10px 12px;margin:10px 0;font:700 16px var(--display);letter-spacing:.03em;text-align:center}.fbn small{display:block;font:500 12px var(--body);letter-spacing:0;margin-top:2px}
 .fbn.red{background:#f8d7d3;color:#8a2416}.fbn.yel{background:#fff1c7;color:#6b4f00}.fbn.grn{background:#d9f0e0;color:#1d5c34}.fbn.gry{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
@@ -1832,7 +1833,7 @@ function fmtUiCambio(stato) {
     const A = FMT.prod.find(x => x.c === $('#fa').value.trim()), B = FMT.prod.find(x => x.c === $('#fb').value.trim());
     if (!A || !B) { $('#fres').innerHTML = `<div class="hint">${!$('#fa').value.trim() || !$('#fb').value.trim() ? 'Scrivi i due codici SAP.' : (!A ? 'Codice in produzione non trovato. ' : '') + (!B ? 'Codice da produrre non trovato.' : '')}</div>`; return; }
     const c = fmtConfronto(A, B, stato.linea);
-    $('#fres').innerHTML = `<div class="fbn ${c.cls}">${c.banner}<small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
+    $('#fres').innerHTML = `<div class="fbn ${c.cls}"><span class="fbt">${IK.fmt}${c.banner}</span><small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
       ${c.comuni && c.comuni.length > 1 ? `<div class="chips" id="flin">${chips(c.comuni, c.linea)}</div>` : ''}
       ${c.ricette && c.ricette.length ? `<div class="hint">${c.ricette.map(([n, a, b]) => 'Ricetta ' + n + ': ' + esc(a || '—') + ' → <b>' + esc(b || '—') + '</b>').join('<br>')}</div>` : ''}
       ${c.banner !== 'NON CONFRONTABILE' && !c.primUguale ? '<div class="hint">Primario non coinvolto: i due codici arrivano da linee diverse.</div>' : ''}
