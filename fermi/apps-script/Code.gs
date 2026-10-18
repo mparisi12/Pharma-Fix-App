@@ -685,6 +685,16 @@ function causaCol_(sh) {
   if (!libere) Logger.log('Foglio Fermi: colonne AB–AD già usate, Fermo n./Intervento n. non scritti');
   return libere;
 }
+// Descrizione che racconta più operazioni (stessa regola dell'app): due azioni unite da "e" o dalla virgola, oppure tipi d'intervento diversi
+const AZIONI_ = /\b(REGOLAT|SOSTITUIT|CAMBIAT|MONTAT|PULIT|RESETTAT|RIAVVIAT|SBLOCCAT|RIMESS|SISTEMAT|SPOSTAT|RIPRISTINAT|ALLINEAT|CENTRAT|FASAT|SERRAT|ABBASSAT|TARAT|RADDRIZZAT|RIMOSS|AGGIUNT|RIFATT)[OAIE]\b|\bALZAT[OI]\b/g;
+function piuOperazioni_(txt) {
+  const d = ' ' + String(txt || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.,!]/g, m => m === ',' ? ' , ' : ' ').replace(/\s+/g, ' ') + ' ';
+  const tipi = [/SOSTITU|CAMBIAT|MONTAT/, /REGOLA|REGISTRAT|CENTRAT|ALLINEAT/, /PULIT|PULIZ/, /RESET|RIAVVI|SBLOCC|HOMING|RIPRISTIN/].filter(re => re.test(d)).length;
+  if (tipi >= 2) return 'la descrizione parla di interventi di tipo diverso';
+  const az = []; let m; AZIONI_.lastIndex = 0; while ((m = AZIONI_.exec(d))) az.push(m);
+  for (let i = 1; i < az.length; i++) if (/ E | ED | , | POI /.test(d.slice(az[i - 1].index, az[i].index)) && !/TROVAT\w* $/.test(d.slice(0, az[i - 1].index))) return 'la descrizione racconta più operazioni';
+  return '';
+}
 // Colonna "Fermo n." (solo se è nostra): un valore per riga, '' se il fermo ha un solo intervento
 function gruppiCol_(sh, last) {
   if (last < 2 || sh.getMaxColumns() < C.GRUPPO || String(sh.getRange(1, C.GRUPPO).getValue()).trim() !== EXTRA_H[3]) return [];
@@ -1102,11 +1112,12 @@ function controllaRegistrazioni() {
     });
     v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
       .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
-    // più interventi chiusi in un fermo solo: l'app ha avvisato, il tecnico ha risposto "è uno solo"
-    if (sh.getMaxColumns() >= C.MULTI && String(sh.getRange(1, C.MULTI).getValue()).trim() === EXTRA_H[5]) {
-      const mv = sh.getRange(2, C.MULTI, last - 1, 1).getValues(), man = sh.getRange(2, C.MAN, last - 1, 1).getValues();
-      mv.forEach((m, i) => { if (String(m[0]).trim()) out.push(['Più interventi in un fermo?', String(man[i][0]) + ': ' + String(m[0]).trim(), 'Fermi riga ' + (i + 2)]); });
-    }
+    // più interventi chiusi in un fermo solo: l'app ha avvisato e il tecnico ha risposto "è uno solo", oppure la descrizione racconta più operazioni
+    const nostra = sh.getMaxColumns() >= C.MULTI && String(sh.getRange(1, C.MULTI).getValue()).trim() === EXTRA_H[5];
+    const mv = nostra ? sh.getRange(2, C.MULTI, last - 1, 1).getValues() : [], vv = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
+    vv.forEach((r, i) => { if (!r[C.ID - 1] || String(r[C.ORARI - 1]) === ORA_CARTA) return;
+      const m = String((mv[i] || [])[0] || '').trim(), d = piuOperazioni_(r[C.ALTRO - 1]);
+      if (m || d) out.push(['Più interventi in un fermo?', String(r[C.MAN - 1]) + ': ' + (m || d + ' — "' + String(r[C.ALTRO - 1]).trim().slice(0, 80) + '"'), 'Fermi riga ' + (i + 2)]); });
   }
   if (out.length === 1) out.push(['Nessun caso da controllare', '', '']);
   let c = ss.getSheetByName('Controlli'); if (c) c.clear(); else c = ss.insertSheet('Controlli');
@@ -2267,7 +2278,7 @@ function rigaVestizioni_() {
 }
 
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '18/10/2026 19:30';
+const VERSIONE_SCRIPT = '18/10/2026 20:15';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto

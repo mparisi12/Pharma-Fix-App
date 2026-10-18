@@ -454,8 +454,12 @@ function piuInterventi(txt) {
   const tipi = Object.keys(VERBI_INT).filter(k => VERBI_INT[k].test(d));
   if (tipi.length >= 2) return 'la descrizione parla di ' + tipi.map(t => t.toLowerCase()).join(' e ');
   if (/\+|;| POI | INOLTRE | IN SEGUITO | SUCCESSIVAMENTE | DOPODICH[EÉ] /.test(d) || /(^| )1[)\]].* 2[)\]]/.test(d)) return 'la descrizione sembra elencare più cose';
+  // due azioni unite da "e" o dalla virgola: "regolato sensore e regolato lama", "rimesso in dima pinze e regolato sensore"
+  const d2 = ' ' + U(txt).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/,/g, ' , ').replace(/[.!;]/g, ' ').replace(/\s+/g, ' ') + ' ', az = [...d2.matchAll(AZIONI)];
+  for (let i = 1; i < az.length; i++) if (/ E | ED | , | POI /.test(d2.slice(az[i - 1].index, az[i].index)) && !/TROVAT\w* $/.test(d2.slice(0, az[i - 1].index))) return 'la descrizione racconta più operazioni (' + az.slice(0, 3).map(x => x[0].toLowerCase()).join(', ') + ')';
   return '';
 }
+const AZIONI = /\b(REGOLAT|SOSTITUIT|CAMBIAT|MONTAT|PULIT|RESETTAT|RIAVVIAT|SBLOCCAT|RIMESS|SISTEMAT|SPOSTAT|RIPRISTINAT|ALLINEAT|CENTRAT|FASAT|SERRAT|ABBASSAT|TARAT|RADDRIZZAT|RIMOSS|AGGIUNT|RIFATT)[OAIE]\b|\bALZAT[OI]\b/g;
 // Durata tipica (mediana) di un guasto su una macchina, con almeno 5 fermi chiusi
 function durTipica(code, guasto, escludi) {
   const d = allFermi().filter(x => x.id !== escludi && x.code === code && x.stato === 'CHIUSO' && x.end && U(x.guasto) === U(guasto)).map(x => x.end - x.start).sort((a, b) => a - b);
