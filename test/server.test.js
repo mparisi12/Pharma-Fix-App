@@ -394,4 +394,30 @@ console.log('\nPiù operazioni nella descrizione (antifurbi)');
     .forEach(x => ok(!ctx.piuOperazioni_(x), 'un\'operazione sola: non segnalato — "' + x + '"'));
 }
 
+
+console.log('\nFormati (solo coordinatori, file collegato)');
+{
+  const { ctx, props } = nuovo();
+  const P = [['CONFEZIONATO SU'], ['Codice SAP', 'Descrizione', 'Linea PRIMARIO\n(filling)', 'ST3', 'SPL1', 'Contenitore', 'Tappo', 'Contagocce', 'Dosaggio\n(ml / g)', 'Etichetta', 'Fustella astuccio', 'Istruzione', 'Pezzi per astuccio', 'Fustella cartone', 'Fardello', 'Fase', 'Codice formato\ndel codice', 'ESITO'],
+    ['6000001', 'PROVA A 5ML', 'ST3', 'X', '', 'FL.X', 'T1', 'N/A', '5 ml', 'E1', 'A1', 'P1', '1', 'C1', '', 'SECONDARIO', 'FP-A', 'OK'],
+    ['5000002', 'PROVA B', 'ST3', '', '', 'FL.X', 'T1', 'N/A', '10 ml', '', '', '', '', '', '', 'PRIMARIO', 'FF-X', 'OK']];
+  const M = [['Macchina_ID', 'Linea_ID', 'Reparto', 'Pos.', 'Macchina', 'Funzione', 'Fase', 'Lavora quando', 'Contenitore', 'Tappo', 'Contagocce', 'Dosaggio (ml)', 'Etichetta', 'Astuccio', 'Istruzione', 'Pezzi/ astuccio', 'Cartone', 'Fardello', 'Prodotto', 'Verificata'],
+    ['ST3-02', 'ST3', 'S3', 2, 'RIEMPITRICE', 'x', 'PRIMARIO', 'SEMPRE', 'P', 'P', '', 'R', '', '', '', '', '', '', '', 'SÌ'], ['ST3-04', 'ST3', 'S3', 4, 'ASTUCCIATRICE', 'x', 'SECONDARIO', 'SEMPRE', 'P', '', '', '', '', 'P', 'R', '', '', '', '', 'NO']];
+  const Ln = [['Linea_ID', 'Reparto', 'Sigla linea', 'Tipo linea', 'Prosegue su (secondario)'], ['ST3', 'STERILE 3', 'IMA', '', 'ST3, SPL1']];
+  const fs = { PRODOTTI: new Sheet('PRODOTTI', P), MACCHINE: new Sheet('MACCHINE', M), LINEE: new Sheet('LINEE', Ln) };
+  ctx.SpreadsheetApp.openById = () => ({ getSheets: () => Object.values(fs) });
+  let err = ''; try { ctx.formatiDati_(); } catch (e) { err = e.message; }
+  ok(/non collegato/.test(err), 'senza file collegato: messaggio chiaro');
+  props.FORMATI_ID = 'abcdefghijklmnopqrstuvwxyz';
+  const d = ctx.formatiDati_();
+  ok(d.prod.length === 2 && d.prod[0].ls.join() === 'ST3' && d.prod[0].a[3] === '5 ml' && d.prod[0].fmt === 'FP-A' && d.prod[1].f === 'PRIMARIO', 'PRODOTTI: codice, linee con X, caratteristiche, formato, fase');
+  ok(d.macc.length === 2 && d.macc[0].m.slice(0, 4).join() === 'P,P,,R' && d.macc[1].ver === false && d.macc[0].n === 'RIEMPITRICE', 'MACCHINE: matrice P/R per caratteristica, "verificata"');
+  ok(d.linee[0].pro === 'ST3, SPL1' && !d.avvisi.length, 'LINEE lette, nessun avviso');
+  const prova = man => { const r = ctx.doGet({ parameter: { key: 'k', action: 'formati', man: man, dev: 'T-1' } }); return JSON.parse(r.t || r.getContent && r.getContent() || '{}'); };
+  ctx.checkKey_ = () => {}; ctx.checkTelefono_ = () => {};
+  ok(/coordinatori/.test(prova('ROSSI Mario').error || ''), 'un tecnico chiede i formati: rifiutato dallo script');
+  const j = prova('VERDI Anna');
+  ok(j.ok && j.prod.length === 2, 'un coordinatore li riceve');
+}
+
 fine('Script');
