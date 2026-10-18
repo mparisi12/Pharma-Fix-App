@@ -176,6 +176,10 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
 .vdef{margin-top:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-left:3px solid var(--steel);background:var(--surface);border-radius:0 8px 8px 0}
 .revc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--surface)}.revc .why{font-size:12.5px;color:#a3402d;margin:4px 0}.revc .row{display:flex;gap:8px;margin-top:8px}.revc .row button{flex:1}
+.fbn{border-radius:12px;padding:10px 12px;margin:10px 0;font:700 16px var(--display);letter-spacing:.03em;text-align:center}.fbn small{display:block;font:500 12px var(--body);letter-spacing:0;margin-top:2px}
+.fbn.red{background:#f8d7d3;color:#8a2416}.fbn.yel{background:#fff1c7;color:#6b4f00}.fbn.grn{background:#d9f0e0;color:#1d5c34}.fbn.gry{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.fm{border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin:6px 0;background:var(--surface)}.fm .h{display:flex;gap:8px;align-items:baseline}.fm .h b{flex:1;min-width:0}.fm .tag{font:600 11px var(--mono);padding:2px 7px;border-radius:999px;white-space:nowrap}
+.fm .tag.P{background:#f8d7d3;color:#8a2416}.fm .tag.R{background:#fff1c7;color:#6b4f00}.fm .tag.N{background:#e3e8eb;color:#4d5b66}.fm .tag.A{background:#d9f0e0;color:#1d5c34}.fm .d{font-size:13px;margin-top:3px;line-height:1.35}.fm.nv{border-style:dashed}
 .prop{font:500 11px var(--mono);color:var(--ok,#0b6b3a);margin-left:6px;text-transform:none;letter-spacing:0}
 .provaprima .sugg{margin-top:0;background:none;border:0;padding:0}.provaprima .sugg-i{border:1px solid var(--line);background:var(--surface2)}
 .sugg{margin-top:10px;background:var(--steel-soft);border:1px solid var(--steel);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
@@ -1426,6 +1430,7 @@ $('#manbtn').onclick = () => {
     ${Object.keys(S.programma || {}).length ? `<button class="mbtn" id="mprog">${IK.cal}Programma produzione<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
     ${menuCompiti()}
     ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Scadenze del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(personeRep().filter(p => scadDi(p).some(x => /warn|exp/.test(vestStato(x)))).length) : ''}
+    ${isCoord() ? `<button class="mbtn" id="mfmt">${IK.cal}Formati e cambi formato<span class="cnt">solo coordinatori</span></button>` : ''}
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
     <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
     <button class="submit red" id="logout">Esci</button>`);
@@ -1436,6 +1441,7 @@ $('#manbtn').onclick = () => {
   const mt = $('#mturni'); if (mt) mt.onclick = shMieiTurni;
   const cc = $('#chice'); if (cc) cc.onclick = () => shChiCe(0);
   const mp = $('#mprog'); if (mp) mp.onclick = () => shProgramma(0);
+  const mf = $('#mfmt'); if (mf) mf.onclick = () => shFormati();
 };
 
 /* ================= Compiti ================= */
@@ -1727,6 +1733,115 @@ function guaChips(eq, sel) {
   const l = guastiFor(eq).map((g, i) => ({ g, n: U(g) === 'ALTRO' ? -1 : cnt[U(g)] || 0, i })).sort((a, b) => b.n - a.n || a.i - b.i);
   return l.map(x => `<button class="chip" type="button" data-v="${esc(x.g)}" aria-pressed="${sel === x.g}">${esc(x.g)}${x.n > 0 ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('');
 }
+/* ===== Formati e cambi formato (solo coordinatori) =====
+   I dati arrivano dallo script SOLO su richiesta di un coordinatore (action=formati) e restano in memoria: non finiscono nella copia locale dell'app. */
+let FMT = null;
+async function caricaFormati(forza) {
+  if (FMT && !forza) return FMT;
+  const r = await fetch(CFG.API_URL + '?action=formati&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
+  const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore'); FMT = j; return j;
+}
+const FV = (p, k) => k === 10 ? p.c : String(p.a[k] || '');
+const fNA = v => /^N\/?A$/i.test(String(v).trim());
+// La macchina lavora questo prodotto? (regola fardello e bypass)
+function fmtAttiva(m, p) {
+  const far = FV(p, 9); if (m.q.indexOf('SOLO CON') === 0 && (!far || fNA(far))) return 'NON USATA'; if (m.q.indexOf('SOLO SENZA') === 0 && far && !fNA(far)) return 'NON USATA';
+  const usa = m.m.map((x, k) => x ? k : -1).filter(k => k >= 0 && k < 10);
+  if (usa.length && usa.every(k => fNA(FV(p, k)))) return 'BYPASS';
+  return 'ATTIVA';
+}
+// Macchine coinvolte: primario della linea di provenienza + secondario della linea di confezionamento (codici 6)
+function fmtMacchine(p, lsec, senzaPrim) {
+  const ord = (a, b) => a.pos - b.pos;
+  const prim = senzaPrim ? [] : FMT.macc.filter(m => m.l === p.lp && m.fase === 'PRIMARIO').sort(ord);
+  const sec = p.f === 'SECONDARIO' && lsec ? FMT.macc.filter(m => m.l === lsec && m.fase === 'SECONDARIO').sort(ord) : [];
+  return prim.concat(sec);
+}
+// Confronto tra due codici sulla linea scelta: per ogni macchina cosa cambia (P = pezzi, R = solo ricetta)
+function fmtConfronto(A, B, linea) {
+  const out = { righe: [], banner: '', cls: 'gry', motivo: '' };
+  const sec = A.f === 'SECONDARIO' || B.f === 'SECONDARIO', comuni = A.ls.filter(l => B.ls.includes(l));
+  if (A.lp !== B.lp && !(A.f === 'SECONDARIO' && B.f === 'SECONDARIO')) { out.banner = 'NON CONFRONTABILE'; out.motivo = 'linee di primario diverse (' + (A.lp || '?') + ' / ' + (B.lp || '?') + ')'; return out; }
+  if (A.f === 'SECONDARIO' && B.f === 'SECONDARIO' && !comuni.length) { out.banner = 'NON CONFRONTABILE'; out.motivo = 'nessuna linea di confezionamento in comune'; return out; }
+  const L = linea || comuni[0] || A.ls[0] || B.ls[0] || '';
+  const primUguale = A.lp === B.lp, set = new Map();
+  [A, B].forEach(p => fmtMacchine(p, L, !primUguale).forEach(m => set.set(m.id, m))); // primario solo se i due codici arrivano dalla stessa linea
+  let nP = 0, nR = 0;
+  [...set.values()].sort((a, b) => (a.fase === 'PRIMARIO' ? 0 : 1) - (b.fase === 'PRIMARIO' ? 0 : 1) || a.pos - b.pos).forEach(m => {
+    const inA = fmtMacchine(A, L).some(x => x.id === m.id), inB = fmtMacchine(B, L).some(x => x.id === m.id);
+    const sa = inA ? fmtAttiva(m, A) : 'FERMA', sb = inB ? fmtAttiva(m, B) : 'FERMA';
+    let az, diff = [];
+    const dif = () => m.m.map((t, k) => t && (t === 'P' || t === 'R') && U(FV(A, k)) !== U(FV(B, k)) ? { k, t, da: FV(A, k) || '?', a: FV(B, k) || '?' } : null).filter(Boolean);
+    if (sa !== 'ATTIVA' && sb === 'ATTIVA') { az = 'DA AVVIARE'; diff = dif(); } else if (sa === 'ATTIVA' && sb !== 'ATTIVA') az = 'SI FERMA'; else if (sa !== 'ATTIVA') az = sb === 'BYPASS' || sa === 'BYPASS' ? 'BYPASS' : 'NON USATA';
+    else {
+      diff = dif();
+      if (diff.some(x => x.t === 'P')) { az = 'CAMBIO PEZZI'; nP++; } else if (diff.length) { az = 'SOLO RICETTA'; nR++; } else az = 'NIENTE';
+    }
+    out.righe.push({ m, az, diff });
+  });
+  const fA = sec ? A.fmt : A.ff || A.fmt, fB = sec ? B.fmt : B.ff || B.fmt, fCambia = fA && fB && U(fA) !== U(fB);
+  out.linea = L; out.comuni = comuni; out.primUguale = primUguale;
+  out.ricette = [['primario', A.rp, B.rp], ['secondario', A.rs, B.rs]].filter(([n, a, b]) => (a || b) && U(a) !== U(b) && (n === 'secondario' || primUguale));
+  if (fCambia) { out.banner = 'CAMBIO FORMATO'; out.cls = 'red'; out.motivo = fA + ' → ' + fB; }
+  else if (nP) { out.banner = 'STESSO FORMATO – MA CAMBIO PEZZI'; out.cls = 'red'; out.motivo = 'incoerenza: la matrice MACCHINE prevede pezzi per una caratteristica che non è nel nome formato'; }
+  else if (nR) { out.banner = 'STESSO FORMATO – SOLO RICETTE'; out.cls = 'yel'; out.motivo = fA || ''; }
+  else { out.banner = 'NESSUN CAMBIO'; out.cls = 'grn'; out.motivo = fA || ''; }
+  return out;
+}
+function fmtCerca(q) {
+  const t = U(q).trim(); if (!t) return [];
+  return FMT.prod.filter(p => p.c.indexOf(t) === 0 || U(p.d).indexOf(t) >= 0).slice(0, 15);
+}
+async function shFormati(stato = {}) {
+  sheet(`<div class="sheet-h"><div><h3>Formati e cambi formato</h3><div class="hint" style="margin-top:4px">Solo coordinatori · dati dal file Base Gestione Formati</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtb"><div class="hint">Carico i formati…</div></div>`);
+  try { await caricaFormati(); } catch (e) { $('#fmtb').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
+  const modo = stato.modo || 'cambio';
+  $('#fmtb').innerHTML = `<div class="chips" id="fmod">${chips(['Cambio formato', 'Cerca codice'], modo === 'cambio' ? 'Cambio formato' : 'Cerca codice')}</div><div id="fcont" style="margin-top:10px"></div>
+    <div class="hint" style="margin-top:12px">${FMT.prod.length} codici · ${FMT.macc.length} macchine · aggiornato alle ${pad(new Date(FMT.letto).getHours())}:${pad(new Date(FMT.letto).getMinutes())} <button class="linkbtn" id="frel">ricarica</button></div>`;
+  singleChoice($('#fmod'), v => shFormati({ ...stato, modo: v === 'Cambio formato' ? 'cambio' : 'cerca' }));
+  $('#frel').onclick = async () => { FMT = null; shFormati(stato); };
+  modo === 'cambio' ? fmtUiCambio(stato) : fmtUiCerca(stato);
+}
+const fmtTag = az => ({ 'CAMBIO PEZZI': 'P', 'SOLO RICETTA': 'R', 'NIENTE': 'N', 'ATTIVA': 'A', 'DA AVVIARE': 'A', 'SI FERMA': 'N', 'BYPASS': 'N', 'NON USATA': 'N' })[az] || 'N';
+function fmtProdBox(p) {
+  return `<div class="fm"><div class="h"><b>${esc(p.c)} · ${esc(p.d)}</b><span class="tag ${p.es === 'OK' ? 'A' : 'R'}">${esc(p.es || p.st || '—')}</span></div>
+    <div class="d">${p.f === 'PRIMARIO' ? 'Semilavorato (codice 5)' : 'Confezionato (codice 6)'} · primario <b>${esc(p.lp || '?')}</b>${p.ls.length ? ' · confezionato su <b>' + esc(p.ls.join(', ')) + '</b>' : ''}</div>
+    <div class="d">Formato <b>${esc(p.fmt || '—')}</b>${p.f === 'SECONDARIO' && p.ff ? ' · primario ' + esc(p.ff) : ''}${p.rp || p.rs ? ' · ricetta ' + esc([p.rp, p.rs].filter(Boolean).join(' / ')) : ''}</div></div>`;
+}
+function fmtUiCerca(stato) {
+  $('#fcont').innerHTML = `<input class="field" id="fq" placeholder="Codice SAP o parte della descrizione" value="${esc(stato.q || '')}" autocomplete="off"><div id="fres"></div>`;
+  const mostra = () => {
+    const l = fmtCerca($('#fq').value), p = l.length === 1 ? l[0] : FMT.prod.find(x => x.c === $('#fq').value.trim());
+    if (!p) { $('#fres').innerHTML = l.map(x => `<button class="fm" style="width:100%;text-align:left" data-fc="${esc(x.c)}"><b>${esc(x.c)}</b> · ${esc(x.d)}</button>`).join('') || ($('#fq').value.trim() ? '<div class="empty">Nessun codice trovato</div>' : ''); 
+      $$('[data-fc]').forEach(b => b.onclick = () => { $('#fq').value = b.dataset.fc; mostra(); }); return; }
+    const L = stato.linea && p.ls.includes(stato.linea) ? stato.linea : p.ls[0] || '';
+    const mac = fmtMacchine(p, L);
+    $('#fres').innerHTML = fmtProdBox(p) + (p.ls.length > 1 ? `<div class="chips" id="flin">${chips(p.ls, L)}</div>` : '') +
+      mac.map(m => { const st = fmtAttiva(m, p), P = [], Rr = []; m.m.forEach((t, k) => { if (t === 'P') P.push(FMT.car[k] + ' ' + (FV(p, k) || '?')); if (t === 'R') Rr.push(FMT.car[k] + ' ' + (FV(p, k) || '?')); });
+        return `<div class="fm${m.ver ? '' : ' nv'}"><div class="h"><b>${esc(m.fase === 'PRIMARIO' ? 'Primario' : 'Secondario')} · ${esc(m.l)} · ${esc(m.n)}</b><span class="tag ${fmtTag(st)}">${st}</span></div>
+          ${st === 'ATTIVA' ? (P.length ? `<div class="d"><b>Pezzi</b> in base a: ${esc(P.join(' · '))}</div>` : '') + (Rr.length ? `<div class="d"><b>Solo ricetta</b> in base a: ${esc(Rr.join(' · '))}</div>` : '') : ''}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`; }).join('');
+    const fl = $('#flin'); if (fl) singleChoice(fl, v => { stato.linea = v; stato.q = $('#fq').value; mostra(); });
+  };
+  $('#fq').oninput = () => { stato.q = $('#fq').value; mostra(); }; mostra();
+}
+function fmtUiCambio(stato) {
+  $('#fcont').innerHTML = `<div class="times"><label>In produzione<input class="field" id="fa" inputmode="numeric" placeholder="codice SAP" value="${esc(stato.a || '')}"></label><label>Da produrre<input class="field" id="fb" inputmode="numeric" placeholder="codice SAP" value="${esc(stato.b || '')}"></label></div><div id="fres"></div>`;
+  const mostra = () => {
+    const A = FMT.prod.find(x => x.c === $('#fa').value.trim()), B = FMT.prod.find(x => x.c === $('#fb').value.trim());
+    if (!A || !B) { $('#fres').innerHTML = `<div class="hint">${!$('#fa').value.trim() || !$('#fb').value.trim() ? 'Scrivi i due codici SAP.' : (!A ? 'Codice in produzione non trovato. ' : '') + (!B ? 'Codice da produrre non trovato.' : '')}</div>`; return; }
+    const c = fmtConfronto(A, B, stato.linea);
+    $('#fres').innerHTML = `<div class="fbn ${c.cls}">${c.banner}<small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
+      ${c.comuni && c.comuni.length > 1 ? `<div class="chips" id="flin">${chips(c.comuni, c.linea)}</div>` : ''}
+      ${c.ricette && c.ricette.length ? `<div class="hint">${c.ricette.map(([n, a, b]) => 'Ricetta ' + n + ': ' + esc(a || '—') + ' → <b>' + esc(b || '—') + '</b>').join('<br>')}</div>` : ''}
+      ${c.banner !== 'NON CONFRONTABILE' && !c.primUguale ? '<div class="hint">Primario non coinvolto: i due codici arrivano da linee diverse.</div>' : ''}
+      ${fmtProdBox(A)}${fmtProdBox(B)}
+      ${c.righe.map(({ m, az, diff }) => `<div class="fm${m.ver ? '' : ' nv'}"><div class="h"><b>${esc(m.l)} · ${esc(m.n)}</b><span class="tag ${fmtTag(az)}">${az}</span></div>
+        ${diff.map(x => `<div class="d">${x.t === 'P' ? '🔧' : '⌨'} ${esc(FMT.car[x.k])}: ${esc(x.da)} → <b>${esc(x.a)}</b></div>`).join('')}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`).join('')}`;
+    const fl = $('#flin'); if (fl) singleChoice(fl, v => { stato.linea = v; mostra(); });
+  };
+  ['#fa', '#fb'].forEach(i => $(i).oninput = () => { stato.a = $('#fa').value; stato.b = $('#fb').value; stato.linea = null; mostra(); }); mostra();
+}
+
 /* ===== Da rivedere (coordinatori): solo i fermi sospetti degli ultimi 30 giorni, non i cartacei ===== */
 const REV_GG = 30;
 function motiviRev(f, all) {
