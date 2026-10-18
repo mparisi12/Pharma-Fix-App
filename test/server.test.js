@@ -384,4 +384,14 @@ console.log('\nFermi (macchina ferma) e interventi separati');
   ok(ctx.righeReparti_([L[3]], ['ST3']).join().includes('(1)'), 'fermo con un solo intervento: resta "(1)" come prima');
 }
 
+
+console.log('\nPiù operazioni nella descrizione (antifurbi)');
+{
+  const { ctx } = nuovo();
+  ok(ctx.piuOperazioni_('regolato posizione sensore e regolato lama sbucciatrice') && ctx.piuOperazioni_('rimesso in dima pinze ctg e regolato sensore ingrese'), 'i fermi inventati di prova: riconosciuti');
+  ok(ctx.piuOperazioni_('Pulizia rulli e pulegge della videojet e sostituita testina di stampa'), 'tipi diversi (pulizia + sostituzione)');
+  ['regolato distanz acart', 'leva sensore S19 trovata spostata, rimessa in posizione', 'Regolato larghezza tramoggia alzate da 1200 a 1215', 'Sostituito contrasto in gomma etichettatrice', 'Regolato guide e sensore ingresso', 'Eseguito sblocco con Guantone.']
+    .forEach(x => ok(!ctx.piuOperazioni_(x), 'un\'operazione sola: non segnalato — "' + x + '"'));
+}
+
 fine('Script');
