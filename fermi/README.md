@@ -320,6 +320,12 @@ Per portare i fermi registrati prima del 17/10/2026 sulla nuova classificazione:
 
 Puoi farlo a pezzi (ad esempio una linea alla volta): *applica* salta le righe già applicate. Rilanciando *prepara* il foglio Ricodifica si rifà da zero.
 
+### 5.4d Raccolta uniforme: definizioni, ALTRO, Da rivedere
+- **Definizioni (foglio Voci guasto, colonna D "Quando si usa")**: una riga corta e senza ambiguità per ogni voce (es. INCASTRO = prodotto o astuccio bloccato nel trasporto, nessun pezzo rotto). Il tecnico la legge sotto la voce scelta. Alcune sono già scritte; le altre aggiungile un po' alla volta, partendo dalle voci più usate o più confuse.
+- **ALTRO**: il tecnico deve scrivere in 2–3 parole la voce che manca; finisce nella colonna **Voce proposta (con ALTRO)** del foglio Fermi (Z). Quando una proposta torna più volte, aggiungila al foglio Guasti.
+- **Da rivedere (coordinatori)**: nella home dell'app, i fermi chiusi degli ultimi 30 giorni (non i cartacei) con qualcosa che non torna — guasto ALTRO, descrizione che parla di sostituzione con un altro intervento (o il contrario), reset registrato come regolazione, guasto mai visto sulla macchina (con almeno 5 fermi di storico), durata oltre 3 volte la mediana di quel guasto. **Va bene** scrive nome e data nella colonna **Rivisto (coordinatore)** (AA); **Correggi** apre la correzione (per i coordinatori anche su fermi già corretti) e lo segna come rivisto.
+- **Il tecnico vede le correzioni**: se un coordinatore corregge un suo fermo, nella home del tecnico compare l'avviso con cosa è cambiato, finché non tocca *Ho capito*.
+
 ### 5.5 KPI
 Foglio **KPI**. In alto le celle gialle sono i **filtri**:
 
