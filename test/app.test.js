@@ -279,6 +279,8 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/annullare l'intervento 2/.test(await g.innerText('#canc')), 'annulla intervento 2: la conferma parla dell\'intervento, non del fermo');
   await g.click('#canc'); await g.waitForTimeout(1500);
   ok(P2.some(o => o.action === 'cancel' && o.id === gbo.id) && !P2.some(o => o.action === 'cancel' && o.id === 'GB'), 'annulla intervento 2: cancellato solo quello, l\'intervento 1 resta');
+  ok(await g.evaluate(() => !!piuInterventi('regolato posizione sensore e regolato lama sbucciatrice') && !!piuInterventi('rimesso in dima pinze ctg e regolato sensore ingrese') && !piuInterventi('Regolato guide e sensore ingresso') && !piuInterventi('leva trovata spostata, rimessa in posizione')),
+    'antifurbi nell\'app: due operazioni unite da "e" riconosciute, una sola no');
   await gc.close();
 
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
