@@ -32,7 +32,7 @@ const HEAD = [
   'Orari', 'Registrato alle', 'Telefono'
 ];
 const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT: 8, GUASTO: 9, ALTRO: 10,
-  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25, PROP: 26, RIV: 27 }; // CAUSA è fuori da HEAD: la colonna si aggiunge solo quando serve
+  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25, PROP: 26, RIV: 27, GRUPPO: 28, GIRO: 29, MULTI: 30 }; // CAUSA e seguenti sono fuori da HEAD: le colonne si aggiungono solo quando servono
 
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
@@ -668,12 +668,26 @@ const DEF_QUANDO = { 'INCASTRO': 'prodotto o astuccio bloccato nel trasporto, ne
   'PARAMETRI PANNELLO': 'valori del pannello o della ricetta da correggere' };
 let VDESC_MEMO = null;
 let VOCI_MEMO = null;
-// Colonne in fondo al foglio Fermi (fuori da HEAD): Causa, Voce proposta (con ALTRO), Rivisto (coordinatore)
-const EXTRA_H = ['Causa', 'Voce proposta (con ALTRO)', 'Rivisto (coordinatore)'];
+// Colonne in fondo al foglio Fermi (fuori da HEAD): Causa, Voce proposta (con ALTRO), Rivisto (coordinatore),
+// e per i fermi con più interventi: Fermo n. (uguale per tutti gli interventi dello stesso fermo), Intervento n., Più interventi?
+const EXTRA_H = ['Causa', 'Voce proposta (con ALTRO)', 'Rivisto (coordinatore)', 'Fermo n.', 'Intervento n.', 'Più interventi?'];
 function causaCol_(sh) {
-  if (sh.getMaxColumns() < C.RIV) sh.insertColumnsAfter(sh.getMaxColumns(), C.RIV - sh.getMaxColumns());
-  const h = sh.getRange(1, C.CAUSA, 1, 3);
-  if (h.getValues()[0].join('|') !== EXTRA_H.join('|')) h.setValues([EXTRA_H]).setFontWeight('bold').setBackground('#fff3d6');
+  const ultima = C.CAUSA + EXTRA_H.length - 1;
+  if (sh.getMaxColumns() < ultima) sh.insertColumnsAfter(sh.getMaxColumns(), ultima - sh.getMaxColumns());
+  const h = sh.getRange(1, C.CAUSA, 1, EXTRA_H.length), v = h.getValues()[0];
+  if (v.join('|') === EXTRA_H.join('|')) return true;
+  // AB–AD (Fermo n., Intervento n., Più interventi?) non sovrascrivono colonne già usate per altro
+  const libere = v.slice(3).every((x, i) => !String(x).trim() || String(x).trim() === EXTRA_H[3 + i]);
+  sh.getRange(1, C.CAUSA, 1, libere ? EXTRA_H.length : 3).setValues([libere ? EXTRA_H : EXTRA_H.slice(0, 3)]).setFontWeight('bold').setBackground('#fff3d6');
+  if (!libere) Logger.log('Foglio Fermi: colonne AB–AD già usate, Fermo n./Intervento n. non scritti');
+  return libere;
+}
+// Fermo con più interventi: ogni intervento è una riga; "Fermo n." lega le righe dello stesso fermo
+function gruppoFermo_(sh, r, p) {
+  const g = String(p.gruppo || '').trim();
+  if (!g) return;
+  const giro = Math.max(1, Math.round(Number(p.giro) || 1));
+  if (causaCol_(sh)) sh.getRange(r, C.GRUPPO, 1, 2).setValues([[g, giro]]);
 }
 // Categoria proposta per una voce: quella più usata nello storico (almeno 3 fermi), altrimenti dal nome
 function catProposta_(voce, storico) {
@@ -1080,6 +1094,11 @@ function controllaRegistrazioni() {
     });
     v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
       .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
+    // più interventi chiusi in un fermo solo: l'app ha avvisato, il tecnico ha risposto "è uno solo"
+    if (sh.getMaxColumns() >= C.MULTI && String(sh.getRange(1, C.MULTI).getValue()).trim() === EXTRA_H[5]) {
+      const mv = sh.getRange(2, C.MULTI, last - 1, 1).getValues(), man = sh.getRange(2, C.MAN, last - 1, 1).getValues();
+      mv.forEach((m, i) => { if (String(m[0]).trim()) out.push(['Più interventi in un fermo?', String(man[i][0]) + ': ' + String(m[0]).trim(), 'Fermi riga ' + (i + 2)]); });
+    }
   }
   if (out.length === 1) out.push(['Nessun caso da controllare', '', '']);
   let c = ss.getSheetByName('Controlli'); if (c) c.clear(); else c = ss.insertSheet('Controlli');
@@ -1639,7 +1658,9 @@ function init_() {
   if (last > 1) {
     const vals = sh.getRange(2, 1, last - 1, HEAD.length).getValues();
     const fotoC = sh.getRange(2, C.FOTO_C, last - 1, 1).getFormulas(); // link della foto di chiusura
-    const nx = Math.min(3, sh.getMaxColumns() - C.CAUSA + 1), extra = nx > 0 ? sh.getRange(2, C.CAUSA, last - 1, nx).getValues() : [];
+    const nx = Math.min(EXTRA_H.length, sh.getMaxColumns() - C.CAUSA + 1), extra = nx > 0 ? sh.getRange(2, C.CAUSA, last - 1, nx).getValues() : [];
+    const nostre = nx > 3 && String(sh.getRange(1, C.GRUPPO).getValue()).trim() === EXTRA_H[3];
+    if (!nostre) extra.forEach(x => x.splice(3));
     const cause = extra, corr = correzioniDett_(ss);
     const from = Date.now() - 90 * 864e5, nCorr = correzioniPerFermo_(ss);
     vals.forEach((r, i) => {
@@ -1650,6 +1671,7 @@ function init_() {
       const end = r[C.FINE - 1] instanceof Date ? r[C.FINE - 1].getTime() : null;
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
         start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1], causa: String((cause[i] || [])[0] || ''), prop: String((extra[i] || [])[1] || ''), rivisto: String((extra[i] || [])[2] || ''),
+        gruppo: String((extra[i] || [])[3] || ''), giro: Number((extra[i] || [])[4]) || 0, multi: String((extra[i] || [])[5] || ''),
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, corr: (c => c && String(c.da).toUpperCase() !== String(r[C.MAN - 1]).trim().toUpperCase() ? c : null)(corr[String(r[C.ID - 1])]), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
@@ -1728,6 +1750,7 @@ function openFermo_(p) {
   sh.getRange(r, C.IG).setFormula(F_('=IF(H' + r + '="","",LEFT(H' + r + ',3)&"-"&I' + r + ')'));
   if (url) sh.getRange(r, C.FOTO_A).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, 1, 1, HEAD.length).setBackground('#fff3d6');
+  gruppoFermo_(sh, r, p);
   return { row: r };
 }
 
@@ -1790,6 +1813,8 @@ function closeFermo_(p) {
   if (p.causa) sh.getRange(r, C.CAUSA).setValue(String(p.causa).trim());
   if (p.proposta) sh.getRange(r, C.PROP).setValue(String(p.proposta).trim().toUpperCase());
   sh.getRange(r, C.PEZZO).setValue(p.pezzo || '');
+  gruppoFermo_(sh, r, p); // primo intervento di un fermo diviso: diventa "intervento 1"
+  if (p.multi && causaCol_(sh)) sh.getRange(r, C.MULTI).setValue(String(p.multi).trim().slice(0, 200));
   if (url) sh.getRange(r, C.FOTO_C).setFormula(F_(linkFormula_(url)));
   sh.getRange(r, C.STATO).setValue('CHIUSO');
   sh.getRange(r, C.REG).setValue(new Date(Number(p.reg) || Date.now())).setNumberFormat('dd/MM/yyyy HH:mm');

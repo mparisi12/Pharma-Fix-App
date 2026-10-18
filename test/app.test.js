@@ -206,6 +206,67 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/Apri fermo/i.test(sh) && /ST3-05/.test(sh) && /BILANCIA/i.test(sh), 'dopo l\'accesso le macchine arrivano dal foglio e si apre il fermo della macchina del QR');
   await tel.close();
 
+  console.log('\nFermo con più interventi: giro, divisione alla chiusura, controllo antifurbi');
+  const D2 = { ...D, guasti: { TUTTE: ['SENSORE', 'GUIDE', 'ALTRO'] }, vociCat: { SENSORE: 'ELETTRICO', GUIDE: 'MECCANICO' },
+    fermi: [{ id: 'GA', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 30 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }] };
+  const P2 = []; let v2 = 1;
+  const gc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await gc.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
+  await gc.route(/script\.google\.com/, r => {
+    if (r.request().method() === 'POST') { // come il foglio vero: apre e chiude le righe, con Fermo n. e Intervento n.
+      const o = JSON.parse(r.request().postData()); P2.push(o); v2++;
+      if (o.action === 'open') D2.fermi.unshift({ id: o.id, code: o.code, linea: 'ST3', macchina: 'ASTUCCIATRICE', start: o.ts, stato: 'APERTO', lotto: o.lotto, man: o.manutentore, apertoDa: o.manutentore, gruppo: o.gruppo || '', giro: o.giro || 0 });
+      if (o.action === 'close') { const f = D2.fermi.find(x => x.id === o.id); Object.assign(f, { stato: 'CHIUSO', end: o.ts, guasto: o.guasto, int: o.intervento, altro: o.altro, multi: o.multi || '' }, o.gruppo ? { gruppo: o.gruppo, giro: o.giro } : {}); }
+      return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+    }
+    r.fulfill({ contentType: 'application/json', body: /action=login/.test(r.request().url()) ? '{"ok":true}' : JSON.stringify({ ok: true, ...D2, ver: 'G' + v2 }) });
+  });
+  const g = await gc.newPage(); g.on('pageerror', e => errori.push(e.message));
+  await g.goto(`http://localhost:${PORT}/fermi/`); await g.waitForTimeout(400);
+  await g.fill('#lpin', 'prova'); await g.fill('#lnome', 'Mario'); await g.fill('#lcogn', 'Rossi'); await g.click('#lgo'); await g.waitForTimeout(1800);
+  await g.evaluate(() => { closeSh(); closeSheet(allFermi().find(f => f.id === 'GA')); }); await g.waitForTimeout(300);
+  ok(await g.isVisible('#giro') && /Intervento fatto, continuo/i.test(await g.innerText('#giro')), 'Packaging: pulsante "Intervento fatto, continuo" accanto a Chiudi fermo');
+  await g.click('#gua [data-v="SENSORE"]'); await g.click('#int [data-v="REGOLAZIONE"]'); await g.fill('#altro', 'regolato sensore ingresso');
+  await g.click('#giro'); await g.waitForTimeout(2500);
+  const c1 = P2.find(o => o.action === 'close' && o.id === 'GA') || {}, o2 = P2.find(o => o.action === 'open' && o.gruppo === 'GA') || {};
+  ok(c1.gruppo === 'GA' && c1.giro === 1 && !c1.dichiarato, 'giro: intervento 1 chiuso adesso (tempo reale), Fermo n. GA');
+  ok(o2.giro === 2 && o2.ts === c1.ts && o2.code === 'ST3-04' && o2.lotto === '601095', 'giro: intervento 2 aperto dallo stesso istante, stessa macchina e stesso lotto');
+  await g.evaluate(() => go({ name: 'equip', code: 'ST3-04' })); await g.waitForTimeout(300);
+  ok(/intervento 2/.test(await g.innerText('#view')) && /^(0:)?3\d:/.test((await g.innerText('#view .hero .timer')).trim()), 'scheda macchina: "intervento 2" e cronometro del fermo intero (dall\'inizio del primo)');
+  await g.click('[data-close]'); await g.waitForTimeout(300);
+  ok(/intervento 2/i.test(await g.innerText('#sheet h3')) && /1\.\s*SENSORE/.test(await g.innerText('#sheet .giri')), 'chiusura intervento 2: titolo e interventi già registrati');
+
+  await g.click('#gua [data-v="GUIDE"]'); await g.click('#int [data-v="SOSTITUZIONE"]'); await g.fill('#pezzo', 'X-100'); await g.fill('#altro', 'sostituita guida e poi regolato sensore');
+  await g.click('#go'); await g.waitForTimeout(200); await g.click('#go'); await g.waitForTimeout(300); // 1° tocco: conferma micro-fermo
+  ok(await g.isVisible('#err.mwarn') && /Sembrano più interventi/.test(await g.innerText('#err')) && !P2.some(o => o.action === 'close' && o.id === o2.id), 'antifurbi: descrizione con più interventi → avviso, non chiude');
+  await g.click('#mdiv'); await g.waitForTimeout(200);
+  ok(await g.isChecked('#multi') && await g.isVisible('#mfin') && /Salva intervento 2 e continua/i.test(await g.innerText('#go')) && await g.isHidden('#giro'), '"Dividi in più interventi": chiede la fine di questo intervento');
+  await g.uncheck('#multi'); await g.dispatchEvent('#multi', 'change'); await g.click('#go'); await g.waitForTimeout(300);
+  ok(await g.isVisible('#err.mwarn'), 'chiudendo comunque: l\'avviso torna');
+  await g.click('#muno'); await g.waitForTimeout(2000);
+  const c2 = P2.find(o => o.action === 'close' && o.id === o2.id) || {};
+  ok(c2.gruppo === 'GA' && c2.giro === 2 && /confermato: un intervento solo/.test(c2.multi || ''), '"No, è un intervento solo": chiude e registra l\'avviso ignorato');
+
+  // divisione alla chiusura: fermo già finito registrato con gli orari (come per il filling)
+  const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const t1 = Date.now() - 40 * 60000, t2 = Date.now() - 25 * 60000, t3 = Date.now() - 10 * 60000;
+  await g.evaluate(() => { closeSh(); closeSheet({ id: 'RG', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', lotto: '601095' }, { reg: true }); }); await g.waitForTimeout(300);
+  ok(await g.isHidden('#giro'), 'fermo registrato con gli orari: niente giro, solo divisione alla chiusura');
+  await g.fill('#tini', hm(t1)); await g.fill('#tfin', hm(t2)); await g.check('#multi'); await g.dispatchEvent('#multi', 'change');
+  ok(/Fine intervento 1/.test(await g.innerText('#tfinl')), 'con "più interventi" la Fine diventa la fine dell\'intervento 1');
+  await g.click('#gua [data-v="SENSORE"]'); await g.click('#int [data-v="PULIZIA"]'); await g.fill('#altro', 'pulita fotocellula');
+  await g.click('#go'); await g.waitForTimeout(500);
+  ok(/intervento 2/i.test(await g.innerText('#sheet h3')) && await g.inputValue('#tini') === hm(t2), 'dopo l\'intervento 1 si apre l\'intervento 2 con inizio = fine dell\'1');
+  await g.fill('#tfin', hm(t3)); await g.click('#gua [data-v="GUIDE"]'); await g.click('#int [data-v="REGOLAZIONE"]'); await g.fill('#altro', 'guida regolata');
+  await g.click('#go'); await g.waitForTimeout(2500);
+  const rg = P2.filter(o => o.gruppo === 'RG');
+  ok(rg.length === 4 && rg.filter(o => o.action === 'close').map(o => o.giro).join() === '1,2' && rg.every(o => o.action !== 'open' || o.dichiarato), 'registrati 2 interventi, Fermo n. RG, orari dichiarati');
+  const ra = rg.find(o => o.action === 'close' && o.giro === 1), rb = rg.find(o => o.action === 'open' && o.giro === 2);
+  ok(ra && rb && Math.abs(ra.ts - rb.ts) < 60000, 'l\'intervento 2 inizia dove finisce l\'1');
+  ok(await g.evaluate(() => /Più interventi/.test(motiviRev({ id: 'x', code: 'ST3-04', guasto: 'GUIDE', int: 'SOSTITUZIONE', altro: 'sostituita cinghia, regolato nonio', stato: 'CHIUSO' }, []).join()) && !piuInterventi('regolato sensore ingresso') && !!piuInterventi('pulito + resettato')),
+    'coordinatore: "Più interventi in un fermo?" tra i motivi da rivedere');
+  await gc.close();
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
