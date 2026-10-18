@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#245a7a">
 <title>Pharma-Fix</title>
@@ -367,7 +368,8 @@ textarea.field{min-height:64px;resize:vertical}
 /* ================= Config & stato ================= */
 const CFG = window.PF_CONFIG || {};
 const MOCK = !CFG.API_URL;
-const S = { equipment: PF_DEFAULTS.equipment, liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], convalide: { list: [], ignote: [] }, turni: {}, programma: {}, continuo: [],
+const S = { equipment: MOCK ? PF_DEFAULTS.equipment : [], // dati reali solo dal foglio, mai dal codice pubblico
+  liste: PF_DEFAULTS.liste, guasti: {}, fermi: [], soluzioni: [], documenti: [], anomalie: [], compiti: [], vestizioni: [], convalide: { list: [], ignote: [] }, turni: {}, programma: {}, continuo: [],
   loaded: false, view: { name: 'home' }, man: '', net: 'ok', lastSync: 0 };
 let PENDING_EQ = null;
 // Accesso: resta valido finché si usa l'app (ogni apertura lo rinnova); si rifà solo dopo SESSION_GG giorni senza aprirla o con "Esci".
@@ -1370,9 +1372,11 @@ $('#lform').onsubmit = async e => {
   }
   salvaSess({ man: t, exp: Date.now() + SESSION_MS });
   S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t);
-  if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; afterScan(e2); }
+  if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; const e3 = eqBy(e2.code); if (e3) afterScan(e3); else apriDopoCaricamento(e2.code); }
   sync();
 };
+// Telefono nuovo aperto dal QR: le macchine arrivano dal foglio solo dopo l'accesso, quindi si aspetta il primo caricamento
+function apriDopoCaricamento(code, n = 10) { const e = eqBy(code); if (e) return afterScan(e); if (n > 0) setTimeout(() => apriDopoCaricamento(code, n - 1), 1500); }
 // iPhone fuori dall'app della schermata Home (Safari o Chrome, anche aperti dal QR con la fotocamera): avviso
 function bannerIos() {
   if (!IOS || STANDALONE || MOCK || $('#iosban')) return;
@@ -1910,7 +1914,7 @@ async function checkUpdate() {
   const deep = eq && !h && eqBy(eq);
   ripristina().then(() => {
     S.man = getSession(); rinnovaSess(); render();
-    if (!S.man) { PENDING_EQ = deep; showLogin(); } else if (deep) afterScan(deep);
+    if (!S.man) { PENDING_EQ = deep || (eq && !h ? { code: eq } : null); showLogin(); } else if (deep) afterScan(deep);
     caricaBozzaAno(); sync(); cleanMedia();
   });
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
