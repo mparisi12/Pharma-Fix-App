@@ -1890,7 +1890,7 @@ function closeSheet(f, opt = {}) {
       else if (fin < t0) msg = 'Si possono registrare solo interventi finiti dalle ' + hhmm(t0) + ' in poi.';
       else dich = true;
       if (msg) $('#mfin').focus();
-    } else if (!msg && !ORE && modo === 'chiudi' && C.fineOra) { // Packaging: fine fermo scritta a mano (è ripartita prima di chiudere nell'app)
+    } else if (!msg && !ORE && (modo === 'chiudi' || modo === 'giro') && C.fineOra) { // Packaging: fine scritta a mano (ripartita prima, o intervento finito prima: il successivo parte da lì)
       fin = oraToTs($('#cfin').value, now);
       if (fin == null) msg = 'Scrivi l\'ora in cui la macchina è ripartita.';
       else if (fin <= f.start) msg = 'La fine deve essere dopo l\'inizio del fermo (' + hhmm(f.start) + ').';
@@ -1935,7 +1935,7 @@ function closeSheet(f, opt = {}) {
     if (CONT) { // l'intervento successivo parte dalla fine di questo, stessa macchina e stesso lotto
       const nx = { id: uid(), code: f.code, linea: f.linea, macchina: f.macchina, lotto, gruppo: grp, giro: N + 1 };
       closeSh();
-      if (modo === 'giro') { enqueue({ action: 'open', ...nx, ts: fin, turno: turnoOf(fin), manutentore: S.man, foto: '' }); toast('Intervento ' + N + ' registrato · ' + fmtDur((fin - ini) / 60000) + ' · il fermo continua: intervento ' + (N + 1), 4000); return; }
+      if (modo === 'giro') { enqueue({ action: 'open', ...nx, ts: fin, turno: turnoOf(fin), manutentore: S.man, foto: '', dichiarato: dich || undefined, reg: dich ? now : undefined }); toast('Intervento ' + N + ' registrato · ' + fmtDur((fin - ini) / 60000) + ' · il fermo continua: intervento ' + (N + 1), 4000); return; }
       if (REG) closeSheet({ ...nx, start: fin }, { reg: true });
       else { enqueue({ action: 'open', ...nx, ts: fin, turno: turnoOf(fin), manutentore: S.man, foto: '', dichiarato: true, reg: now }); closeSheet(allFermi().find(x => x.id === nx.id)); }
       toast('Intervento ' + N + ' salvato · ora compila l\'intervento ' + (N + 1), 3500);
@@ -1947,7 +1947,7 @@ function closeSheet(f, opt = {}) {
   const gb = $('#giro'); if (gb) gb.onclick = () => { C.modo = 'giro'; C.multiOk = C.multiOk && C.modoOk === 'giro' ? C.multiOk : null; C.modoOk = 'giro'; invia(); };
   const cb = $('#canc');
   if (cb) cb.onclick = () => {
-    if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = 'Tocca ancora per annullare il fermo'; return; }
+    if (!cb.dataset.armed) { cb.dataset.armed = 1; cb.textContent = N > 1 ? 'Tocca ancora per annullare l\'intervento ' + N : 'Tocca ancora per annullare il fermo'; return; }
     enqueue({ action: 'cancel', id: f.id, manutentore: S.man }); closeSh(); toast(N > 1 ? 'Intervento ' + N + ' annullato' : 'Fermo annullato');
   };
 }
