@@ -9,8 +9,11 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   if (!f.startsWith(ROOT) || !fs.existsSync(f)) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); });
 
 const now = Date.now(), g0 = new Date(); g0.setHours(0, 0, 0, 0);
-const D = { liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
-  fermi: [{ id: 'F0', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE + TAPPATRICE FLEXFILL F940', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
+// Macchine finte: nell'app vera arrivano solo dal foglio Equipment (non più da defaults.js)
+const D = { equipment: [['ST3-01', 'Filling', 'RIORDINATORE'], ['ST3-02', 'Filling', 'RIEMPITRICE'], ['ST3-03', 'Packaging', 'ETICHETTATRICE'],
+    ['ST3-04', 'Packaging', 'ASTUCCIATRICE'], ['ST3-05', 'Packaging', 'BILANCIA'], ['ST3-06', 'Packaging', 'CARTONATRICE']].map(([code, area, macchina]) => ({ code, linea: 'ST3', area, macchina })),
+  liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
+  fermi: [{ id: 'F0', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
   compiti: [], documenti: [], vestizioni: [{ man: 'ROSSI Mario', scad: g0.getTime() + 40 * 864e5 }],
   convalide: { list: [{ man: 'ROSSI Mario', cat: 'G', desc: 'Intervento Meccanico di regolazione', scad: g0.getTime() - 3 * 864e5 }, { man: 'BIANCHI Luca', cat: 'H', desc: 'Intervento Meccanico di sostituzione componente', scad: g0.getTime() + 200 * 864e5 }], ignote: [] },
   sterileNo: ['VERDI Anna'] };
@@ -47,7 +50,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   console.log('Accesso e dati');
   await entra('Anna', 'Verdi');
   ok(/VERDI Anna/.test(await p.innerText('#manbtn')), 'accesso del coordinatore (solo nella colonna Coordinatori)');
-  ok(/FLEXFILL/.test(await p.innerText('#view')), 'la home mostra il fermo aperto');
+  ok(/RIEMPITRICE/.test(await p.innerText('#view')), 'la home mostra il fermo aperto');
   const f0 = full; for (let i = 0; i < 3; i++) { await p.evaluate(() => refresh()); await attesa(150); }
   ok(full === f0 && same >= 3, 'aggiornamenti senza modifiche: nessun riscaricamento completo');
 
@@ -189,6 +192,19 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/parla di sostituzione/.test(await p.innerText('#sheet')), 'motivo mostrato: descrizione "sostituito" ma intervento REGOLAZIONE');
   await p.click('[data-ok="RV1"]'); await attesa(600);
   ok(posts.some(o => o.action === 'rivisto' && o.fermo === 'RV1' && o.manutentore === 'VERDI Anna'), '"Va bene": il fermo viene segnato come rivisto');
+
+  console.log('\nTelefono nuovo aperto dal QR (macchine solo dal foglio)');
+  const tel = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await tel.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
+  await tel.route(/script\.google\.com/, r => r.fulfill({ contentType: 'application/json',
+    body: r.request().method() === 'POST' || /action=login/.test(r.request().url()) ? '{"ok":true}' : JSON.stringify({ ok: true, ...D, ver: 'V' + ver }) }));
+  const t = await tel.newPage(); t.on('pageerror', e => errori.push(e.message));
+  await t.goto(`http://localhost:${PORT}/fermi/?eq=ST3-05`); await t.waitForTimeout(400);
+  ok(await t.evaluate(() => S.equipment.length === 0), 'prima dell\'accesso nessuna macchina in memoria: nel codice pubblico non c\'è l\'elenco reale');
+  await t.fill('#lpin', 'prova'); await t.fill('#lnome', 'Mario'); await t.fill('#lcogn', 'Rossi'); await t.click('#lgo'); await t.waitForTimeout(3500);
+  const sh = await t.innerText('#sheet');
+  ok(/Apri fermo/i.test(sh) && /ST3-05/.test(sh) && /BILANCIA/i.test(sh), 'dopo l\'accesso le macchine arrivano dal foglio e si apre il fermo della macchina del QR');
+  await tel.close();
 
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');

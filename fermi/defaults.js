@@ -1,85 +1,24 @@
-// Anagrafica di partenza: usata in modalità demo e finché il Google Sheet non risponde.
-// Con il backend attivo, l'app legge Equipment e Liste direttamente dal foglio.
+// Anagrafica di partenza: SOLO dati di esempio, per la modalità demo e le liste finché il foglio non risponde.
+// Con il backend attivo, l'app legge Equipment e Liste dal foglio (privato). Qui non vanno mai dati aziendali reali.
 (function () {
-  // Elenco macchine reale (stesso contenuto del foglio Equipment)
+  // Macchine DI ESEMPIO, usate solo in modalità demo (senza API_URL).
+  // L'elenco vero sta solo nel foglio Equipment (privato): l'app lo riceve dopo l'accesso con il codice reparto.
   const equipment = [
-    { code: "ST1TGM-01", linea: "ST1 TGM", area: "Filling", macchina: "INTUBETTATRICE TGM B600/2" },
-    { code: "ST1TGM-02", linea: "ST1 TGM", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4250" },
-    { code: "ST1TGM-03", linea: "ST1 TGM", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "ST1TGM-04", linea: "ST1 TGM", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "ST1MAR-01", linea: "ST1 MAR", area: "Filling", macchina: "RIORDINATORE KYKLOO" },
-    { code: "ST1MAR-02", linea: "ST1 MAR", area: "Filling", macchina: "RIEMPITRICE MAR M39" },
-    { code: "ST1MAR-03", linea: "ST1 MAR", area: "Packaging", macchina: "ETICHETTATRICE MARCHESINI SLF220" },
-    { code: "ST1MAR-04", linea: "ST1 MAR", area: "Packaging", macchina: "POLMONE DI ACCUMULO" },
-    { code: "ST1MAR-05", linea: "ST1 MAR", area: "Packaging", macchina: "ASTUCCIATRICE MARCHESINI MA255" },
-    { code: "ST1MAR-06", linea: "ST1 MAR", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "ST1MAR-07", linea: "ST1 MAR", area: "Packaging", macchina: "ANTARES PRINT&CHECK" },
-    { code: "ST1MAR-08", linea: "ST1 MAR", area: "Packaging", macchina: "CARTONATRICE GARBELLI" },
-    { code: "ORL-01", linea: "ORL", area: "Filling", macchina: "RIORDINATORE OZAF" },
-    { code: "ORL-02", linea: "ORL", area: "Filling", macchina: "RIEMPITRICE ROMACO LVI6" },
-    { code: "ORL-03", linea: "ORL", area: "Packaging", macchina: "INVASSOIATORE SPH" },
-    { code: "ST2-01", linea: "ST2", area: "Filling", macchina: "RIEMPITRICE GF VFPCM 15000" },
-    { code: "ST2-02", linea: "ST2", area: "Packaging", macchina: "ETICHETTATRICE ETIPACK" },
-    { code: "ST2-03", linea: "ST2", area: "Packaging", macchina: "ASTUCCIATRICE CAM HV-1" },
-    { code: "ST2-04", linea: "ST2", area: "Packaging", macchina: "ANTARES ALL IN ONE S" },
-    { code: "ST2-05", linea: "ST2", area: "Packaging", macchina: "CARTONATRICE CAM SMP" },
-    { code: "ST3-01", linea: "ST3", area: "Filling", macchina: "RIORDINATORE SARG" },
-    { code: "ST3-02", linea: "ST3", area: "Filling", macchina: "RIEMPITRICE + TAPPATRICE FLEXFILL F940" },
-    { code: "ST3-03", linea: "ST3", area: "Packaging", macchina: "ETICHETTATRICE IMA SENSITIVE AV" },
-    { code: "ST3-04", linea: "ST3", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4400" },
-    { code: "ST3-05", linea: "ST3", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "ST3-06", linea: "ST3", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "ST3-07", linea: "ST3", area: "Packaging", macchina: "POLMONE GRANDE M&H" },
-    { code: "ST3-08", linea: "ST3", area: "Packaging", macchina: "POLMONE PICCOLO M&H" },
-    { code: "ST4-01", linea: "ST4", area: "Filling", macchina: "INTUBETTATRICE IWK FP34/2" },
-    { code: "ST4-02", linea: "ST4", area: "Packaging", macchina: "BILANCIA TUBI METTLER" },
-    { code: "ST4-03", linea: "ST4", area: "Packaging", macchina: "SISTEMA ACCUMULO TUBI BONINO" },
-    { code: "ST4-04", linea: "ST4", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4201" },
-    { code: "ST4-05", linea: "ST4", area: "Packaging", macchina: "PTT100" },
-    { code: "ST4-06", linea: "ST4", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "ST4-07", linea: "ST4", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "ST5-01", linea: "ST5", area: "Filling", macchina: "RIEMPITRICE ROMACO LF202" },
-    { code: "ST5-02", linea: "ST5", area: "Filling", macchina: "PALLETIZER SINTECO 3548" },
-    { code: "ST6-01", linea: "ST6", area: "Filling", macchina: "RIORDINATORE FLACONI OZAF" },
-    { code: "ST6-02", linea: "ST6", area: "Filling", macchina: "RIORDINATORE CONTAGOCCE OZAF" },
-    { code: "ST6-03", linea: "ST6", area: "Filling", macchina: "RIORDINATORE TAPPI OZAF" },
-    { code: "ST6-04", linea: "ST6", area: "Filling", macchina: "RIEMPITRICE + TAPPATRICE XTREMA" },
-    { code: "ST6-05", linea: "ST6", area: "Filling", macchina: "POLMONE GRANDE M&H" },
-    { code: "ST6-06", linea: "ST6", area: "Filling", macchina: "POLMONE PICCOLO M&H" },
-    { code: "ST6-07", linea: "ST6", area: "Packaging", macchina: "ETICHETTATRICE IMA SENSITIVE AV" },
-    { code: "ST6-08", linea: "ST6", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4450" },
-    { code: "ST6-09", linea: "ST6", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "ST6-10", linea: "ST6", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "ST6-11", linea: "ST6", area: "Packaging", macchina: "PALLETTIZZATORE SPH ST6" },
-    { code: "SPL1-01", linea: "SPL1", area: "Packaging", macchina: "ASSEMBLING SINTECO 3549" },
-    { code: "SPL1-02", linea: "SPL1", area: "Packaging", macchina: "ETICHETTATRICE FLACONI MAKRO" },
-    { code: "SPL1-03", linea: "SPL1", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4201 + PTT" },
-    { code: "SPL1-04", linea: "SPL1", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "SPL1-05", linea: "SPL1", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "SPL2-01", linea: "SPL2", area: "Packaging", macchina: "ALIMENTATORE KYKLOO" },
-    { code: "SPL2-02", linea: "SPL2", area: "Packaging", macchina: "ETICHETTATRICE FLACONI SPH" },
-    { code: "SPL2-03", linea: "SPL2", area: "Packaging", macchina: "FLOWPAK PFM LEVANTE" },
-    { code: "SPL2-04", linea: "SPL2", area: "Packaging", macchina: "ASTUCCIATRICE ROMACO PC4250" },
-    { code: "SPL2-05", linea: "SPL2", area: "Packaging", macchina: "BILANCIA METTLER" },
-    { code: "SPL2-06", linea: "SPL2", area: "Packaging", macchina: "CARTONATRICE PAK320" },
-    { code: "SPL2-07", linea: "SPL2", area: "Packaging", macchina: "FARDELLATRICE CHRIST" },
-    { code: "SPL2-08", linea: "SPL2", area: "Packaging", macchina: "ETICHETTATRICE FARDELLI ARCA" },
-    { code: "SPL2-09", linea: "SPL2", area: "Packaging", macchina: "CARTONATRICE FARDELLI CAM SM80" },
-    { code: "SPL2-10", linea: "SPL2", area: "Packaging", macchina: "PALLETTIZZATORE SPH SPL2" }
+    { code: "DEMO-A-01", linea: "LINEA A", area: "Filling", macchina: "RIEMPITRICE" },
+    { code: "DEMO-A-02", linea: "LINEA A", area: "Packaging", macchina: "ETICHETTATRICE" },
+    { code: "DEMO-A-03", linea: "LINEA A", area: "Packaging", macchina: "ASTUCCIATRICE" },
+    { code: "DEMO-A-04", linea: "LINEA A", area: "Packaging", macchina: "CARTONATRICE" },
+    { code: "DEMO-B-01", linea: "LINEA B", area: "Packaging", macchina: "ASTUCCIATRICE" },
+    { code: "DEMO-B-02", linea: "LINEA B", area: "Packaging", macchina: "BILANCIA" }
   ];
   window.PF_DEFAULTS = {
     equipment,
     liste: {
       'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
       'Tipo intervento': ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'],
-      'Guasto Sterile': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H32 CTG, rimessa in dima pinze ctg',
-        'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi',
-        'H10, Sostituzione e regolazione fotocellula della macchina', 'H19, Rimessa in fase della Stella',
-        'G25 Regolazione della coclea flaconi', 'SEA VISION', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'FORMATO', 'ALTRO'],
-      'Guasto Secondario': ['PARAM VIDEOJET', '"0" MACCHINA', 'GUIDE', 'CHIUSURE AST', 'STAMPA DATI VARIABILI',
-        'SPIKE CORRENTE', 'POS. TAMPER', 'POS. BOLLINO', 'INCASTRO', 'ARIA COMPRESSA', 'MAG. ISTRUZIONI',
-        'MAG. ASTUCCI', 'NASTRATORI', 'VOMERE', 'CAM. OMRON', 'CAM. ANTARES', 'FORMATO',
-        'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA', 'SOSTITUZIONE', 'RIAVVIO', 'ALTRO'],
+      'Guasto Sterile': ['SENSORE', 'FORMATO', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'], // le voci vere stanno nel foglio Liste
+      'Guasto Secondario': ['GUIDE', 'INCASTRO', 'FORMATO', 'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA',
+        'SOSTITUZIONE', 'RIAVVIO', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'], // le voci vere stanno nel foglio Liste
       'Manutentori': [] // i nomi stanno solo nel foglio Liste (privato)
     }
   };
