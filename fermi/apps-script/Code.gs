@@ -16,16 +16,9 @@
 const SH_FERMI = 'Fermi', SH_EQ = 'Equipment', SH_LISTE = 'Liste', SH_KPI = 'KPI', SH_GUASTI = 'Guasti';
 
 // Tipi di guasto di partenza. Chiave = codice macchina (QR), nome linea, oppure TUTTE.
-// Quelli di ST3 vengono dallo storico del template "fermi meccanici"; le altre macchine si compilano nel foglio Guasti.
+// Solo voci generiche: quelle specifiche delle macchine si compilano nel foglio Guasti (privato), mai qui nel codice pubblico.
 const DEF_GUASTI = {
-  'TUTTE': ['FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'],
-  'ST3-02': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H10, Sostituzione e regolazione fotocellula della macchina',
-    'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi', 'H32 CTG, rimessa in dima pinze ctg',
-    'H19, Rimessa in fase della Stella', 'G25 Regolazione della coclea flaconi', 'SEA VISION'],
-  'ST3-03': ['PARAM VIDEOJET'],
-  'ST3-04': ['MAG. ISTRUZIONI', 'CHIUSURE AST', 'MAG. ASTUCCI', 'STAMPA DATI VARIABILI', 'CAM. OMRON', 'GUIDE', 'INCASTRO',
-    'POS. BOLLINO', 'POS. TAMPER', 'REGOLAZIONE DA PANNELLO'],
-  'ST3-06': ['NASTRATORI', 'GUIDE', 'INCASTRO']
+  'TUTTE': ['FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO']
 };
 const TZ = 'Europe/Rome';
 
@@ -44,14 +37,9 @@ const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT:
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
   'Tipo intervento': ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA'],
-  'Guasto Sterile': ['H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing', 'H32 CTG, rimessa in dima pinze ctg',
-    'H32 CPS, rimessa in dima pinze cps, Sostituzione silicone pinze ferma flaconi',
-    'H10, Sostituzione e regolazione fotocellula della macchina', 'H19, Rimessa in fase della Stella',
-    'G25 Regolazione della coclea flaconi', 'SEA VISION', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'FORMATO', 'ALTRO'],
-  'Guasto Secondario': ['PARAM VIDEOJET', '"0" MACCHINA', 'GUIDE', 'CHIUSURE AST', 'STAMPA DATI VARIABILI',
-    'SPIKE CORRENTE', 'POS. TAMPER', 'POS. BOLLINO', 'INCASTRO', 'ARIA COMPRESSA', 'MAG. ISTRUZIONI',
-    'MAG. ASTUCCI', 'NASTRATORI', 'VOMERE', 'CAM. OMRON', 'CAM. ANTARES', 'FORMATO',
-    'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA', 'SOSTITUZIONE', 'RIAVVIO', 'ALTRO'],
+  'Guasto Sterile': ['SENSORE', 'FORMATO', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'], // voci vere: foglio Liste
+  'Guasto Secondario': ['GUIDE', 'INCASTRO', 'FORMATO', 'REGOLAZIONE DA PANNELLO', 'USURA', 'SENSORE', 'PULIZIA',
+    'SOSTITUZIONE', 'RIAVVIO', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO'], // voci vere: foglio Liste
   'Manutentori': [] // compilare nel foglio Liste: COGNOME Nome
 };
 
@@ -1379,7 +1367,7 @@ function piuLunghi_(lista, breve, conData) {
     (f.guasto || 'guasto non indicato') + ' · ' + durTxt_(minDi_(f)) + (f.orari === 'DICHIARATI' ? ' [dich.]' : ''))) : [];
 }
 // Cognome da "COGNOME Nome": tutte le parole in maiuscolo all'inizio (DI MAIO, DE LUCA, LA ROSA…)
-// Le particelle (Di, De, La, Del, D'…) restano attaccate alla parola dopo anche se scritte in minuscolo: "Di Stefano Mario" → Di Stefano
+// Le particelle (Di, De, La, Del, D'…) restano attaccate alla parola dopo anche se scritte in minuscolo: "Di Bello Mario" → Di Bello
 const PARTICELLE_ = /^(DI|DE|DA|DEL|DELLA|DELLE|DEGLI|DEI|DELLO|DAL|DALLA|DALLE|LA|LE|LO|LI|D'|DELL'|VAN|VON|MC|MAC|SAN|SANTA)$/i;
 function cognome_(s) {
   const w = String(s || '').trim().split(/\s+/).filter(Boolean);
@@ -2414,7 +2402,7 @@ function aggiornaKpiRisorse() {
 
 /* =================== Convalide GMP (foglio Convalide) ===================
    Si incolla lo scadenziario così com'è (Codice processo · Oggetto · Scadenza · Item). Lo script riconosce:
-   la persona dal testo dell'Oggetto ("Convalida Sterile Matteo Orzi…" → ORZI Matteo, confrontando con Manutentori),
+   la persona dal testo dell'Oggetto ("Convalida Sterile Marco Gialli…" → GIALLI Marco, confrontando con Manutentori),
    la categoria dall'Item ("Categoria G - Intervento Meccanico di regolazione") e la data (Date, 2026/10/22 o 22/10/2026).
    Se la stessa persona ha più righe per la stessa categoria vale la scadenza più lontana. */
 const SH_CONV = 'Convalide', CONV_H = ['Codice processo (link)', 'Oggetto', 'Scadenza', 'Item'];

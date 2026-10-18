@@ -53,18 +53,18 @@ console.log('\nCoordinatori e manutentori');
   let err = ''; try { ctx.checkTecnico_('NERI Ugo'); } catch (e) { err = e.message; }
   ok(/non abilitato/.test(err), 'nome non in elenco Manutentori: rifiutato');
   sheets_coord: {
-    const { ctx: c2, sheets: sh2 } = nuovo(); sh2.Liste.rows = [['Manutentori', 'Coordinatori'], ['ROSSI Mario', 'PARISI Mirko']];
-    let e2 = ''; try { c2.checkTecnico_('PARISI Mirko'); } catch (e) { e2 = e.message; }
+    const { ctx: c2, sheets: sh2 } = nuovo(); sh2.Liste.rows = [['Manutentori', 'Coordinatori'], ['ROSSI Mario', 'NERI Paolo']];
+    let e2 = ''; try { c2.checkTecnico_('NERI Paolo'); } catch (e) { e2 = e.message; }
     ok(!e2, 'coordinatore non presente tra i Manutentori: può entrare');
-    ok(c2.tecniciTutti_(c2.SpreadsheetApp.getActiveSpreadsheet()).join() === 'ROSSI Mario,PARISI Mirko', 'i coordinatori contano anche come tecnici (compiti, vestizioni, convalide)');
+    ok(c2.tecniciTutti_(c2.SpreadsheetApp.getActiveSpreadsheet()).join() === 'ROSSI Mario,NERI Paolo', 'i coordinatori contano anche come tecnici (compiti, vestizioni, convalide)');
   }
 }
 console.log('\nNomi negli avvisi');
 {
   const { ctx } = nuovo(); const c = ctx.cognome_;
-  ok(c('DI STEFANO Marco') === 'DI STEFANO', 'DI STEFANO Marco → DI STEFANO');
-  ok(c('Di Stefano Marco') === 'Di Stefano', 'Di Stefano Marco → Di Stefano');
-  ok(c('DI Ruscio Paolo') === 'DI Ruscio', 'DI Ruscio Paolo → DI Ruscio');
+  ok(c('DI BELLO Marco') === 'DI BELLO', 'DI BELLO Marco → DI BELLO');
+  ok(c('Di Bello Marco') === 'Di Bello', 'Di Bello Marco → Di Bello');
+  ok(c('DI Monte Paolo') === 'DI Monte', 'DI Monte Paolo → DI Monte');
   ok(c('DE LUCA Anna') === 'DE LUCA' && c('ROSSI Mario') === 'ROSSI' && c('Rossi Mario') === 'Rossi', 'cognomi normali invariati');
   ok(c('DI') === 'DI' && c('') === '?', 'casi limite');
 }
@@ -87,35 +87,35 @@ console.log('\nMenu a tendina del foglio Fermi');
 console.log('\nConvalide GMP');
 {
   const { ctx, sheets } = nuovo();
-  sheets.Liste.rows = [['Manutentori', 'Coordinatori'], ['ORZI Matteo', 'VERDI Anna'], ['DI STEFANO Alessio', ''], ['GRECO Nicolò', ''], ['VERDI Anna', '']];
+  sheets.Liste.rows = [['Manutentori', 'Coordinatori'], ['GIALLI Marco', 'VERDI Anna'], ['DI BELLO Andrea', ''], ['CORSI Nicolò', ''], ['VERDI Anna', '']];
   sheets.Convalide = new Sheet('Convalide', [[], ['Codice processo (link)', 'Oggetto', 'Scadenza', 'Item'],
-    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico Servizi Tecnici', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
-    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico Servizi Tecnici', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente \t'],
-    ['SC 1', 'Convalida Sterile Matteo Orzi Meccanico', '2025/01/01', 'Categoria H - vecchia'],
-    ['SC 2', 'Convalida Sterile Alessio Di Stefano Meccanico Servizi Tecnici', new ctx.DD(2027, 2, 31), 'Categoria G - Intervento Meccanico di regolazione'],
-    ['SC 3', 'Convalida Sterile Nicolo Greco Meccanico', '22/10/2026', 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 1', 'Convalida Sterile Marco Gialli Meccanico Servizi Tecnici', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 1', 'Convalida Sterile Marco Gialli Meccanico Servizi Tecnici', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente \t'],
+    ['SC 1', 'Convalida Sterile Marco Gialli Meccanico', '2025/01/01', 'Categoria H - vecchia'],
+    ['SC 2', 'Convalida Sterile Andrea Di Bello Meccanico Servizi Tecnici', new ctx.DD(2027, 2, 31), 'Categoria G - Intervento Meccanico di regolazione'],
+    ['SC 3', 'Convalida Sterile Nicolo Corsi Meccanico', '22/10/2026', 'Categoria G - Intervento Meccanico di regolazione'],
     ['SC 4', 'Convalida Mario Sconosciuto Meccanico', '2027/01/01', 'Categoria G - x']]);
   const r = ctx.convalide_(ctx.SpreadsheetApp.getActiveSpreadsheet());
   const f = (m, c) => r.list.find(x => x.man === m && x.cat === c);
-  ok(f('ORZI Matteo', 'G') && new Date(f('ORZI Matteo', 'G').scad).getDate() === 22, 'nome invertito riconosciuto (Matteo Orzi → ORZI Matteo), data 2026/10/22');
-  ok(new Date(f('ORZI Matteo', 'H').scad).getMonth() === 10, 'più righe stessa categoria: vale la scadenza più lontana');
-  ok(f('ORZI Matteo', 'H').desc === 'Intervento Meccanico di sostituzione componente', 'descrizione dalla colonna Item');
-  ok(!!f('DI STEFANO Alessio', 'G'), 'cognome con particella e data come Date');
-  ok(!!f('GRECO Nicolò', 'G'), 'accenti: Nicolo = Nicolò, data 22/10/2026');
+  ok(f('GIALLI Marco', 'G') && new Date(f('GIALLI Marco', 'G').scad).getDate() === 22, 'nome invertito riconosciuto (Marco Gialli → GIALLI Marco), data 2026/10/22');
+  ok(new Date(f('GIALLI Marco', 'H').scad).getMonth() === 10, 'più righe stessa categoria: vale la scadenza più lontana');
+  ok(f('GIALLI Marco', 'H').desc === 'Intervento Meccanico di sostituzione componente', 'descrizione dalla colonna Item');
+  ok(!!f('DI BELLO Andrea', 'G'), 'cognome con particella e data come Date');
+  ok(!!f('CORSI Nicolò', 'G'), 'accenti: Nicolo = Nicolò, data 22/10/2026');
   ok(r.ignote.length === 1 && /Sconosciuto/.test(r.ignote[0]), 'nomi non trovati in Manutentori segnalati');
 }
 console.log('\nArea sterile: esonerati e convalide mancanti');
 {
   const { ctx, sheets } = nuovo();
-  sheets.Liste.rows = [['Manutentori'], ['ORZI Matteo'], ['CACIOPPO Riccardo'], ['RONCONI Luca']];
-  sheets.Vestizioni = new Sheet('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], ['ORZI Matteo', new ctx.DD(2026, 0, 10), 12], ['CACIOPPO Riccardo'], ['RONCONI Luca', '', '', '', '', '', 'NO']]);
-  sheets.Convalide = new Sheet('Convalide', [['x', 'Convalida Sterile Matteo Orzi', '2027/01/10', 'Categoria G - regolazione'], ['x', 'Convalida Sterile Matteo Orzi', '2027/01/10', 'Categoria H - sostituzione']]);
+  sheets.Liste.rows = [['Manutentori'], ['GIALLI Marco'], ['MORO Riccardo'], ['FERRI Luca']];
+  sheets.Vestizioni = new Sheet('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], ['GIALLI Marco', new ctx.DD(2026, 0, 10), 12], ['MORO Riccardo'], ['FERRI Luca', '', '', '', '', '', 'NO']]);
+  sheets.Convalide = new Sheet('Convalide', [['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria G - regolazione'], ['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria H - sostituzione']]);
   const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
-  ok(JSON.stringify(ctx.esonerati_(ss)) === '["RONCONI Luca"]', 'colonna Area sterile: NO = esonerato');
+  ok(JSON.stringify(ctx.esonerati_(ss)) === '["FERRI Luca"]', 'colonna Area sterile: NO = esonerato');
   ok(/sterile/i.test(sheets.Vestizioni.rows[0][6]), 'colonna Area sterile presente nel foglio Vestizioni');
   const m = ctx.convMancanti_(ss, ctx.convalideTutte_(ss).list);
-  ok(m.length === 1 && m[0].man === 'CACIOPPO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
-  ok(/mancanti: CACIOPPO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
+  ok(m.length === 1 && m[0].man === 'MORO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
+  ok(/mancanti: MORO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
 }
 console.log('\nFoglio Vestizioni: impostazioni e convalide');
 {
@@ -123,14 +123,14 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   const sheets = {}; let { ctx } = car(sheets);
   const D = (y, m, d) => new ctx.DD(y, m - 1, d), isD = x => Object.prototype.toString.call(x) === '[object Date]';
   Object.assign(sheets, {
-    Liste: new Sh('Liste', [['Manutentori'], ['ORZI Matteo'], ['CACIOPPO Riccardo'], ['RONCONI Fabio']]),
+    Liste: new Sh('Liste', [['Manutentori'], ['GIALLI Marco'], ['MORO Riccardo'], ['FERRI Fabio']]),
     Vestizioni: new Sh('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'],
-      ['ORZI Matteo', D(2025, 10, 28), 13], ['CACIOPPO Riccardo', D(2026, 5, 28), 13], ['RONCONI Fabio', D(2026, 1, 10), '']]),
-    Convalide: new Sh('Convalide', [['x', 'Convalida Sterile Matteo Orzi', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
-      ['x', 'Convalida Sterile Matteo Orzi', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente']]),
+      ['GIALLI Marco', D(2025, 10, 28), 13], ['MORO Riccardo', D(2026, 5, 28), 13], ['FERRI Fabio', D(2026, 1, 10), '']]),
+    Convalide: new Sh('Convalide', [['x', 'Convalida Sterile Marco Gialli', '2026/10/22', 'Categoria G - Intervento Meccanico di regolazione'],
+      ['x', 'Convalida Sterile Marco Gialli', '2026/11/04', 'Categoria H - Intervento Meccanico di sostituzione componente']]),
     Avvisi: new Sh('Avvisi', [['Avvisi', 'Valore', '', '', 'Report automatici', 'Valore'], ['', '', '', '', 'Preavviso scadenza vestizione sterile (giorni prima)', 45], ['', '', '', '', 'Preavviso scadenza convalide GMP (giorni prima)', 90]])
   });
-  sheets.Vestizioni.rows[3][6] = 'NO'; // RONCONI esonerato (colonna G già scritta a mano, senza intestazione)
+  sheets.Vestizioni.rows[3][6] = 'NO'; // FERRI esonerato (colonna G già scritta a mano, senza intestazione)
   sheets.Vestizioni.rows[0][6] = 'Area sterile (SI/NO)';
   const c = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet()), V = sheets.Vestizioni.rows;
   ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cUlt.G === 10 && c.cUlt.H === 11 && c.cSet === 13, 'colonne: G area sterile, H/I scadenze, J/K ultima convalida, M–N impostazioni');
@@ -139,20 +139,20 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   ok(isD(V[1][7]) && V[1][7].getDate() === 22 && V[2][7] === 'MANCA' && V[3][7] === 'esonerato', 'Cat. G: data / MANCA / esonerato');
   ok(/\$N\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($N$2)');
   ok((sheets.Vestizioni.cf || []).length === 5, 'colori: esonerati, vestizione scaduta/in preavviso, convalide scadute/in preavviso');
-  V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'RONCONI Fabio');
+  V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'FERRI Fabio');
   ok(r.mesi === 13, 'durata vuota: vale lo standard');
   // nuova categoria nello scadenziario: colonna nuova prima del riquadro Impostazioni
-  sheets.Convalide.rows.push(['x', 'Convalida Sterile Matteo Orzi', '2027/01/01', 'Categoria F - pulizia']);
+  sheets.Convalide.rows.push(['x', 'Convalida Sterile Marco Gialli', '2027/01/01', 'Categoria F - pulizia']);
   ({ ctx } = car(sheets)); const c2 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
   ok(c2.cCat.F === 12 && c2.cUlt.F === 13 && c2.cSet === 15 && V[0][14] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonne aggiunte, Impostazioni spostate a destra');
   // ultima convalida + durata standard
   ({ ctx } = car(sheets)); V[1][c2.cUlt.G - 1] = new ctx.DD(2026, 9, 1); V[2][c2.cUlt.H - 1] = new ctx.DD(2026, 5, 1);
   const c3 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
-  const g = c3.conv.find(x => x.man === 'ORZI Matteo' && x.cat === 'G'), h = c3.conv.find(x => x.man === 'CACIOPPO Riccardo' && x.cat === 'H');
+  const g = c3.conv.find(x => x.man === 'GIALLI Marco' && x.cat === 'G'), h = c3.conv.find(x => x.man === 'MORO Riccardo' && x.cat === 'H');
   ok(g && new Date(g.scad).getFullYear() === 2027 && new Date(g.scad).getMonth() === 9, 'ultima convalida 01/10/2026 + 12 mesi = 01/10/2027 (più lontana dello scadenziario)');
   ok(h && isD(V[2][c3.cCat.H - 1]), 'chi era MANCA con l\'ultima convalida scritta diventa valido');
-  const ug = V[2][c3.cUlt.G - 1]; // CACIOPPO non ha G nello scadenziario: resta vuota
-  const uo = V[1][c3.cUlt.H - 1]; // ORZI H nello scadenziario 04/11/2026 → ultima = 04/11/2025
+  const ug = V[2][c3.cUlt.G - 1]; // MORO non ha G nello scadenziario: resta vuota
+  const uo = V[1][c3.cUlt.H - 1]; // GIALLI H nello scadenziario 04/11/2026 → ultima = 04/11/2025
   ok(!ug && isD(uo) && uo.getFullYear() === 2025 && uo.getMonth() === 10 && uo.getDate() === 4, 'ultima convalida scritta dallo script = scadenza − 12 mesi (04/11/2025)');
   // foglio impostato con la versione precedente (3 impostazioni + nota): la riga nuova va nella prima riga libera
   const VS = sheets.Vestizioni.rows, cs = c3.cSet - 1; VS[4][cs] = ''; VS[4][cs + 1] = '';
