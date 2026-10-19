@@ -288,6 +288,7 @@ textarea.field{min-height:64px;resize:vertical}
 .annot canvas{display:block;width:100%;height:auto}
 .camtile{display:flex;align-items:center;gap:10px;border:1px dashed var(--steel);color:var(--steel);background:var(--surface);border-radius:10px;padding:14px;font-weight:600;width:100%}
 .camtile svg{width:22px;height:22px}
+.galbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:600}.galbtn svg{width:20px;height:20px;color:var(--steel)}
 .submit{width:100%;margin-top:20px;border:0;border-radius:12px;padding:18px;font:700 22px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--ok)}
 .submit.red{background:var(--crit)}.submit.blue{background:var(--steel);color:var(--steel-ink)}
 .scanner{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}
@@ -367,6 +368,7 @@ textarea.field{min-height:64px;resize:vertical}
 </div></div>
 <div id="scanwrap"></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+<input id="gal" type="file" accept="image/*" hidden>
 <input id="fileup" type="file" accept="image/*,application/pdf" hidden>
 
 <script src="config.js?v=20261017"></script>
@@ -417,6 +419,7 @@ const eqBy = code => S.equipment.find(e => U(e.code) === U(code));
 const nice = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 const I = {
   qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>',
+  gal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-8 8"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="4"/></svg>',
   back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
   search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
@@ -723,8 +726,8 @@ async function refresh() {
 }
 
 /* ================= Foto e allegati ================= */
-function capture(cb) {
-  const i = $('#cam'); i.value = '';
+function capture(cb, gal = false) {
+  const i = $(gal ? '#gal' : '#cam'); i.value = '';
   i.onchange = async () => { const f = i.files && i.files[0]; if (!f) return; try { cb(await loadImg(f)); } catch { toast('Foto non leggibile, riprova'); } };
   i.click();
 }
@@ -754,17 +757,21 @@ function toJpeg(img, circles = [], max = 1024, q = .7) {
 }
 // Foto con cerchi: disegna dentro el, aggiorna lo stato P {img, circles}
 function photoBox(el, P, label, onChange = () => {}) {
+  const set = im => { P.img = im; P.circles = []; draw(); onChange(true); };
   const draw = () => {
-    if (!P.img) { el.innerHTML = `<button class="camtile${P.big ? ' big' : ''}" type="button">${I.cam}${esc(label)}${P.big ? '<small>consigliata: tocca la foto per cerchiare il punto</small>' : ''}</button>`; el.querySelector('button').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); onChange(true); }); return; }
+    if (!P.img) { el.innerHTML = `<button class="camtile${P.big ? ' big' : ''}" type="button">${I.cam}${esc(label)}${P.big ? '<small>consigliata: tocca la foto per cerchiare il punto</small>' : ''}</button>`; el.querySelector('button').onclick = () => capture(set);
+      if (P.gal) { el.insertAdjacentHTML('beforeend', `<button class="galbtn" type="button">${I.gal}Scegli dalla galleria</button>`); el.querySelector('.galbtn').onclick = () => capture(set, true); }
+      return; }
     el.innerHTML = `<span class="label">${esc(label)}</span><div class="annot" style="margin-top:8px"><canvas></canvas></div>
-      <div class="hint">Tocca la foto per cerchiare il punto. Tocca un cerchio per toglierlo. <button class="linkbtn" type="button" style="padding:0 0 0 6px">Rifai foto</button></div>`;
+      <div class="hint">Tocca la foto per cerchiare il punto. Tocca un cerchio per toglierlo. <button class="linkbtn" type="button" style="padding:0 0 0 6px">Rifai foto</button>${P.gal ? '<button class="linkbtn lgal" type="button" style="padding:0 0 0 6px">Dalla galleria</button>' : ''}</div>`;
     const cv = el.querySelector('canvas'), s = Math.min(1, 900 / Math.max(P.img.naturalWidth, P.img.naturalHeight));
     cv.width = Math.round(P.img.naturalWidth * s); cv.height = Math.round(P.img.naturalHeight * s);
     const paint = () => { const x = cv.getContext('2d'); x.drawImage(P.img, 0, 0, cv.width, cv.height); drawCircles(x, P.circles, cv.width, cv.height); }; paint();
     cv.onpointerdown = e => { const r = cv.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height; const m = Math.min(cv.width, cv.height);
       const hit = P.circles.findIndex(c => Math.hypot((c.x - px) * cv.width, (c.y - py) * cv.height) < c.r * m);
       if (hit >= 0) P.circles.splice(hit, 1); else P.circles.push({ x: px, y: py, r: .11 }); paint(); onChange(false); };
-    el.querySelector('.linkbtn').onclick = () => capture(im => { P.img = im; P.circles = []; draw(); onChange(true); });
+    el.querySelector('.linkbtn').onclick = () => capture(set);
+    if (P.gal) el.querySelector('.lgal').onclick = () => capture(set, true);
   };
   draw();
 }
@@ -1310,7 +1317,7 @@ function renderAnoForm() {
   $('#ad').oninput = $('#as').oninput = () => { keep(); salvaBozzaAno(false); }; // salva mentre si scrive
   $('#chg').onclick = () => { keep(); openScannerOrPick(e => { go({ name: 'anoform', code: e.code }); salvaBozzaAno(false); }); };
   $('#urg').onclick = e => { const b = e.target.closest('[data-u]'); if (!b) return; A.urg = +b.dataset.u; $$('#urg [data-u]').forEach(x => x.setAttribute('aria-pressed', x === b)); salvaBozzaAno(false); };
-  photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare', nuova => { keep(); salvaBozzaAno(nuova); });
+  A.gal = true; photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare', nuova => { keep(); salvaBozzaAno(nuova); });
   $('#go').onclick = () => needMan(() => {
     keep();
     const msg = !eq ? 'Scegli la macchina.' : !A.urg ? 'Scegli l\'urgenza (1, 2 o 3).' : !A.descr.trim() ? 'Scrivi cosa hai visto.' : '';
@@ -1966,7 +1973,7 @@ function closeSheet(f, opt = {}) {
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
     ${REG ? '' : N > 1 ? '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Intervento ' + N + ' aperto per sbaglio (la macchina era già ripartita)? Gli interventi già registrati restano.</div><button class="linkbtn danger" id="canc">Annulla l\'intervento ' + N + '</button></div>'
       : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
-  C.big = true; photoBox($('#phgrp'), C, 'Foto della zona di intervento');
+  C.big = true; C.gal = true; photoBox($('#phgrp'), C, 'Foto della zona di intervento');
   C.fineOra = false; const cw = $('#cwhen'); if (cw) singleChoice(cw, v => { C.fineOra = v === 'ora'; $('#cfwrap').hidden = !C.fineOra; if (C.fineOra) $('#cfin').focus(); });
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pprob').value) $('#pprob').value = C.guasto && U(C.guasto) !== 'ALTRO' ? C.guasto.split(',')[0] + ': ' : ''; };
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
