@@ -25,6 +25,7 @@ class Sheet {
       if (k === 'getFormula') return () => (sh.f || {})[r + ',' + c] || '';
       if (k === 'setFormula') return f => { (sh.f = sh.f || {})[r + ',' + c] = f; return R; };
       if (k === 'setDataValidation') return v => { (sh.dv = sh.dv || []).push({ r, c, nr, nc, v }); return R; };
+      if (k === 'setDataValidations') return v => { v.forEach((row, i) => (sh.dvr = sh.dvr || {})[(r + i) + ',' + c] = row[0]); return R; };
       return () => R;
     } });
     return R;
@@ -32,6 +33,7 @@ class Sheet {
 }
 Sheet.prototype.insertRowsAfter = function () { return this; };
 Sheet.prototype.setRowHeight = function () { return this; };
+Sheet.prototype.deleteRow = function (r) { this.rows.splice(r - 1, 1); return this; };
 Sheet.prototype.getCharts = function () { return this.charts || []; };
 Sheet.prototype.removeChart = function (c) { this.charts = (this.charts || []).filter(x => x !== c); };
 Sheet.prototype.insertChart = function (c) { (this.charts = this.charts || []).push(c); };
