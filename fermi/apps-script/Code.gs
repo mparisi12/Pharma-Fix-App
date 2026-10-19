@@ -1716,7 +1716,7 @@ function init_() {
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, corr: (c => c && String(c.da).toUpperCase() !== String(r[C.MAN - 1]).trim().toUpperCase() ? c : null)(corr[String(r[C.ID - 1])]), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
   }
-  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), intDesc: intDesc, vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), vociDesc: (() => { try { return vociDesc_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
+  return Object.assign({ ok: true, equipment: equipment, liste: liste, guasti: guasti_(ss), intDesc: intDesc, vociCat: (() => { try { return vociCat_(ss); } catch (e) { Logger.log(e); return {}; } })(), vociDesc: (() => { try { return vociDesc_(ss); } catch (e) { Logger.log(e); return {}; } })(), fermi: fermi, compiti: compiti_(ss), vestizioni: (() => { try { return vestizioni_(ss); } catch (e) { Logger.log(e); return []; } })(), sterileNo: (() => { try { return esonerati_(ss); } catch (e) { Logger.log(e); return []; } })(), convalide: (() => { try { return convalide_(ss); } catch (e) { Logger.log(e); return { list: [], ignote: [] }; } })(), turni: (() => { try { return turni_(ss); } catch (e) { Logger.log(e); return {}; } })(), programma: (() => { try { return programma_(ss); } catch (e) { Logger.log(e); return {}; } })(), continuo: (() => { try { return repCfg_().continuo; } catch (e) { return []; } })(), avviso: (() => { try { const c = vestSetup_(ss); return c ? { vest: c.avvV, conv: c.avvC, tolV: c.tolV, tolC: c.tolC } : null; } catch (e) { Logger.log(e); return null; } })(), serverTime: Date.now() }, archivio_(ss));
 }
 
 // Equipment e Liste si leggono una volta sola per richiesta (ogni richiesta allo script riparte da zero)
@@ -2108,8 +2108,9 @@ const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (m
      preavviso vestizione e preavviso convalide GMP (giorni prima della scadenza). */
 const VEST_STER = 'Area sterile (SI/NO)', CONV_NOME_ = { G: 'regolazione', H: 'sostituzione' };
 const VEST_SET = [['Durata standard vestizione (mesi)', 12], ['Preavviso vestizione (giorni prima)', 60], ['Preavviso convalide GMP (giorni prima)', 60],
-  ['Durata standard convalide interventi (mesi)', 12]];
-const VEST_SET_RE = [/^durata standard vestizione/i, /^preavviso vestizione/i, /^preavviso convalide/i, /^durata standard convalide/i];
+  ['Durata standard convalide interventi (mesi)', 12], ['Tolleranza vestizione (giorni dopo la scadenza)', 30], ['Tolleranza convalide GMP (giorni dopo la scadenza)', 30]];
+const VEST_SET_RE = [/^durata standard vestizione/i, /^preavviso vestizione/i, /^preavviso convalide/i, /^durata standard convalide/i, /^tolleranza vestizione/i, /^tolleranza convalide/i];
+const VEST_NOTA = 'Viola = scritte dallo script dal foglio Convalide (non modificare). Giallo = in preavviso, arancio = scaduta ma in tolleranza (ancora valida), rosso = oltre la tolleranza o MANCA. Area sterile NO = esonerato: niente avvisi.';
 let VEST_MEMO = null;
 function vestSetup_(ss) {
   if (VEST_MEMO) return VEST_MEMO;
@@ -2166,7 +2167,7 @@ function vestSetup_(ss) {
       sh.getRange(2, cSet, VEST_SET.length, 2).setValues(VEST_SET.map((r, i) => [r[0], val[i]]));
       sh.getRange(2, cSet, VEST_SET.length, 1).setBackground('#dfe7ec').setFontWeight('bold');
       sh.getRange(2, cSet + 1, VEST_SET.length, 1).setBackground('#fff3d6').setFontWeight('bold');
-      sh.getRange(VEST_SET.length + 3, cSet).setValue('Viola = scritte dallo script dal foglio Convalide (non modificare). Giallo = in preavviso, rosso = scaduta o MANCA. Area sterile NO = esonerato: niente avvisi.').setWrap(true).setFontStyle('italic');
+      sh.getRange(VEST_SET.length + 3, cSet).setValue(VEST_NOTA).setWrap(true).setFontStyle('italic');
       sh.setColumnWidth(cSet, 300);
       leggi();
     }
@@ -2174,13 +2175,22 @@ function vestSetup_(ss) {
     const blocco = sh.getRange(2, cSet, 12, 2).getValues(), riga = [];
     VEST_SET_RE.forEach((re, i) => {
       let r = blocco.findIndex(x => re.test(String(x[0]).trim()));
-      if (r < 0) { r = blocco.findIndex(x => !String(x[0]).trim()); if (r < 0) r = blocco.length - 1;
+      if (r < 0) { r = blocco.findIndex(x => !String(x[0]).trim() || /^viola\b/i.test(String(x[0]).trim())); if (r < 0) r = blocco.length - 1; // la nota dei colori si riscrive sotto
+        if (/^viola\b/i.test(String(blocco[r][0]).trim())) sh.getRange(2 + r, cSet).setFontStyle('normal');
         sh.getRange(2 + r, cSet, 1, 2).setValues([[VEST_SET[i][0], VEST_SET[i][1]]]); blocco[r] = [VEST_SET[i][0], VEST_SET[i][1]];
         sh.getRange(2 + r, cSet).setBackground('#dfe7ec').setFontWeight('bold'); sh.getRange(2 + r, cSet + 1).setBackground('#fff3d6').setFontWeight('bold'); }
       riga[i] = 2 + r;
     });
-    const sv = riga.map(r => Number(blocco[r - 2][1]));
-    const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO, durC: sv[3] > 0 ? sv[3] : 12 };
+    // Nota dei colori: sempre due righe sotto l'ultima impostazione, con il testo aggiornato
+    const rNota = blocco.findIndex(x => /^viola\b/i.test(String(x[0]).trim())), rGiusta = Math.max(...riga) + 2;
+    if (rNota < 0 || 2 + rNota !== rGiusta || String(blocco[rNota][0]).trim() !== VEST_NOTA) {
+      if (rNota >= 0 && 2 + rNota !== rGiusta) sh.getRange(2 + rNota, cSet).clearContent().setFontStyle('normal');
+      const qui = rGiusta - 2 < blocco.length ? String(blocco[rGiusta - 2][0]).trim() : '';
+      if (!qui || 2 + rNota === rGiusta) sh.getRange(rGiusta, cSet).setValue(VEST_NOTA).setWrap(true).setFontStyle('italic');
+    }
+    const sv = riga.map(r => Number(blocco[r - 2][1])), tol = x => String(x).trim() === '' || !(Number(x) >= 0) ? 0 : Math.round(Number(x));
+    const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO, durC: sv[3] > 0 ? sv[3] : 12,
+      tolV: tol(blocco[riga[4] - 2][1]), tolC: tol(blocco[riga[5] - 2][1]) };
     const L = c => sh.getRange(1, c).getA1Notation().replace(/\d+$/, ''), abs = r => '$' + L(cSet + 1) + '$' + r;
     // Scadenza (colonna D) con la durata standard
     const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(riga[0]) + ',C2:C),DAY(B2:B))))';
@@ -2221,20 +2231,22 @@ function vestSetup_(ss) {
       });
     }
     // Colori: giallo in preavviso, rosso scaduta / MANCA, grigio esonerati (rifatti solo quando cambiano le colonne)
-    const firma = 'cf2|' + cSter + '|' + cSet + '|' + riga.join('.') + '|' + cats.map(k => k + cCat[k]).join(',');
+    const firma = 'cf3|' + cSter + '|' + cSet + '|' + riga.join('.') + '|' + cats.map(k => k + cCat[k]).join(',');
     const props = PropertiesService.getScriptProperties();
     if (props.getProperty('VEST_CF') !== firma) {
       const R = (f, bg, fg, rngs) => { let b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(F_(f)).setRanges(rngs); if (bg) b = b.setBackground(bg); if (fg) b = b.setFontColor(fg); return b.build(); };
       const last = Math.max(cSter, ...cats.map(k => cCat[k])), righe = Math.max(sh.getMaxRows() - 1, 1), S = L(cSter);
       const rD = [sh.getRange(2, 4, righe, 1)], rC = cats.map(k => sh.getRange(2, cCat[k], righe, 1)), c1 = cats.length ? L(cCat[cats[0]]) : 'A';
       const regole = [R('=TRIM($' + S + '2)="NO"', '#f1f3f4', '#9aa0a6', [sh.getRange(2, 1, righe, last)]),
-        R('=AND($D2<>"",$D2<TODAY())', '#f6c7bf', '#a3271a', rD), R('=AND($D2<>"",$D2-TODAY()<=' + abs(riga[1]) + ')', '#fde9a9', '#6b4600', rD)];
-      if (rC.length) regole.push(R('=OR(' + c1 + '2="MANCA",AND(ISNUMBER(' + c1 + '2),' + c1 + '2<TODAY()))', '#f6c7bf', '#a3271a', rC),
+        R('=AND($D2<>"",$D2+N(' + abs(riga[4]) + ')<TODAY())', '#f6c7bf', '#a3271a', rD), R('=AND($D2<>"",$D2<TODAY())', '#fcd5b0', '#8a3f00', rD),
+        R('=AND($D2<>"",$D2-TODAY()<=' + abs(riga[1]) + ')', '#fde9a9', '#6b4600', rD)];
+      if (rC.length) regole.push(R('=OR(' + c1 + '2="MANCA",AND(ISNUMBER(' + c1 + '2),' + c1 + '2+N(' + abs(riga[5]) + ')<TODAY()))', '#f6c7bf', '#a3271a', rC),
+        R('=AND(ISNUMBER(' + c1 + '2),' + c1 + '2<TODAY())', '#fcd5b0', '#8a3f00', rC),
         R('=AND(ISNUMBER(' + c1 + '2),' + c1 + '2-TODAY()<=' + abs(riga[2]) + ')', '#fde9a9', '#6b4600', rC));
       sh.setConditionalFormatRules(regole);
       props.setProperty('VEST_CF', firma);
     }
-    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cUlt: cUlt, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC, durC: set.durC,
+    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cUlt: cUlt, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC, durC: set.durC, tolV: set.tolV, tolC: set.tolC,
       conv: conv2.sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)) };
   } finally { if (preso) try { lock.releaseLock(); } catch (e) {} }
 }
@@ -2277,14 +2289,17 @@ function rigaVestizioni_() {
   let v; try { const ss = SpreadsheetApp.getActiveSpreadsheet(), no = esonerati_(ss).map(x => x.toUpperCase()); v = vestizioni_(ss).filter(x => no.indexOf(x.man.toUpperCase()) < 0); } catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + gm_(new Date(x.scad));
-  const avv = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()).avvV; } catch (e) { return VEST_AVVISO; } })();
-  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
-  if (!inScad.length && !scadute.length) return '';
-  return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
+  const cfg = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()) || {}; } catch (e) { return {}; } })(), avv = cfg.avvV || VEST_AVVISO, tl = cfg.tolV || 0;
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), inTol = v.filter(x => gg(x) < 0 && -gg(x) <= tl).sort((a, b) => a.scad - b.scad),
+    scadute = v.filter(x => -gg(x) > tl).sort((a, b) => a.scad - b.scad);
+  if (!inScad.length && !inTol.length && !scadute.length) return '';
+  return '🧤 VESTIZIONI' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (inTol.length ? ' · in tolleranza fino al: ' + inTol.map(x => cognome_(x.man) + ' ' + gm_(piuGiorni_(x.scad, tl))).join(', ') : '') +
+    (scadute.length ? ' · scadute: ' + scadute.map(corto).join(', ') : '');
 }
 
+function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '18/10/2026 23:00';
+const VERSIONE_SCRIPT = '19/10/2026 12:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2526,10 +2541,12 @@ function rigaConvalide_() {
   catch (e) { Logger.log(e); return ''; }
   const oggi = dateOnly_(new Date()).getTime(), gg = x => Math.round((x.scad - oggi) / 864e5);
   const corto = x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(new Date(x.scad));
-  const avv = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()).avvC; } catch (e) { return VEST_AVVISO; } })();
-  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), scadute = v.filter(x => gg(x) < 0).sort((a, b) => a.scad - b.scad);
-  if (!inScad.length && !scadute.length && !manca.length) return '';
-  return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '') +
+  const cfg = (() => { try { return vestSetup_(SpreadsheetApp.getActiveSpreadsheet()) || {}; } catch (e) { return {}; } })(), avv = cfg.avvC || VEST_AVVISO, tl = cfg.tolC || 0;
+  const inScad = v.filter(x => gg(x) >= 0 && gg(x) <= avv).sort((a, b) => a.scad - b.scad), inTol = v.filter(x => gg(x) < 0 && -gg(x) <= tl).sort((a, b) => a.scad - b.scad),
+    scadute = v.filter(x => -gg(x) > tl).sort((a, b) => a.scad - b.scad);
+  if (!inScad.length && !inTol.length && !scadute.length && !manca.length) return '';
+  return '🧾 CONVALIDE GMP' + (inScad.length ? ' · in scadenza: ' + inScad.map(corto).join(', ') : '') +
+    (inTol.length ? ' · in tolleranza fino al: ' + inTol.map(x => cognome_(x.man) + ' ' + x.cat + ' ' + gm_(piuGiorni_(x.scad, tl))).join(', ') : '') + (scadute.length ? ' · scadute: ' + scadute.map(x => cognome_(x.man) + ' ' + x.cat).join(', ') : '') +
     (manca.length ? ' · mancanti: ' + manca.map(x => cognome_(x.man) + ' ' + x.cats.join(' ')).join(', ') : '');
 }
 
