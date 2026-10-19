@@ -235,6 +235,8 @@ function onOpen() {
     .addItem('Formati: collega il file Base Gestione Formati', 'collegaFormati')
     .addItem('Versione dello script', 'infoVersione')
     .addToUi();
+  // Foglio Vestizioni: impostazioni nuove (es. tolleranza) e colori subito all'apertura, senza aspettare l'app
+  try { vestSetup_(SpreadsheetApp.getActiveSpreadsheet()); } catch (e) { Logger.log(e); }
 }
 
 function onEdit(e) {
@@ -1645,7 +1647,7 @@ function dataVer_() {
   const props = PropertiesService.getScriptProperties();
   let v = props.getProperty('DATA_VER');
   if (!v) { v = String(Date.now()); props.setProperty('DATA_VER', v); }
-  return v + '-' + Math.floor(Date.now() / (VER_MIN * 60000));
+  return v + '-' + Math.floor(Date.now() / (VER_MIN * 60000)) + '-' + VERSIONE_SCRIPT.replace(/\D/g, ''); // script nuovo = dati ricalcolati subito
 }
 function bumpVer_() { try { const p = PropertiesService.getScriptProperties(); p.setProperty('DATA_VER', String(Math.max(Date.now(), Number(p.getProperty('DATA_VER')) + 1 || 0))); } catch (e) { Logger.log(e); } }
 function initCache_(vApp) {
@@ -2299,7 +2301,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/10/2026 12:00';
+const VERSIONE_SCRIPT = '19/10/2026 12:15';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
