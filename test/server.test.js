@@ -438,7 +438,7 @@ console.log('\nVoci guasto: tendina per macchina nel foglio Fermi e unione dei d
   const { ctx, sheets } = nuovo(); const C = ctx.C, ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['ST3', '', 'GUIDE'], ['ST3-04', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'Magazzino astucci', 'CAM. OMRON'], ['ST3-02', '', 'H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing']]);
   const riga = (eq, lin, mac, g) => { const r = new Array(30).fill(''); r[C.EQ - 1] = eq; r[C.LINEA - 1] = lin; r[C.MACC - 1] = mac; r[C.GUASTO - 1] = g; return r; };
-  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'Magazzino astucci'), riga('', 'ST3', 'RIEMPITRICE', 'H7 GUANTONE, Sblocco Homing'), riga('', 'ST7', 'BOH', 'X'), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'CAM. OMRON')]);
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'Magazzino astucci'), riga('', 'ST3', 'RIEMPITRICE', 'H7 GUANTONE, Sblocco Homing'), riga('', 'ST7', 'BOH', 'X'), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'CAM. OMRON'), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'mag. astucci ')]);
   sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H, ['s1', '', 'ST3-04', 'ST3', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'p', 's']]);
   sheets['Elenchi_Fermi'] = new Sheet('Elenchi_Fermi', [['M', 'T'], ['', 'SENSORE']]);
   ctx.fermiGuastoDV_(ss, sheets.Fermi, 2, 4);
@@ -453,11 +453,12 @@ console.log('\nVoci guasto: tendina per macchina nel foglio Fermi e unione dei d
   ok(sheets.Fermi.dvr && (sheets.Fermi.dvr['4,' + C.GUASTO].requireValueInList || [[]])[0].indexOf('H7, Sblocco Homing') === 0, 'modifica a mano del codice macchina: la tendina Tipo guasto si aggiorna');
   // Unione: Magazzino astucci → MAG. ASTUCCI, H7 GUANTONE → H7, catena CAM. OMRON → CAMERA → CAMERA OMRON (rinomina)
   sheets['Voci guasto'] = new Sheet('Voci guasto', [['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene', 'Quando si usa', 'Unisci in (voce che resta)'],
-    ['MAG. ASTUCCI', 'MECCANICO'], ['Magazzino astucci', 'MECCANICO', '', '', 'MAG. ASTUCCI'], ['H7, Sblocco Homing', 'AUTOMATION'], ['H7 GUANTONE, Sblocco Homing', 'AUTOMATION', '', '', 'H7, Sblocco Homing'], ['CAM. OMRON', 'AUTOMATION', '', '', 'CAMERA OMRON']]);
+    ['MAG. ASTUCCI', 'MECCANICO'], ['Magazzino astucci', 'MECCANICO', '', '', 'MAG. ASTUCCI'], ['H7, Sblocco Homing', 'AUTOMATION'], ['H7 GUANTONE, Sblocco Homing', 'AUTOMATION', '', '', 'H7, Sblocco Homing'], ['CAM. OMRON', 'AUTOMATION', '', '', 'CAMERA OMRON'], ['H7, Sblocco Homing', 'AUTOMATION']]);
   const log = ctx.unioniApplica_(ss), G = sheets.Guasti.rows, F = sheets.Fermi.rows, VG = sheets['Voci guasto'].rows;
   ok(G[3].slice(2).filter(Boolean).join('|') === 'MAG. ASTUCCI|CAMERA OMRON' && G[4].slice(2).filter(Boolean).join('|') === 'H7, Sblocco Homing', 'Guasti: voci unite senza doppioni nella riga, rinomina applicata');
   ok(F[1][C.GUASTO - 1] === 'MAG. ASTUCCI' && F[2][C.GUASTO - 1] === 'H7, Sblocco Homing' && F[4][C.GUASTO - 1] === 'CAMERA OMRON' && F[3][C.GUASTO - 1] === 'X', 'storico Fermi aggiornato (le altre voci restano)');
   ok(VG.length === 4 && VG.map(r => r[0]).join('|') === 'Voce (come nel foglio Guasti)|MAG. ASTUCCI|H7, Sblocco Homing|CAMERA OMRON' && !VG[3][4], 'Voci guasto: righe doppie tolte, rinomina con categoria tenuta');
+  ok(F[5][C.GUASTO - 1] === 'MAG. ASTUCCI', 'storico: stessa voce scritta in minuscolo/con spazi → come nel foglio Voci guasto');
   ok(sheets.Soluzioni.rows[1][5] === 'MAG. ASTUCCI' || sheets.Soluzioni.rows[1][5] === 'MAG. ASTUCCI', 'Soluzioni: tipo guasto unito');
   ok(log.length === 3 && sheets['Unioni voci'].rows.length === 4 && sheets['Unioni voci'].rows.some(r => r[1] === 'MAGAZZINO ASTUCCI' && r[3] === 1), 'registro nel foglio "Unioni voci" con le righe cambiate');
   ok(ctx.unioniApplica_(ss) === null, 'rilanciato: niente da fare');

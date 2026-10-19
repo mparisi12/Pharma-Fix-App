@@ -815,7 +815,10 @@ function unioniLeggi_(ss) {
 function unioniApplica_(ss) {
   const u = unioniLeggi_(ss), map = u.map, U = x => String(x || '').trim().toUpperCase(), conta = {};
   if (!Object.keys(map).length) return null;
-  const nuova = x => map[U(x)];
+  // stesso nome scritto in modo diverso (maiuscole/spazi): diventa come nel foglio Voci guasto
+  const giusta = {}; u.voci.forEach((k, i) => { if (k && !map[k] && !giusta[k]) giusta[k] = String(u.vs.getRange(i + 2, 1).getValue()).trim(); });
+  Object.keys(map).forEach(k => { const t = U(map[k]); if (!giusta[t]) giusta[t] = String(map[k]).trim(); });
+  const nuova = x => { const t = String(x).trim(), m = map[U(t)] || giusta[U(t)]; return m && m !== t ? m : null; };
   // Guasti: ogni riga, voci rinominate e senza doppioni
   const g = ss.getSheetByName(SH_GUASTI);
   if (g && g.getLastRow() > 1 && g.getLastColumn() > 2) {
@@ -829,14 +832,15 @@ function unioniApplica_(ss) {
   [[SH_FERMI, C.GUASTO], [SH_SOL, 6]].forEach(([nome, col]) => {
     const sh = ss.getSheetByName(nome); if (!sh || sh.getLastRow() < 2) return;
     const rg = sh.getRange(2, col, sh.getLastRow() - 1, 1), v = rg.getValues(); let n = 0;
-    const out = v.map(r => { const t = String(r[0]).trim(), m = t && nuova(t); if (m) { n++; conta[U(t)] = conta[U(t)] || {}; conta[U(t)][nome] = (conta[U(t)][nome] || 0) + 1; return [m]; } return [r[0]]; });
+    const out = v.map(r => { const t = String(r[0]).trim(), m = t && nuova(t); if (m) { n++; if (map[U(t)]) { conta[U(t)] = conta[U(t)] || {}; conta[U(t)][nome] = (conta[U(t)][nome] || 0) + 1; } return [m]; } return [r[0]]; });
     if (n) rg.setValues(out);
   });
   // Voci guasto: la riga vecchia sparisce se la voce che resta c'è già, altrimenti diventa quella nuova (rinomina)
-  const del = [];
+  const del = [], prime = {};
+  u.voci.forEach((k, i) => { if (!k || map[k]) return; if (prime[k]) del.push(i + 2); else prime[k] = 1; }); // righe doppie (stessa voce due volte)
   u.righe.forEach(rr => { const da = u.voci[rr - 2], a = map[da];
     if (u.voci.indexOf(U(a)) >= 0 && !map[U(a)]) del.push(rr); else { u.vs.getRange(rr, 1).setValue(a); u.vs.getRange(rr, 5).clearContent(); u.voci[rr - 2] = U(a); } });
-  del.sort((a, b) => b - a).forEach(rr => u.vs.deleteRow(rr));
+  [...new Set(del)].sort((a, b) => b - a).forEach(rr => u.vs.deleteRow(rr));
   // Registro
   let lg = ss.getSheetByName(SH_UNIONI);
   if (!lg) { lg = ss.insertSheet(SH_UNIONI); lg.getRange(1, 1, 1, 5).setValues([['Data', 'Voce vecchia', 'Voce che resta', 'Righe Fermi cambiate', 'Righe Soluzioni cambiate']]).setFontWeight('bold').setBackground('#dfe7ec'); lg.setFrozenRows(1); }
@@ -2401,7 +2405,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/10/2026 13:00';
+const VERSIONE_SCRIPT = '19/10/2026 13:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
