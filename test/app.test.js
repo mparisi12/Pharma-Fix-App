@@ -92,6 +92,15 @@ let ver = 1, full = 0, same = 0; const posts = [];
   await p.click('#vrep'); await attesa(200); await p.click('#sfil [data-v="scad"]'); await attesa(200);
   ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'BIANCHI Luca,ROSSI Mario', 'filtro Scadute: scaduti + chi non ha la convalida (BIANCHI senza Cat. G); esonerati fuori');
   ok(/MANCA/.test(await p.innerText('#sheet .sgrid')), 'convalida mancante segnata MANCA');
+  // tolleranza 30 giorni: la Cat. G di ROSSI scaduta da 3 giorni è arancio, ancora valida
+  await p.evaluate(() => { S.avviso = Object.assign({}, S.avviso, { tolV: 30, tolC: 30 }); shScadRep('tutti'); }); await attesa(200);
+  ok(await p.$$eval('#sheet .sgrid .tag.o', x => x.length) === 1 && /In tolleranza · 1/.test(await p.innerText('#sfil')) && /arancio/.test(await p.innerText('#sheet')), 'tolleranza: cella arancio con l\'ultimo giorno valido, filtro "In tolleranza"');
+  if (process.env.SHOT_TOL) await p.screenshot({ path: process.env.SHOT_TOL });
+  ok(!/SCAD\./.test(await p.innerText('#sheet .sgrid')), 'in tolleranza non è segnata SCAD.');
+  const tb = await p.evaluate(() => boxConv('ROSSI Mario'));
+  ok(/vbox tol/.test(tb) && /valida ancora fino al/.test(tb) && /ancora 27 giorni/.test(tb), 'tecnico: box arancio "scaduta · in tolleranza", valida fino al… (27 giorni rimasti)');
+  if (process.env.SHOT_TOL) { await p.evaluate(() => { closeSh(); shAbil('ROSSI Mario', () => {}); }); await attesa(200); await p.screenshot({ path: process.env.SHOT_TOL.replace('.png', '2.png') }); }
+  await p.evaluate(() => { S.avviso = Object.assign({}, S.avviso, { tolV: 0, tolC: 0 }); closeSh(); });
 
   console.log('\nAccesso che resta (iPhone)');
   await esci(); await entra('Mario', 'Rossi');

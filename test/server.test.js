@@ -138,7 +138,8 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   ok(!sheets.Avvisi.rows.some(r => /Preavviso/.test(r[4] || '')), 'righe di preavviso tolte dal foglio Avvisi');
   ok(isD(V[1][7]) && V[1][7].getDate() === 22 && V[2][7] === 'MANCA' && V[3][7] === 'esonerato', 'Cat. G: data / MANCA / esonerato');
   ok(/\$N\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($N$2)');
-  ok((sheets.Vestizioni.cf || []).length === 5, 'colori: esonerati, vestizione scaduta/in preavviso, convalide scadute/in preavviso');
+  ok((sheets.Vestizioni.cf || []).length === 7, 'colori: esonerati, vestizione e convalide oltre tolleranza / in tolleranza / in preavviso');
+  ok(c.tolV === 30 && c.tolC === 30, 'impostazioni: tolleranza 30 giorni (vestizione e convalide)');
   V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'FERRI Fabio');
   ok(r.mesi === 13, 'durata vuota: vale lo standard');
   // nuova categoria nello scadenziario: colonna nuova prima del riquadro Impostazioni
@@ -157,7 +158,18 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   // foglio impostato con la versione precedente (3 impostazioni + nota): la riga nuova va nella prima riga libera
   const VS = sheets.Vestizioni.rows, cs = c3.cSet - 1; VS[4][cs] = ''; VS[4][cs + 1] = '';
   ({ ctx } = car(sheets)); const c4 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
-  ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /Viola/.test(VS[6][cs]), 'foglio già impostato: "Durata standard convalide" aggiunta senza toccare la nota');
+  const imp = VS.slice(1, 12).map(x => String(x[cs] || ''));
+  ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /^tolleranza vestizione/i.test(imp[4]) && /^tolleranza convalide/i.test(imp[5]) && !imp[6] && /arancio/.test(imp[7]) && imp.filter(x => /^Viola/.test(x)).length === 1,
+    'foglio già impostato: impostazioni nuove in fila, nota dei colori spostata sotto e aggiornata');
+  // tolleranza scritta a mano: 0 = nessuna, testo strano = 0
+  VS[1 + 5][cs + 1] = 0; VS[1 + 4][cs + 1] = 45; ({ ctx } = car(sheets)); const c5 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  ok(c5.tolV === 45 && c5.tolC === 0, 'tolleranza letta dal riquadro (0 = nessuna tolleranza)');
+  // riepilogo: scaduta da 10 giorni con tolleranza 45 = in tolleranza; da 60 = scaduta (date create nel contesto nuovo)
+  ({ ctx } = car(sheets)); const oggi = new ctx.DD(); oggi.setHours(0, 0, 0, 0);
+  V[1][1] = new ctx.DD(oggi.getFullYear() - 1, oggi.getMonth(), oggi.getDate() - 10); V[1][2] = 12;
+  V[2][1] = new ctx.DD(oggi.getFullYear() - 1, oggi.getMonth(), oggi.getDate() - 60); V[2][2] = 12;
+  const rv = ctx.rigaVestizioni_();
+  ok(/in tolleranza fino al: GIALLI/.test(rv) && /scadute: MORO/.test(rv) && !/scadute: GIALLI/.test(rv), 'riepilogo vestizioni: GIALLI in tolleranza, MORO scaduto: ' + rv);
 }
 console.log('\nPassaggio turno e riepilogo: fermi per reparto');
 {
