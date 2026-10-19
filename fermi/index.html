@@ -16,7 +16,7 @@
 <style>
 :root{
   --bg:#e9edf0; --surface:#ffffff; --surface2:#f3f6f8; --ink:#152028; --muted:#4d5b66; --line:#c9d2d9;
-  --steel:#245a7a; --steel-ink:#ffffff; --steel-soft:#e3edf3; --amber:#c98600; --amber-ink:#6b4600; --amber-soft:#fff3d6;
+  --steel:#245a7a; --steel-ink:#ffffff; --steel-soft:#e3edf3; --amber:#c98600; --amber-ink:#6b4600; --amber-soft:#fff3d6; --tol:#d9650b; --tol-ink:#8a3f00; --tol-soft:#fde3c8;
   --ok:#2b8456; --ok-soft:#dff1e7; --crit:#c23b2a; --crit-soft:#fbe4e0; --yel:#f2cc1d; --yel-ink:#3d3100;
   --display:"Barlow Condensed","Arial Narrow",sans-serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -25,7 +25,7 @@
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#101519; --surface:#192127; --surface2:#1f2930; --ink:#e4ebef; --muted:#9aaab4; --line:#2e3a42;
-  --steel:#5f9ec4; --steel-ink:#0d1418; --steel-soft:#1d3240; --amber:#f0b429; --amber-ink:#f6d48a; --amber-soft:#3a2f12;
+  --steel:#5f9ec4; --steel-ink:#0d1418; --steel-soft:#1d3240; --amber:#f0b429; --amber-ink:#f6d48a; --amber-soft:#3a2f12; --tol:#f08a3c; --tol-ink:#f8c49a; --tol-soft:#3d2414;
   --ok:#4cb67f; --ok-soft:#173528; --crit:#e5654f; --crit-soft:#3d1e19; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -193,6 +193,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .tag.g{background:var(--steel-soft);color:var(--steel)}
 .tag.v{background:var(--ok-soft);color:var(--ok)}
 .tag.f{background:var(--amber-soft);color:var(--amber-ink)}
+.tag.o{background:var(--tol);color:#fff}
 .scard .meta{margin-left:auto;font-size:12px;color:var(--muted)}
 .scard .prob{font-weight:600}
 .scard .sol{background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:14px;white-space:pre-line}
@@ -229,11 +230,12 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .vbox{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r);padding:12px;margin-top:8px;border:1px solid var(--line);background:var(--surface)}
 .vbox svg{width:24px;height:24px;flex:none}.vbox b{display:block;font-size:15px}.vbox .hint{margin:2px 0 0}
 .vbox.warn{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-ink)}.vbox.warn .hint{color:var(--amber-ink)}
+.vbox.tol{background:var(--tol-soft);border-color:var(--tol);color:var(--tol-ink)}.vbox.tol .hint{color:var(--tol-ink)}
 .vbox.exp{background:var(--crit-soft);border-color:var(--crit);color:var(--crit)}.vbox.exp .hint{color:var(--ink)}
 .vbox.ok svg{color:var(--ok)}
 .abil{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-top:8px}
 .abil .k{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font:700 16px var(--display);background:var(--steel-soft);color:var(--steel)}
-.abil.warn{border-color:var(--amber);background:var(--amber-soft)}.abil.exp{border-color:var(--crit);background:var(--crit-soft)}
+.abil.warn{border-color:var(--amber);background:var(--amber-soft)}.abil.tol{border-color:var(--tol);background:var(--tol-soft)}.abil.tol .k{background:var(--tol);color:#fff}.abil.exp{border-color:var(--crit);background:var(--crit-soft)}
 .abil.warn .k{background:var(--amber);color:#fff}.abil.exp .k{background:var(--crit);color:#fff}
 .abil .t1{font-weight:600}.abil .t2{font-size:13px;color:var(--muted)}
 .sgrid{display:grid;gap:0 6px;align-items:center;font-size:14px;margin-top:12px}
@@ -554,7 +556,11 @@ const VEST_AVVISO = 60;
 const avvGG = x => (x && x.cat ? (S.avviso || {}).conv : (S.avviso || {}).vest) || VEST_AVVISO;
 const vestDi = (nome = S.man) => S.vestizioni.find(v => U(v.man) === U(nome)) || null;
 const vestGiorni = v => v.manca ? -99999 : Math.round((new Date(v.scad).setHours(0, 0, 0, 0) - oggi0()) / 864e5);
-const vestStato = v => !v ? '' : v.manca ? 'exp' : !v.scad ? '' : vestGiorni(v) < 0 ? 'exp' : vestGiorni(v) <= avvGG(v) ? 'warn' : 'ok';
+// Tolleranza (giorni dopo la scadenza, foglio Vestizioni → Impostazioni): scaduta ma ancora valida → stato 'tol' (arancio)
+const tolGG = x => Math.max(0, Number(x && x.cat ? (S.avviso || {}).tolC : (S.avviso || {}).tolV) || 0);
+const tolFine = v => { const d = new Date(v.scad); d.setDate(d.getDate() + tolGG(v)); return d.getTime(); };
+const vestStato = v => !v ? '' : v.manca ? 'exp' : !v.scad ? '' : vestGiorni(v) < 0 ? (-vestGiorni(v) <= tolGG(v) ? 'tol' : 'exp') : vestGiorni(v) <= avvGG(v) ? 'warn' : 'ok';
+const tolResto = v => tolGG(v) + vestGiorni(v); // giorni di tolleranza rimasti (0 = ultimo giorno)
 // Convalide GMP (foglio Convalide, dallo scadenziario): una scadenza per persona e categoria (G regolazione, H sostituzione…)
 const convDi = (nome = S.man) => ((S.convalide || {}).list || []).filter(c => U(c.man) === U(nome));
 const CONV_NOME = { G: 'Regolazione', H: 'Sostituzione componente' }, CONV_BREVE = { G: 'REGOL.', H: 'SOSTIT.' };
@@ -569,7 +575,7 @@ const scadDi = (nome = S.man) => { if (!nome || esonerato(nome)) return []; cons
     ...convCats().filter(k => !cv.some(c => c.cat === k)).map(k => ({ tipo: k, cat: k, man: nome, scad: null, manca: true }))]; };
 // Pallino sul nome: si spegne quando apri il profilo, si riaccende entrando in una nuova soglia (60 → 14 → 7 gg → scaduta) di una qualsiasi scadenza
 const VEST_SOGLIE = [14, 7];
-const vestLivello = v => { const st = vestStato(v); if (!/warn|exp/.test(st)) return ''; if (st === 'exp') return 'exp'; const g = vestGiorni(v), s = VEST_SOGLIE.filter(x => g <= x); return String(s.length ? Math.min(...s) : avvGG(v)); };
+const vestLivello = v => { const st = vestStato(v); if (!/warn|tol|exp/.test(st)) return ''; if (st === 'exp' || st === 'tol') return st; const g = vestGiorni(v), s = VEST_SOGLIE.filter(x => g <= x); return String(s.length ? Math.min(...s) : avvGG(v)); };
 const scadKey = (nome = S.man) => scadDi(nome).filter(x => vestLivello(x)).map(x => x.tipo + '|' + x.scad + '|' + vestLivello(x)).join(',');
 const vestDaVedere = () => { const k = scadKey(); return !!k && (load('vestVisto', {})[U(S.man)] !== k); };
 function vestSegnaVisto() { const k = scadKey(); if (!k) return; const m = load('vestVisto', {}); m[U(S.man)] = k; save('vestVisto', m); }
@@ -1432,13 +1438,13 @@ $('#manbtn').onclick = () => {
   sheet(`<div class="sheet-h"><h3>${esc(S.man)}</h3><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="hint" style="margin:2px 0 6px">${isCoord() ? 'Coordinatore' : 'Tecnico'} · turno ${turnoOf(Date.now())}</div>
     ${boxVest()}${boxConv()}
-    ${scadDi().length ? (l => { const e = l.filter(x => vestStato(x) === 'exp').length, w = l.filter(x => vestStato(x) === 'warn').length;
-      return `<button class="mbtn" id="mabil">${IK.vest}Le mie abilitazioni<span class="cnt ${e || w ? 'r' : ''}">${e ? e + (e === 1 ? ' scaduta' : ' scadute') : w ? w + ' in scadenza' : 'tutte valide'}</span></button>`; })(scadDi()) : ''}
+    ${scadDi().length ? (l => { const e = l.filter(x => vestStato(x) === 'exp').length, t = l.filter(x => vestStato(x) === 'tol').length, w = l.filter(x => vestStato(x) === 'warn').length;
+      return `<button class="mbtn" id="mabil">${IK.vest}Le mie abilitazioni<span class="cnt ${e || t || w ? 'r' : ''}">${e ? e + (e === 1 ? ' scaduta' : ' scadute') : t ? t + ' in tolleranza' : w ? w + ' in scadenza' : 'tutte valide'}</span></button>`; })(scadDi()) : ''}
     ${Object.keys(S.turni || {}).length ? `<button class="mbtn" id="mturni">${IK.cal}I miei turni<span class="cnt">${(t => t ? esc(t.c === 'R' ? 'oggi riposo' : t.c === 'F' ? 'oggi ferie' : /^[123G]$/.test(t.c) ? 'oggi ' + (t.c === 'G' ? 'G' : 'T' + t.c) : 'oggi assente') : '')(turnoDi(S.man, Date.now()))}</span></button>
     <button class="mbtn" id="chice">${IK.team}Chi c'è<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
     ${Object.keys(S.programma || {}).length ? `<button class="mbtn" id="mprog">${IK.cal}Programma produzione<span class="cnt">oggi e prossimi giorni</span></button>` : ''}
     ${menuCompiti()}
-    ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Scadenze del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(personeRep().filter(p => scadDi(p).some(x => /warn|exp/.test(vestStato(x)))).length) : ''}
+    ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Scadenze del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(personeRep().filter(p => scadDi(p).some(x => /warn|tol|exp/.test(vestStato(x)))).length) : ''}
     ${isCoord() ? `<button class="mbtn" id="mfmt">${IK.fmt}Formati e cambi formato<span class="cnt">solo coordinatori</span></button>` : ''}
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
     <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
@@ -1501,25 +1507,28 @@ function boxVest(v = esonerato(S.man) ? null : vestDi()) {
   const st = vestStato(v); if (!st) return '';
   const g = vestGiorni(v), d = fmtDL(v.scad);
   if (st === 'ok') return ''; // valida: nessun avviso (si vede solo in scadenza o scaduta)
+  if (st === 'tol') return `<div class="vbox tol">${IK.vest}<div><b>Vestizione sterile scaduta · in tolleranza</b><div class="hint">Scaduta il <b style="display:inline">${d}</b>, valida ancora fino al <b style="display:inline">${fmtDL(tolFine(v))}</b> (${ggTol(tolResto(v))}). Rinnova subito con il responsabile.</div></div></div>`;
   if (st === 'warn') return `<div class="vbox warn">${IK.vest}<div><b>Vestizione sterile in scadenza</b><div class="hint">Scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota la riqualifica con il responsabile.</div></div></div>`;
   return `<div class="vbox exp">${IK.vest}<div><b>Vestizione sterile SCADUTA</b><div class="hint">Scaduta il <b style="display:inline">${d}</b>. Non entrare in area sterile finché la qualifica non è rinnovata.</div></div></div>`;
 }
+const ggTol = n => n === 0 ? 'ultimo giorno' : n === 1 ? 'ancora 1 giorno' : 'ancora ' + n + ' giorni';
 const fmtDL = t => { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); };
 function boxConv(nome = S.man) {
-  return scadDi(nome).filter(c => c.tipo !== 'V' && /warn|exp/.test(vestStato(c))).sort((a, b) => vestGiorni(a) - vestGiorni(b)).map(c => {
+  return scadDi(nome).filter(c => c.tipo !== 'V' && /warn|tol|exp/.test(vestStato(c))).sort((a, b) => vestGiorni(a) - vestGiorni(b)).map(c => {
     const st = vestStato(c), g = vestGiorni(c), d = c.scad ? fmtDL(c.scad) : '', cosa = convNome(c).toLowerCase();
     if (c.manca) return `<div class="vbox exp">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} non trovata</b><div class="hint">Non risulti nello scadenziario per gli interventi di <b style="display:inline">${esc(cosa)}</b>: vale come scaduta. In area sterile li fa un collega abilitato. Se è un errore avvisa il responsabile.</div></div></div>`;
+    if (st === 'tol') return `<div class="vbox tol">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} scaduta · in tolleranza</b><div class="hint">Interventi di <b style="display:inline">${esc(cosa)}</b> in area sterile · scaduta il <b style="display:inline">${d}</b>, valida ancora fino al <b style="display:inline">${fmtDL(tolFine(c))}</b> (${ggTol(tolResto(c))}). Rinnova subito con il responsabile.</div></div></div>`;
     return st === 'warn' ? `<div class="vbox warn">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} in scadenza</b><div class="hint">Interventi di <b style="display:inline">${esc(cosa)}</b> in area sterile · scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota il rinnovo con il responsabile.</div></div></div>`
       : `<div class="vbox exp">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} SCADUTA</b><div class="hint">Scaduta il <b style="display:inline">${d}</b>. In area sterile gli interventi di ${esc(cosa)} li fa un collega abilitato finché non è rinnovata.</div></div></div>`;
   }).join('');
 }
-const scadTag = x => { if (!x) return '<span class="tag nd">—</span>'; if (x.manca) return '<span class="tag r">Mancante</span>'; const st = vestStato(x), g = vestGiorni(x); return st === 'exp' ? '<span class="tag r">Scaduta</span>' : st === 'warn' ? `<span class="tag f">${ggTxt(g)}</span>` : '<span class="tag v">Valida</span>'; };
+const scadTag = x => { if (!x) return '<span class="tag nd">—</span>'; if (x.manca) return '<span class="tag r">Mancante</span>'; const st = vestStato(x), g = vestGiorni(x); return st === 'exp' ? '<span class="tag r">Scaduta</span>' : st === 'tol' ? '<span class="tag o">Tolleranza</span>' : st === 'warn' ? `<span class="tag f">${ggTxt(g)}</span>` : '<span class="tag v">Valida</span>'; };
 // Le mie abilitazioni (o quelle di un collega, per il coordinatore)
 function shAbil(nome, back) {
   const l = scadDi(nome), v = l.find(x => x.tipo === 'V'), cv = l.filter(x => x.tipo !== 'V').sort((a, b) => a.tipo.localeCompare(b.tipo));
   const riga = (k, t1, t2, x) => `<div class="abil ${x ? (vestStato(x) === 'ok' ? '' : vestStato(x)) : ''}"><span class="k">${esc(k)}</span><div><div class="t1">${t1}</div><div class="t2">${t2}</div></div>${scadTag(x)}</div>`;
-  const quando = x => x.manca ? 'non trovata nello scadenziario' : (vestStato(x) === 'exp' ? 'scaduta il ' : vestStato(x) === 'warn' ? 'scade il ' : 'fino al ') + fmtDL(x.scad);
-  sheet(`<div class="sheet-h"><div><h3>${U(nome) === U(S.man) ? 'Le mie abilitazioni' : esc(nome)}</h3><div class="hint" style="margin-top:4px">${U(nome) === U(S.man) ? esc(nome) + ' · ' : 'Abilitazioni · '}avviso ${avvGG({})} giorni prima (vestizione) e ${avvGG({ cat: 'G' })} (convalide)</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
+  const quando = x => x.manca ? 'non trovata nello scadenziario' : vestStato(x) === 'tol' ? 'scaduta il ' + fmtDL(x.scad) + ', in tolleranza fino al ' + fmtDL(tolFine(x)) : (vestStato(x) === 'exp' ? 'scaduta il ' : vestStato(x) === 'warn' ? 'scade il ' : 'fino al ') + fmtDL(x.scad);
+  sheet(`<div class="sheet-h"><div><h3>${U(nome) === U(S.man) ? 'Le mie abilitazioni' : esc(nome)}</h3><div class="hint" style="margin-top:4px">${U(nome) === U(S.man) ? esc(nome) + ' · ' : 'Abilitazioni · '}avviso ${avvGG({})} giorni prima (vestizione) e ${avvGG({ cat: 'G' })} (convalide)${tolGG({}) || tolGG({ cat: 'G' }) ? ` · tolleranza ${tolGG({})} / ${tolGG({ cat: 'G' })} giorni dopo la scadenza` : ''}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
     ${riga('V', 'Vestizione sterile', v ? 'accesso all\'area sterile · ' + quando(v) : 'data non inserita nel foglio Vestizioni', v)}
     ${cv.length ? cv.map(c => riga(c.cat, 'Cat. ' + esc(c.cat) + ' · ' + esc(convNome(c)), esc(c.desc || '') + (c.desc ? ' · ' : '') + quando(c), c)).join('') : '<div class="empty" style="margin-top:8px">Nessuna convalida GMP nello scadenziario.</div>'}
     <div class="hint" style="margin-top:14px">Le convalide vengono dallo scadenziario (foglio <b style="display:inline">Convalide</b>). Con una convalida scaduta, in area sterile quell'intervento lo fa un collega abilitato.</div>
@@ -1532,18 +1541,18 @@ const personeRep = () => [...new Map([...abilitati(), ...S.vestizioni.map(v => v
 function shScadRep(filtro) {
   const cats = [...new Set(((S.convalide || {}).list || []).map(c => c.cat))].sort();
   const righe = personeRep().map(n => { const l = scadDi(n); const per = { V: l.find(x => x.tipo === 'V') }; cats.forEach(c => per[c] = l.find(x => x.tipo === c));
-    const gg = l.length ? Math.min(...l.map(vestGiorni)) : 9e9; return { n, per, gg, exp: l.some(x => vestStato(x) === 'exp'), warn: l.some(x => /warn|exp/.test(vestStato(x))) }; })
+    const gg = l.length ? Math.min(...l.map(vestGiorni)) : 9e9; return { n, per, gg, exp: l.some(x => vestStato(x) === 'exp'), tol: l.some(x => vestStato(x) === 'tol'), warn: l.some(x => /warn|tol|exp/.test(vestStato(x))) }; })
     .sort((a, b) => a.gg - b.gg || a.n.localeCompare(b.n));
-  const nW = righe.filter(r => r.warn).length, nE = righe.filter(r => r.exp).length;
-  const vis = righe.filter(r => filtro === 'scad' ? r.exp : filtro === 'rinn' ? r.warn : true);
-  const cella = x => !x ? '<span class="tag nd">—</span>' : x.manca ? '<span class="tag r">MANCA</span>' : vestStato(x) === 'exp' ? '<span class="tag r">SCAD.</span>' : `<span class="tag ${vestStato(x) === 'warn' ? 'f' : 'v'}">${fmtD(x.scad)}</span>`;
+  const nW = righe.filter(r => r.warn).length, nE = righe.filter(r => r.exp).length, nT = righe.filter(r => r.tol).length;
+  const vis = righe.filter(r => filtro === 'scad' ? r.exp : filtro === 'tol' ? r.tol : filtro === 'rinn' ? r.warn : true);
+  const cella = x => !x ? '<span class="tag nd">—</span>' : x.manca ? '<span class="tag r">MANCA</span>' : vestStato(x) === 'exp' ? '<span class="tag r">SCAD.</span>' : vestStato(x) === 'tol' ? `<span class="tag o" title="in tolleranza fino al ${fmtDL(tolFine(x))}">${fmtD(tolFine(x))}</span>` : `<span class="tag ${vestStato(x) === 'warn' ? 'f' : 'v'}">${fmtD(x.scad)}</span>`;
   const cols = ['V', ...cats], nomeCol = c => c === 'V' ? 'VESTIZ.' : 'CAT. ' + c + (CONV_BREVE[c] ? '<br>' + CONV_BREVE[c] : '');
   const ign = (S.convalide || {}).ignote || [];
   sheet(`<div class="sheet-h"><div><h3>Scadenze del reparto</h3><div class="hint" style="margin-top:4px">Vestizione e convalide GMP · prima i più urgenti</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
-    <div class="chips filters" id="sfil" style="margin-top:6px"><button class="chip" data-v="tutti" aria-pressed="${filtro === 'tutti'}">Tutti</button><button class="chip" data-v="rinn" aria-pressed="${filtro === 'rinn'}">Da rinnovare · ${nW}</button><button class="chip" data-v="scad" aria-pressed="${filtro === 'scad'}">Scadute · ${nE}</button></div>
+    <div class="chips filters" id="sfil" style="margin-top:6px"><button class="chip" data-v="tutti" aria-pressed="${filtro === 'tutti'}">Tutti</button><button class="chip" data-v="rinn" aria-pressed="${filtro === 'rinn'}">Da rinnovare · ${nW}</button><button class="chip" data-v="scad" aria-pressed="${filtro === 'scad'}">Scadute · ${nE}</button>${nT ? `<button class="chip" data-v="tol" aria-pressed="${filtro === 'tol'}">In tolleranza · ${nT}</button>` : ''}</div>
     ${vis.length ? `<div class="sgrid" style="grid-template-columns:1fr${' 64px'.repeat(cols.length)}"><span></span>${cols.map(c => `<span class="h">${nomeCol(c)}</span>`).join('')}
       ${vis.map(r => `<button class="n" data-p="${esc(r.n)}">${esc(r.n)}</button>${cols.map(c => `<span class="c">${cella(r.per[c])}</span>`).join('')}`).join('')}</div>` : '<div class="empty" style="margin-top:12px">Nessuno in questo elenco.</div>'}
-    <div class="hint" style="margin-top:12px">Tocca un nome per il dettaglio. Rosso = scaduta o non trovata nello scadenziario (MANCA), giallo = in preavviso (vestizione ${avvGG({})} gg, convalide ${avvGG({ cat: 'G' })} gg), — = data della vestizione da inserire.${(S.sterileNo || []).length ? ' Esonerati dall\'area sterile: ' + S.sterileNo.map(esc).join(', ') + '.' : ''} Vestizioni: foglio <b style="display:inline">Vestizioni</b>; convalide: incolla lo scadenziario nel foglio <b style="display:inline">Convalide</b>.</div>
+    <div class="hint" style="margin-top:12px">Tocca un nome per il dettaglio. Rosso = scaduta o non trovata nello scadenziario (MANCA), giallo = in preavviso (vestizione ${avvGG({})} gg, convalide ${avvGG({ cat: 'G' })} gg)${tolGG({}) || tolGG({ cat: 'G' }) ? `, arancio = scaduta ma in tolleranza: la data è l'ultimo giorno valido (vestizione ${tolGG({})} gg, convalide ${tolGG({ cat: 'G' })} gg)` : ''}, — = data della vestizione da inserire.${(S.sterileNo || []).length ? ' Esonerati dall\'area sterile: ' + S.sterileNo.map(esc).join(', ') + '.' : ''} Vestizioni: foglio <b style="display:inline">Vestizioni</b>; convalide: incolla lo scadenziario nel foglio <b style="display:inline">Convalide</b>.</div>
     ${ign.length ? `<h2>Non riconosciuti nello scadenziario · ${ign.length}</h2><div class="hint" style="margin-top:0">${ign.map(esc).join('<br>')}</div><div class="hint">Controlla che il nome sia scritto come nell'elenco Manutentori del foglio Liste.</div>` : ''}
     <button class="linkbtn" id="sbk">‹ Indietro</button>`);
   $('#sfil').onclick = e => { const b = e.target.closest('[data-v]'); if (b) shScadRep(b.dataset.v); };
