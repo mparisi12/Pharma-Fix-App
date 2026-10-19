@@ -1317,7 +1317,7 @@ function renderAnoForm() {
   $('#ad').oninput = $('#as').oninput = () => { keep(); salvaBozzaAno(false); }; // salva mentre si scrive
   $('#chg').onclick = () => { keep(); openScannerOrPick(e => { go({ name: 'anoform', code: e.code }); salvaBozzaAno(false); }); };
   $('#urg').onclick = e => { const b = e.target.closest('[data-u]'); if (!b) return; A.urg = +b.dataset.u; $$('#urg [data-u]').forEach(x => x.setAttribute('aria-pressed', x === b)); salvaBozzaAno(false); };
-  photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare', nuova => { keep(); salvaBozzaAno(nuova); });
+  A.gal = true; photoBox($('#aph'), A, 'Foto del punto · tocca per cerchiare', nuova => { keep(); salvaBozzaAno(nuova); });
   $('#go').onclick = () => needMan(() => {
     keep();
     const msg = !eq ? 'Scegli la macchina.' : !A.urg ? 'Scegli l\'urgenza (1, 2 o 3).' : !A.descr.trim() ? 'Scrivi cosa hai visto.' : '';

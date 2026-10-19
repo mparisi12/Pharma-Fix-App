@@ -164,6 +164,9 @@ let ver = 1, full = 0, same = 0; const posts = [];
   const cl = posts.filter(o => o.action === 'close' && o.id === 'FC').pop() || {};
   const dim = await p.evaluate(f => new Promise(r => { const im = new Image(); im.onload = () => r([im.naturalWidth, im.naturalHeight]); im.src = 'data:image/jpeg;base64,' + f; }), cl.foto || '');
   ok(dim[0] === 1024 && dim[1] === 768, 'foto dalla galleria 4000×3000 ridimensionata a 1024×768 prima dell\'invio');
+  await p.evaluate(() => { closeSh(); go({ name: 'anoform', code: 'ST3-04' }); }); await attesa(300);
+  ok(await p.isVisible('#aph .camtile') && await p.isVisible('#aph .galbtn'), 'anomalie: foto anche dalla galleria');
+  await p.evaluate(() => go({ name: 'home' })); await attesa(200);
   ok(cl.categoria === 'AUTOMATION' && cl.intervento === 'REGOLAZIONE' && cl.guasto === 'CAM. OMRON' && cl.causa === 'MATERIALE FUORI SPEC.', 'inviato: categoria automatica, intervento, guasto e causa (secondo tocco toglie la scelta)');
 
   D.liste['Tipo intervento'] = ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA']; D.intDesc = { RIPRISTINO: 'reset allarme, homing' }; D.liste.Causa = ['USURA', 'MANUTENZIONE NON ESEGUITA'];
