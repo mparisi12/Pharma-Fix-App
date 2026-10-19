@@ -220,6 +220,7 @@ function onOpen() {
     .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
     .addItem('Aggiorna elenchi foglio Documenti', 'aggiornaElenchiDocumenti')
     .addItem('Aggiorna menu a tendina foglio Fermi', 'aggiornaTendineFermi')
+    .addItem('Voci guasto: applica unioni (colonna E)', 'applicaUnioniVoci')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
     .addItem('Disattiva sveglia dello script', 'disattivaSveglia')
@@ -242,6 +243,10 @@ function onOpen() {
 function onEdit(e) {
   try {
     if (e.range.getSheet().getName() === SH_KR) { if (e.range.getRow() <= 4) aggiornaKpiRisorse(); return; } // filtri del foglio KPI Risorse
+    if (e.range.getSheet().getName() === SH_FERMI && e.range.getRow() > 1) { // cambiata la macchina di una riga: tendina Tipo guasto di quella macchina
+      const c1 = e.range.getColumn(), c2 = e.range.getLastColumn();
+      if ([C.MACC, C.LINEA, C.EQ].some(c => c >= c1 && c <= c2)) try { const ss = e.source || SpreadsheetApp.getActiveSpreadsheet(); fermiGuastoDV_(ss, e.range.getSheet(), e.range.getRow(), e.range.getNumRows()); } catch (x) { Logger.log(x); }
+    }
     if (e.range.getSheet().getName() !== SH_KPI) { bumpVer_(); return; } // modifica a mano: i telefoni si aggiornano
     if (['B2', 'B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
   } catch (x) { Logger.log(x); }
@@ -786,12 +791,80 @@ function classificazione_(ss) {
   }
   vociSync_(ss);
 }
+/* =================== Unione voci guasto ===================
+   Foglio Voci guasto, colonna E "Unisci in": accanto a una voce doppia scrivi la voce che resta (anche un nome nuovo = rinomina).
+   Menu Pharma-Fix → "Voci guasto: applica unioni": la voce vecchia diventa quella nuova nel foglio Guasti (senza doppioni nella riga),
+   nello storico del foglio Fermi (Tipo guasto) e nelle Soluzioni; la riga vecchia sparisce dal foglio Voci guasto.
+   Ogni unione resta scritta nel foglio "Unioni voci" (data, da, a, righe cambiate). */
+const VOCI_UNISCI = 'Unisci in (voce che resta)', SH_UNIONI = 'Unioni voci';
+function unioniCol_(vs) {
+  if (String(vs.getRange(1, 5).getValue()).trim() === VOCI_UNISCI) return;
+  if (String(vs.getRange(1, 5).getValue()).trim()) return; // colonna E già usata per altro: non tocco
+  vs.getRange(1, 5).setValue(VOCI_UNISCI).setFontWeight('bold').setBackground('#fde3c8')
+    .setNote('Voce doppia o simile? Scrivi qui la voce che resta (anche un nome nuovo = rinomina), poi menu Pharma-Fix → "Voci guasto: applica unioni". Vale per foglio Guasti, storico Fermi e Soluzioni.');
+  vs.setColumnWidth(5, 240);
+}
+function unioniLeggi_(ss) {
+  const vs = ss.getSheetByName(SH_VOCI); if (!vs || vs.getLastRow() < 2 || String(vs.getRange(1, 5).getValue()).trim() !== VOCI_UNISCI) return { vs: vs, map: {}, righe: [] };
+  const U = x => String(x || '').trim().toUpperCase(), v = vs.getRange(2, 1, vs.getLastRow() - 1, 5).getValues(), map = {}, righe = [];
+  v.forEach((r, i) => { const da = U(r[0]), a = String(r[4]).trim(); if (da && a && U(a) !== da) { map[da] = a; righe.push(i + 2); } });
+  // catene (A→B, B→C) e giri (A→B, B→A: si ferma)
+  Object.keys(map).forEach(k => { let t = map[k], n = 0; while (map[U(t)] && n++ < 10 && U(map[U(t)]) !== k) t = map[U(t)]; map[k] = t; });
+  return { vs: vs, map: map, righe: righe, voci: v.map(r => U(r[0])) };
+}
+function unioniApplica_(ss) {
+  const u = unioniLeggi_(ss), map = u.map, U = x => String(x || '').trim().toUpperCase(), conta = {};
+  if (!Object.keys(map).length) return null;
+  const nuova = x => map[U(x)];
+  // Guasti: ogni riga, voci rinominate e senza doppioni
+  const g = ss.getSheetByName(SH_GUASTI);
+  if (g && g.getLastRow() > 1 && g.getLastColumn() > 2) {
+    const rg = g.getRange(2, 3, g.getLastRow() - 1, g.getLastColumn() - 2), v = rg.getValues(); let cambia = false;
+    const out = v.map(r => { const visti = {}, l = [];
+      r.forEach(x => { const t = String(x).trim(); if (!t) return; const n = nuova(t) || t; if (n !== t) cambia = true; if (visti[U(n)]) { cambia = true; return; } visti[U(n)] = 1; l.push(n); });
+      while (l.length < r.length) l.push(''); return l; });
+    if (cambia) rg.setValues(out);
+  }
+  // Storico: Fermi (Tipo guasto) e Soluzioni (Tipo guasto)
+  [[SH_FERMI, C.GUASTO], [SH_SOL, 6]].forEach(([nome, col]) => {
+    const sh = ss.getSheetByName(nome); if (!sh || sh.getLastRow() < 2) return;
+    const rg = sh.getRange(2, col, sh.getLastRow() - 1, 1), v = rg.getValues(); let n = 0;
+    const out = v.map(r => { const t = String(r[0]).trim(), m = t && nuova(t); if (m) { n++; conta[U(t)] = conta[U(t)] || {}; conta[U(t)][nome] = (conta[U(t)][nome] || 0) + 1; return [m]; } return [r[0]]; });
+    if (n) rg.setValues(out);
+  });
+  // Voci guasto: la riga vecchia sparisce se la voce che resta c'è già, altrimenti diventa quella nuova (rinomina)
+  const del = [];
+  u.righe.forEach(rr => { const da = u.voci[rr - 2], a = map[da];
+    if (u.voci.indexOf(U(a)) >= 0 && !map[U(a)]) del.push(rr); else { u.vs.getRange(rr, 1).setValue(a); u.vs.getRange(rr, 5).clearContent(); u.voci[rr - 2] = U(a); } });
+  del.sort((a, b) => b - a).forEach(rr => u.vs.deleteRow(rr));
+  // Registro
+  let lg = ss.getSheetByName(SH_UNIONI);
+  if (!lg) { lg = ss.insertSheet(SH_UNIONI); lg.getRange(1, 1, 1, 5).setValues([['Data', 'Voce vecchia', 'Voce che resta', 'Righe Fermi cambiate', 'Righe Soluzioni cambiate']]).setFontWeight('bold').setBackground('#dfe7ec'); lg.setFrozenRows(1); }
+  const ora = new Date(), log = Object.keys(map).map(k => [ora, k, map[k], (conta[k] || {})[SH_FERMI] || 0, (conta[k] || {})[SH_SOL] || 0]);
+  lg.getRange(lg.getLastRow() + 1, 1, log.length, 5).setValues(log); lg.getRange(2, 1, lg.getLastRow() - 1, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  VOCI_MEMO = null; VDESC_MEMO = null;
+  return log;
+}
+function applicaUnioniVoci() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), ui = SpreadsheetApp.getUi(), vs = ss.getSheetByName(SH_VOCI);
+  if (vs) unioniCol_(vs);
+  const u = unioniLeggi_(ss), k = Object.keys(u.map);
+  if (!k.length) { ui.alert('Voci guasto', 'Nessuna unione da fare: nel foglio Voci guasto scrivi nella colonna E ("' + VOCI_UNISCI + '") la voce che resta, accanto a quella da togliere.', ui.ButtonSet.OK); return; }
+  const ok = ui.alert('Unire ' + k.length + ' voci?', k.slice(0, 25).map(x => x + '  →  ' + u.map[x]).join('\n') + (k.length > 25 ? '\n…' : '') +
+    '\n\nCambiano: foglio Guasti, storico Fermi (Tipo guasto) e Soluzioni. Ogni unione resta scritta nel foglio "' + SH_UNIONI + '". Fai prima un backup se vuoi tornare indietro.', ui.ButtonSet.OK_CANCEL);
+  if (ok !== ui.Button.OK) return;
+  const log = unioniApplica_(ss);
+  try { fermiConvalida_(ss, true); } catch (e) { Logger.log(e); }
+  bumpVer_();
+  ss.toast(log.length + ' voci unite. Righe Fermi cambiate: ' + log.reduce((a, r) => a + r[3], 0) + '. Dettaglio nel foglio "' + SH_UNIONI + '".', 'Pharma-Fix', 10);
+}
 function vociSync_(ss) {
   const g = guasti_(ss), voci = [...new Set(Object.keys(g).flatMap(k => g[k]).map(x => String(x).trim()).filter(x => x && x.toUpperCase() !== 'ALTRO' && NON_VOCI.indexOf(x.toUpperCase()) < 0))];
   let sh = ss.getSheetByName(SH_VOCI);
   const nuovo = !sh;
   if (nuovo) { sh = ss.insertSheet(SH_VOCI); sh.getRange(1, 1, 1, 4).setValues([VOCI_H]).setFontWeight('bold').setBackground('#dfe7ec'); sh.setFrozenRows(1); sh.setColumnWidth(1, 340); sh.setColumnWidth(2, 130); sh.setColumnWidth(3, 260); sh.setColumnWidth(4, 380);
     sh.getRange('F1').setValue('Una riga per voce del foglio Guasti: la categoria la decidi qui una volta e l\'app la scrive da sola alla chiusura del fermo. Le voci nuove del foglio Guasti compaiono qui da sole, in giallo.').setWrap(true).setFontStyle('italic'); sh.setColumnWidth(6, 380); }
+  try { unioniCol_(sh); } catch (e) { Logger.log(e); }
   const gia = new Set(sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim().toUpperCase()) : []);
   const manca = voci.filter(x => !gia.has(x.toUpperCase()));
   if (!manca.length) return;
@@ -813,7 +886,7 @@ function fermiConvalida_(ss, forza) {
   const righe = Math.max(sh.getMaxRows(), sh.getLastRow() + 500);
   const props = PropertiesService.getScriptProperties();
   const tec = tecniciTutti_(ss).sort(); // Manutentori + Coordinatori
-  const firma = 'v3|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + tipi.join('|') + '#' + tec.join('|');
+  const firma = 'v4|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + hash_(JSON.stringify(g)) + '#' + tec.join('|');
   if (!forza && props.getProperty('FERMI_DV') === firma && ss.getSheetByName(SH_EL_FERMI)) return false;
   if (sh.getMaxRows() < righe) sh.insertRowsAfter(sh.getMaxRows(), righe - sh.getMaxRows());
   let el = ss.getSheetByName(SH_EL_FERMI);
@@ -831,11 +904,37 @@ function fermiConvalida_(ss, forza) {
     metti(col, dv(li.getRange(2, c, li.getMaxRows() - 1, 1), col === C.CAT, 'Scegli dall\'elenco "' + nome + '" del foglio Liste.'));
   });
   if (macc.length) metti(C.MACC, dv(el.getRange(2, 1, macc.length, 1), false, 'Macchine del foglio Equipment.'));
-  if (tipi.length) metti(C.GUASTO, dv(el.getRange(2, 2, tipi.length, 1), false, 'Tipi di guasto del foglio Guasti.'));
+  if (tipi.length) { metti(C.GUASTO, dv(el.getRange(2, 2, tipi.length, 1), false, 'Tipi di guasto del foglio Guasti.')); fermiGuastoDV_(ss, sh, 2, sh.getLastRow() - 1); }
   const cC = colL(LI_CAUSA);
   if (sh.getMaxColumns() >= C.CAUSA) metti(C.CAUSA, (cC ? SpreadsheetApp.newDataValidation().requireValueInRange(li.getRange(2, cC, li.getMaxRows() - 1, 1), true) : SpreadsheetApp.newDataValidation().requireValueInList(CAUSE, true)).setAllowInvalid(true).setHelpText('Perché si è guastato (facoltativo).').build());
   props.setProperty('FERMI_DV', firma);
   return true;
+}
+function hash_(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; }
+// Colonna Tipo guasto del foglio Fermi: in ogni riga solo le voci di QUELLA macchina (come nell'app: codice + linea + TUTTE + ALTRO).
+// Righe senza macchina riconosciuta: tutte le voci. Si rifà quando cambiano codice, linea o macchina della riga (onEdit).
+function vociMacchina_(g, eq) {
+  const U = x => String(x || '').trim().toUpperCase(), out = [], visti = {};
+  [...(g[U(eq.code)] || []), ...(g[U(eq.linea)] || []), ...(g.TUTTE || []), 'ALTRO'].forEach(v => { const k = U(v); if (k && !visti[k]) { visti[k] = 1; out.push(String(v).trim()); } });
+  const i = out.findIndex(x => U(x) === 'ALTRO'); out.push(out.splice(i, 1)[0]);
+  return out;
+}
+function fermiGuastoDV_(ss, sh, r0, n) {
+  if (!sh || n < 1) return;
+  const g = guasti_(ss), eqs = equipment_(ss), el = ss.getSheetByName(SH_EL_FERMI), tutte = el ? el.getRange(2, 2, Math.max(el.getLastRow() - 1, 1), 1) : null;
+  const U = x => String(x || '').trim().toUpperCase(), regole = {};
+  const tutteDV = tutte ? SpreadsheetApp.newDataValidation().requireValueInRange(tutte, true).setAllowInvalid(true).setHelpText('Macchina non riconosciuta: tutte le voci del foglio Guasti.').build() : null;
+  const v = sh.getRange(r0, 1, n, C.EQ).getValues();
+  const out = v.map(r => {
+    const code = U(r[C.EQ - 1]), lin = U(r[C.LINEA - 1]), mac = U(r[C.MACC - 1]);
+    const eq = eqs.find(e => code && U(e.code) === code) || eqs.find(e => lin && mac && U(e.linea) === lin && U(e.macchina) === mac);
+    if (!eq) return [tutteDV];
+    const k = U(eq.code);
+    if (!regole[k]) { const l = vociMacchina_(g, eq);
+      regole[k] = SpreadsheetApp.newDataValidation().requireValueInList(l, true).setAllowInvalid(true).setHelpText('Voci guasto di ' + eq.code + ' (' + eq.macchina + '): foglio Guasti.').build(); }
+    return [regole[k]];
+  });
+  sh.getRange(r0, C.GUASTO, n, 1).setDataValidations(out);
 }
 // Menu: rimette subito i menu a tendina del foglio Fermi
 function aggiornaTendineFermi() {
@@ -1784,6 +1883,7 @@ function openFermo_(p) {
   if (p.dichiarato) controllaDichiarati_(p);
   sh.appendRow(row);
   const r = sh.getLastRow();
+  try { fermiGuastoDV_(ss, sh, r, 1); } catch (e) { Logger.log(e); }
   sh.getRange(r, C.DATA).setNumberFormat('dd/MM/yyyy');
   sh.getRange(r, C.INIZIO, 1, 2).setNumberFormat('HH:mm');
   sh.getRange(r, C.REG).setNumberFormat('dd/MM/yyyy HH:mm');
@@ -2301,7 +2401,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/10/2026 12:15';
+const VERSIONE_SCRIPT = '19/10/2026 13:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
