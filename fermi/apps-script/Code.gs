@@ -245,7 +245,9 @@ function onEdit(e) {
     if (e.range.getSheet().getName() === SH_KR) { if (e.range.getRow() <= 4) aggiornaKpiRisorse(); return; } // filtri del foglio KPI Risorse
     if (e.range.getSheet().getName() === SH_FERMI && e.range.getRow() > 1) { // cambiata la macchina di una riga: tendina Tipo guasto di quella macchina
       const c1 = e.range.getColumn(), c2 = e.range.getLastColumn();
-      if ([C.MACC, C.LINEA, C.EQ].some(c => c >= c1 && c <= c2)) try { const ss = e.source || SpreadsheetApp.getActiveSpreadsheet(); fermiGuastoDV_(ss, e.range.getSheet(), e.range.getRow(), e.range.getNumRows()); } catch (x) { Logger.log(x); }
+      if ([C.MACC, C.LINEA, C.EQ].some(c => c >= c1 && c <= c2)) try { const ss = e.source || SpreadsheetApp.getActiveSpreadsheet();
+        if (c1 === c2 && e.range.getNumRows() === 1) eqCoerente_(ss, e.range.getSheet(), e.range.getRow(), c1);
+        fermiGuastoDV_(ss, e.range.getSheet(), e.range.getRow(), e.range.getNumRows()); } catch (x) { Logger.log(x); }
     }
     if (e.range.getSheet().getName() !== SH_KPI) { bumpVer_(); return; } // modifica a mano: i telefoni si aggiornano
     if (['B2', 'B3', 'B4', 'B5', 'D6', 'D7', 'F10'].indexOf(e.range.getA1Notation()) >= 0) aggiornaValoriKpi();
@@ -1216,6 +1218,10 @@ function controllaRegistrazioni() {
       const cod = p ? codTurno_(p[Utilities.formatDate(g, TZ, 'yyyy-MM-dd')]) : null;
       if (cod && cod.c && !/^[123GC]$/.test(cod.c)) out.push(['Fermo di chi non era in turno', x.man + ' risultava ' + ({ R: 'a riposo', F: 'in ferie' }[cod.c] || 'assente') + ' il ' + Utilities.formatDate(g, TZ, 'dd/MM') + ' (nome o telefono sbagliato? turni da aggiornare?)', 'Fermi riga ' + x.r]);
     });
+    try { const U = s2 => String(s2 || '').trim().toUpperCase(), eqs = equipment_(ss);
+      sh.getRange(2, 1, last - 1, C.EQ).getValues().forEach((r, i) => { const code = U(r[C.EQ - 1]); if (!code) return; const e = eqs.find(x => U(x.code) === code);
+        if (e && (U(e.macchina) !== U(r[C.MACC - 1]) || U(e.linea) !== U(r[C.LINEA - 1]))) out.push(['Macchina, linea e codice non coincidono', r[C.LINEA - 1] + ' · ' + r[C.MACC - 1] + ' ma codice ' + e.code + ' = ' + e.linea + ' · ' + e.macchina + ': riscegli la macchina giusta', 'Fermi riga ' + (i + 2)]); });
+    } catch (e) { Logger.log(e); }
     v.filter(x => x.orari === 'DICHIARATI' && x.reg instanceof Date && x.reg - x.b > 4 * 3600e3)
       .forEach(x => out.push(['Orari dichiarati registrati tardi', x.man + ': registrato ' + Math.round((x.reg - x.b) / 3600e3) + ' ore dopo la fine', 'Fermi riga ' + x.r]));
     // più interventi chiusi in un fermo solo: l'app ha avvisato e il tecnico ha risposto "è uno solo", oppure la descrizione racconta più operazioni
@@ -1798,6 +1804,7 @@ function init_() {
   if (ci >= 0 && cd >= 0) lv.slice(1).forEach(r => { const k = String(r[ci]).trim().toUpperCase(); if (k && String(r[cd]).trim()) intDesc[k] = String(r[cd]).trim(); });
   // Fermi: aperti + chiusi ultimi 90 giorni
   const sh = ss.getSheetByName(SH_FERMI);
+  try { idDoppi_(sh); } catch (e) { Logger.log(e); } // righe copiate a mano con lo stesso ID fermo
   const last = sh.getLastRow();
   const fermi = [];
   if (last > 1) {
@@ -1834,6 +1841,41 @@ function equipment_(ss) {
     .map(r => ({ code: String(r[0]).trim(), linea: String(r[1]), area: String(r[2]), macchina: String(r[3]) }));
 }
 
+/* Riga del foglio Fermi copiata a mano (es. per aggiungere un 2° intervento): ha lo stesso "ID fermo" della riga da cui viene.
+   Con due righe uguali, "Va bene" / "Correggi" dall'app finirebbero sempre sulla prima. La copia riceve un ID suo (ID-2, ID-3…)
+   e "Fermo n." lega le righe dello stesso fermo, come per gli interventi registrati dall'app. */
+function idDoppi_(sh) {
+  const last = sh.getLastRow(); if (last < 3) return 0;
+  const ids = sh.getRange(2, C.ID, last - 1, 1).getValues().map(x => String(x[0]).trim()), visti = {}, doppi = [];
+  ids.forEach((id, i) => { if (!id) return; if (visti[id]) doppi.push(i); else visti[id] = 1; });
+  if (!doppi.length) return 0;
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(10000)) return 0;
+  try {
+    const usati = new Set(ids), gruppi = causaCol_(sh), g = gruppi ? sh.getRange(2, C.GRUPPO, last - 1, 1).getValues() : null;
+    doppi.forEach(i => {
+      const base = ids[i]; let n = 2; while (usati.has(base + '-' + n)) n++;
+      const nuovo = base + '-' + n; usati.add(nuovo); ids[i] = nuovo;
+      sh.getRange(i + 2, C.ID).setValue(nuovo);
+      if (g) ids.forEach((x, j) => { if ((x === base || j === i) && !String(g[j][0]).trim()) { g[j][0] = base; sh.getRange(j + 2, C.GRUPPO).setValue(base); } });
+    });
+    bumpVer_();
+  } finally { lock.releaseLock(); }
+  return doppi.length;
+}
+// Foglio Fermi corretto a mano: vince la colonna modificata. Macchina → Codice e Linea; Codice → Macchina e Linea; Linea → Codice.
+function eqCoerente_(ss, sh, row, col) {
+  const U = x => String(x || '').trim().toUpperCase(), eqs = equipment_(ss);
+  const v = sh.getRange(row, 1, 1, C.EQ).getValues()[0], mac = U(v[C.MACC - 1]), lin = U(v[C.LINEA - 1]), code = U(v[C.EQ - 1]);
+  let e = null;
+  if (col === C.EQ) e = eqs.find(x => U(x.code) === code);
+  else { const conNome = eqs.filter(x => U(x.macchina) === mac);
+    e = conNome.length === 1 ? conNome[0] : conNome.find(x => U(x.linea) === lin) || null;
+    if (col === C.LINEA && !e) return; }
+  if (!e) return;
+  if (U(e.code) !== code) sh.getRange(row, C.EQ).setValue(e.code);
+  if (U(e.linea) !== lin) sh.getRange(row, C.LINEA).setValue(e.linea);
+  if (U(e.macchina) !== mac) sh.getRange(row, C.MACC).setValue(e.macchina);
+}
 function findRow_(sh, id) {
   const last = sh.getLastRow();
   if (last < 2) return 0;
@@ -2405,7 +2447,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/10/2026 13:30';
+const VERSIONE_SCRIPT = '20/10/2026 14:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
