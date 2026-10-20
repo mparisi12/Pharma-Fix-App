@@ -463,4 +463,21 @@ console.log('\nVoci guasto: tendina per macchina nel foglio Fermi e unione dei d
   ok(log.length === 3 && sheets['Unioni voci'].rows.length === 4 && sheets['Unioni voci'].rows.some(r => r[1] === 'MAGAZZINO ASTUCCI' && r[3] === 1), 'registro nel foglio "Unioni voci" con le righe cambiate');
   ok(ctx.unioniApplica_(ss) === null, 'rilanciato: niente da fare');
 }
+
+console.log('\nFoglio Fermi: righe copiate a mano e macchina corretta a mano');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C, ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  const riga = (id, eq, lin, mac) => { const r = new Array(30).fill(''); r[C.ID - 1] = id; r[C.EQ - 1] = eq; r[C.LINEA - 1] = lin; r[C.MACC - 1] = mac; return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('F1', 'ST3-04', 'ST3', 'ASTUCCIATRICE'), riga('F1', 'ST3-02', 'ST1', 'ASTUCCIATRICE'), riga('F1', 'ST3-04', 'ST3', 'ASTUCCIATRICE'), riga('F2', 'ST3-02', 'ST3', 'RIEMPITRICE')]);
+  const F = sheets.Fermi.rows;
+  ok(ctx.idDoppi_(sheets.Fermi) === 2 && F[1][C.ID - 1] === 'F1' && F[2][C.ID - 1] === 'F1-2' && F[3][C.ID - 1] === 'F1-3' && F[4][C.ID - 1] === 'F2', 'ID doppi (righe copiate): la copia riceve F1-2, F1-3; la prima resta F1');
+  ok(F[1][C.GRUPPO - 1] === 'F1' && F[2][C.GRUPPO - 1] === 'F1' && F[3][C.GRUPPO - 1] === 'F1' && !F[4][C.GRUPPO - 1], '"Fermo n." lega le righe dello stesso fermo');
+  ok(ctx.idDoppi_(sheets.Fermi) === 0, 'rilanciato: niente da fare');
+  ctx.eqCoerente_(ss, sheets.Fermi, 3, C.MACC);
+  ok(F[2][C.EQ - 1] === 'ST3-04' && F[2][C.LINEA - 1] === 'ST3', 'cambiata la Macchina (nome unico): codice e linea si sistemano');
+  F[4][C.EQ - 1] = 'ST1MAR-06'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.EQ);
+  ok(F[4][C.MACC - 1] === 'BILANCIA' && F[4][C.LINEA - 1] === 'ST1 MAR', 'cambiato il Codice: macchina e linea dal foglio Equipment');
+  F[4][C.LINEA - 1] = 'ST9'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.LINEA);
+  ok(F[4][C.EQ - 1] === 'ST1MAR-06' && F[4][C.LINEA - 1] === 'ST1 MAR', 'linea sbagliata: il nome unico della macchina rimette linea giusta');
+}
 fine('Script');
