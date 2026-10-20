@@ -480,4 +480,18 @@ console.log('\nFoglio Fermi: righe copiate a mano e macchina corretta a mano');
   F[4][C.LINEA - 1] = 'ST9'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.LINEA);
   ok(F[4][C.EQ - 1] === 'ST1MAR-06' && F[4][C.LINEA - 1] === 'ST1 MAR', 'linea sbagliata: il nome unico della macchina rimette linea giusta');
 }
+
+console.log('\nSoluzioni: scarto con motivo');
+{
+  const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(0, 13), ['S1', new ctx.DD(), 'ST3-04', 'ST3', 'ASTUCCIATRICE', 'INCASTRO', 'flaconi incastrati', 'regolato', '', '', 'ROSSI Mario', 'DA APPROVARE', '']]);
+  ctx.solColonne_(sheets.Soluzioni);
+  ok(sheets.Soluzioni.rows[0][13] === 'Motivo (se scartata)' && sheets.Soluzioni.rows[0][12] === 'Approvata da', 'colonna "Motivo (se scartata)" aggiunta dopo "Approvata da"');
+  let err = ''; try { ctx.approvaSoluzione_({ id: 'S1', esito: 'NO', motivo: '', manutentore: 'VERDI Anna' }); } catch (e) { err = e.message; }
+  ok(/motivo/.test(err) && sheets.Soluzioni.rows[1][11] === 'DA APPROVARE', 'scarto senza motivo rifiutato');
+  ctx.approvaSoluzione_({ id: 'S1', esito: 'NO', motivo: 'Troppo vaga: manca dove e come', manutentore: 'VERDI Anna' });
+  ok(sheets.Soluzioni.rows[1][11] === 'SCARTATA' && sheets.Soluzioni.rows[1][13] === 'Troppo vaga: manca dove e come', 'scartata: stato e motivo scritti');
+  const a = ctx.archivio_(ss);
+  ok(!a.soluzioni.length && a.solScartate.length === 1 && a.solScartate[0].motivo === 'Troppo vaga: manca dove e come' && a.solScartate[0].autore === 'ROSSI Mario' && a.solScartate[0].da === 'VERDI Anna', 'l\'app riceve la scartata con motivo (non tra le soluzioni)');
+}
 fine('Script');
