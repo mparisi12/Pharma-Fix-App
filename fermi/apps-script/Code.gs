@@ -549,13 +549,14 @@ function aggiornaValoriKpi() {
 // Colonna "Dove": codice macchina (es. ST3-04), nome linea (es. ST3) oppure TUTTE.
 const SH_SOL = 'Soluzioni', SH_DOC = 'Documenti', SH_ANO = 'Anomalie', SH_IMP = 'Import_PharmaFix', SH_MAPPA = 'Mappa_import';
 const SOL_H = ['ID', 'Data', 'Dove (codice / linea / TUTTE)', 'Linea', 'Macchina', 'Tipo guasto', 'Problema', 'Soluzione', 'Codici ricambio', 'Allegato', 'Autore',
-  'Stato (VERIFICATA / DA APPROVARE / SCARTATA)', 'Approvata da'];
+  'Stato (VERIFICATA / DA APPROVARE / SCARTATA)', 'Approvata da', 'Motivo (se scartata)'];
 // Soluzioni: le nuove dei tecnici restano DA APPROVARE finché un coordinatore non le approva (vuoto = VERIFICATA, per le righe già esistenti)
 function solColonne_(sh) {
   if (sh.getMaxColumns() < SOL_H.length) sh.insertColumnsAfter(sh.getMaxColumns(), SOL_H.length - sh.getMaxColumns());
   if (String(sh.getRange(1, SOL_H.length).getValue()) !== SOL_H[SOL_H.length - 1]) {
-    sh.getRange(1, SOL_H.length - 1, 1, 2).setValues([SOL_H.slice(-2)]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
-    sh.getRange(2, SOL_H.length - 1, Math.max(1, sh.getMaxRows() - 1), 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    const cSt = SOL_H.length - 2; // Stato, Approvata da, Motivo
+    sh.getRange(1, cSt, 1, 3).setValues([SOL_H.slice(-3)]).setFontWeight('bold').setBackground('#dfe7ec').setWrap(true);
+    sh.getRange(2, cSt, Math.max(1, sh.getMaxRows() - 1), 1).setDataValidation(SpreadsheetApp.newDataValidation()
       .requireValueInList(['VERIFICATA', 'DA APPROVARE', 'SCARTATA'], true).setAllowInvalid(true).build());
   }
 }
@@ -605,9 +606,13 @@ const ts_ = v => v instanceof Date ? v.getTime() : (dataOra_(v, null) ? dataOra_
 function archivio_(ss) {
   const solSh = ss.getSheetByName(SH_SOL); if (solSh) solColonne_(solSh);
   coordinatori_(); // crea la colonna Coordinatori nel foglio Liste se manca
-  const sol = righe_(ss, SH_SOL, SOL_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), linea: String(r[3]), macchina: String(r[4]),
+  const tutte = righe_(ss, SH_SOL, SOL_H.length).map(r => ({ id: String(r[0]), ts: ts_(r[1]), dove: String(r[2]).trim(), linea: String(r[3]), macchina: String(r[4]),
     guasto: String(r[5]), problema: String(r[6]), soluzione: String(r[7]), ricambi: String(r[8]), link: String(r[9]), autore: String(r[10]),
-    stato: String(r[11] || '').trim().toUpperCase() || 'VERIFICATA' })).filter(x => x.stato !== 'SCARTATA');
+    stato: String(r[11] || '').trim().toUpperCase() || 'VERIFICATA', da: String(r[12] || '').split(' · ')[0], motivo: String(r[13] || '').trim() }));
+  const sol = tutte.filter(x => x.stato !== 'SCARTATA').map(x => { delete x.motivo; delete x.da; return x; });
+  // scartate degli ultimi 90 giorni: l'app le mostra solo a chi le ha proposte, con il motivo
+  const da90 = Date.now() - 90 * 864e5;
+  const solScartate = tutte.filter(x => x.stato === 'SCARTATA' && (x.ts || 0) >= da90).map(x => ({ id: x.id, ts: x.ts, dove: x.dove, macchina: x.macchina, guasto: x.guasto, problema: x.problema, autore: x.autore, motivo: x.motivo, da: x.da }));
   try { docElenchi_(ss); } catch (e) { Logger.log(e); }
   try { fermiConvalida_(ss); } catch (e) { Logger.log(e); }
   const dSh = ss.getSheetByName(SH_DOC);
@@ -620,7 +625,7 @@ function archivio_(ss) {
     urgenza: Number(r[5]) || 3, descr: String(r[6]), serve: String(r[7]), foto: String(r[8]), da: String(r[9]), stato: String(r[10] || 'APERTA').toUpperCase(),
     gestita: String(r[11]), chiusa: ts_(r[12]), note: String(r[13]) }))
     .filter(a => a.stato !== 'CHIUSA' || (a.chiusa || a.ts || 0) >= from);
-  return { soluzioni: sol, documenti: doc, anomalie: ano };
+  return { soluzioni: sol, solScartate: solScartate, documenti: doc, anomalie: ano };
 }
 
 /* Documenti: nella colonna "Dove" si sceglie da un elenco (con suggerimenti mentre scrivi): TUTTE, le linee e i codici
@@ -1006,8 +1011,10 @@ function approvaSoluzione_(p) {
   solColonne_(sh);
   const r = findIn_(sh, p.id);
   if (!r) throw new Error('Soluzione non trovata');
-  sh.getRange(r, SOL_H.length - 1, 1, 2).setValues([[p.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA',
-    p.manutentore + ' · ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm')]]);
+  const no = p.esito === 'NO';
+  if (no && String(p.motivo || '').trim().length < 5) throw new Error('Scrivi il motivo dello scarto');
+  sh.getRange(r, SOL_H.length - 2, 1, 3).setValues([[no ? 'SCARTATA' : 'VERIFICATA',
+    p.manutentore + ' · ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), no ? String(p.motivo).trim() : '']]);
   return {};
 }
 
@@ -2447,7 +2454,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '20/10/2026 14:00';
+const VERSIONE_SCRIPT = '20/10/2026 19:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
