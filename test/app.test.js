@@ -92,6 +92,17 @@ let ver = 1, full = 0, same = 0; const posts = [];
   await p.click('#vrep'); await attesa(200); await p.click('#sfil [data-v="scad"]'); await attesa(200);
   ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'BIANCHI Luca,ROSSI Mario', 'filtro Scadute: scaduti + chi non ha la convalida (BIANCHI senza Cat. G); esonerati fuori');
   ok(/MANCA/.test(await p.innerText('#sheet .sgrid')), 'convalida mancante segnata MANCA');
+  // coordinatore: scartare una soluzione chiede il motivo
+  await p.evaluate(() => { closeSh(); S.soluzioni.push({ id: 'SP1', ts: Date.now(), dove: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'I flaconi si incastravano', soluzione: 'Regolato sponde e vomere', autore: 'ROSSI Mario', stato: 'DA APPROVARE' }); go({ name: 'sol', code: 'ST3-04' }); }); await attesa(300);
+  await p.click('#daapp [data-app="NO"]'); await attesa(150);
+  ok(await p.isVisible('#daapp .scmot'), 'Scarta: compare la scelta del motivo');
+  await p.click('#daapp [data-app="NOK"]'); await attesa(150);
+  ok(!posts.some(o => o.action === 'approvaSol' && o.id === 'SP1'), 'senza motivo non scarta');
+  await p.click('#daapp .scmot [data-m="Troppo vaga: manca dove e come"]'); await attesa(100);
+  if (process.env.SHOT_SOL) { await p.evaluate(() => document.querySelector('#daapp').scrollIntoView({ block: 'start' })); await p.screenshot({ path: process.env.SHOT_SOL.replace('.png', '2.png') }); }
+  await p.click('#daapp [data-app="NOK"]'); await attesa(800);
+  ok((posts.filter(o => o.action === 'approvaSol' && o.id === 'SP1').pop() || {}).motivo === 'Troppo vaga: manca dove e come', 'scartata con il motivo (arriva a chi l\'ha proposta)');
+  await p.evaluate(() => { S.soluzioni = S.soluzioni.filter(x => x.id !== 'SP1'); go('home'); }); await attesa(200);
   // tolleranza 30 giorni: la Cat. G di ROSSI scaduta da 3 giorni è arancio, ancora valida
   await p.evaluate(() => { S.avviso = Object.assign({}, S.avviso, { tolV: 30, tolC: 30 }); shScadRep('tutti'); }); await attesa(200);
   ok(await p.$$eval('#sheet .sgrid .tag.o', x => x.length) === 1 && /In tolleranza · 1/.test(await p.innerText('#sfil')) && /arancio/.test(await p.innerText('#sheet')), 'tolleranza: cella arancio con l\'ultimo giorno valido, filtro "In tolleranza"');
@@ -200,6 +211,30 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(await p.isVisible('#gprop') && /che voce manca/i.test(await p.innerText('#err')), 'con ALTRO: obbligatorio scrivere la voce che manca');
   await p.fill('#gprop', 'lama sbucciatrice'); await p.click('#go'); await attesa(200); await p.click('#go').catch(() => {}); await attesa(600);
   ok((posts.filter(o => o.action === 'close' && o.id === 'FC3').pop() || {}).proposta === 'lama sbucciatrice', 'la voce proposta viene inviata con il fermo');
+  // Proponi come soluzione: campi guidati e controlli prima dell'invio
+  D.fermi.push({ id: 'FC4', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  await p.evaluate(() => { S.ver = 'x'; return refresh(); }); await attesa(400);
+  await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC4')); }); await attesa(300);
+  await p.click('#gua [data-v="CAM. OMRON"]'); await p.click('#int [data-v="REGOLAZIONE"]'); await attesa(100);
+  await p.fill('#altro', 'regolata lama'); await p.click('#psol'); await attesa(100);
+  ok(await p.isVisible('#pcau') && await p.isVisible('#pcome') && (await p.inputValue('#pcome')) === 'regolata lama' && /Proponi come soluzione per i colleghi/.test(await p.innerText('#st4')), 'soluzione: domanda chiara, tre campi guidati, "come" parte dalla descrizione');
+  const prova = async (sin, cau, come, okk) => { await p.fill('#pprob', sin); await p.fill('#pcau', cau); await p.fill('#pcome', come); if ((await p.isChecked('#pok')) !== okk) await p.click('#pok'); await p.click('#go'); await attesa(200); return p.innerText('#err'); };
+  ok(/Troppo poco/.test(await prova('astucci segnati in uscita', 'lama storta', 'regolata lama', true)), 'soluzione troppo corta: "troppo poco per insegnare"');
+  ok(/non ha risolto/i.test(await prova('astucci segnati in uscita', 'lama storta', 'provato a regolare la lama e la guida più volte ma senza risultato, da rivedere', true)), 'racconta tentativi falliti: non è una soluzione');
+  ok(/Conferma che ha risolto/.test(await prova('astucci segnati in uscita', 'lama storta', 'allentate le 2 viti lato OP, riallineata la lama alla guida, stretto e provato 20 astucci', false)), 'serve la spunta "Ha risolto"');
+  await p.fill('#pcau', 'lama inserimento storta'); await p.click('#err').catch(() => {});
+  if (process.env.SHOT_SOL) { await p.evaluate(() => { document.querySelector('#err').hidden = true; document.querySelector('#pswrap').scrollIntoView({ block: 'center' }); }); await p.screenshot({ path: process.env.SHOT_SOL }); }
+  if (!(await p.isChecked('#pok'))) await p.click('#pok');
+  await p.click('#go'); await attesa(300); await p.click('#go').catch(() => {}); await attesa(700);
+  const so = posts.filter(o => o.action === 'soluzione').pop() || {};
+  ok(so.problema === 'astucci segnati in uscita' && /^Causa: lama inserimento storta\n allentate|^Causa: lama inserimento storta\nallentate/.test(so.soluzione), 'inviata: problema = cosa si vedeva, soluzione = causa + come');
+  // tecnico: soluzione scartata con il motivo
+  await p.evaluate(() => { closeSh(); S.solScartate = [{ id: 'SX1', ts: Date.now(), macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'regolato sponde', autore: 'ROSSI Mario', motivo: 'Troppo vaga: manca dove e come', da: 'VERDI Anna' }]; go('home'); }); await attesa(300);
+  ok(await p.isVisible('#scartban'), 'tecnico: avviso "una tua soluzione è stata scartata"');
+  await p.click('#scartban'); await attesa(200);
+  ok(/Troppo vaga: manca dove e come/.test(await p.innerText('#sheet')), 'il tecnico legge perché è stata scartata');
+  await p.evaluate(() => { closeSh(); go('home'); }); await attesa(300);
+  ok(!(await p.isVisible('#scartban')), 'letta: l\'avviso sparisce');
   await p.evaluate(() => { closeSh(); go('home'); }); await attesa(300);
   ok(await p.isVisible('#corrban') && !(await p.isVisible('#revban')), 'tecnico: avviso "un tuo fermo è stato corretto"; nessuna lista Da rivedere');
   await p.click('#corrban'); await attesa(200);
