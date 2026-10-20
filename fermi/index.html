@@ -400,6 +400,13 @@ const DEV_NAME = (() => { const u = navigator.userAgent; const m = u.match(/\(([
 const isTelErr = e => /Telefono non/.test(e && e.message || '');
 
 const $ = s => document.querySelector(s);
+// iPhone: niente suggerimenti di indirizzi/contatti (AutoFill) sopra la tastiera nei campi di testo dell'app
+const NO_AF = 'input:not([type]),input[type=text],input[type=search],textarea';
+const noAutofill = el => { if (!el.matches || !el.matches(NO_AF) || el.dataset.noaf) return; el.dataset.noaf = 1;
+  el.setAttribute('autocomplete', 'off'); el.setAttribute('autocorrect', 'on'); el.setAttribute('name', 'pf_' + (el.id || 'campo') + '_nota'); el.setAttribute('data-form-type', 'other'); };
+new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType !== 1) return; noAutofill(n); n.querySelectorAll && n.querySelectorAll(NO_AF).forEach(noAutofill); })))
+  .observe(document.documentElement, { childList: true, subtree: true });
+document.addEventListener('DOMContentLoaded', () => document.querySelectorAll(NO_AF).forEach(noAutofill));
 const $$ = s => document.querySelectorAll(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
