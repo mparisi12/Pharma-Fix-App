@@ -217,7 +217,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC4')); }); await attesa(300);
   await p.click('#gua [data-v="CAM. OMRON"]'); await p.click('#int [data-v="REGOLAZIONE"]'); await attesa(100);
   await p.fill('#altro', 'regolata lama'); await p.click('#psol'); await attesa(100);
-  ok(await p.isVisible('#pcau') && await p.isVisible('#pcome') && (await p.inputValue('#pcome')) === 'regolata lama' && /saprebbe rifarlo da solo/.test(await p.innerText('#st4')), 'soluzione: domanda chiara, tre campi guidati, "come" parte dalla descrizione');
+  ok(await p.isVisible('#pcau') && await p.isVisible('#pcome') && (await p.inputValue('#pcome')) === 'regolata lama' && /Proponi come soluzione per i colleghi/.test(await p.innerText('#st4')), 'soluzione: domanda chiara, tre campi guidati, "come" parte dalla descrizione');
   const prova = async (sin, cau, come, okk) => { await p.fill('#pprob', sin); await p.fill('#pcau', cau); await p.fill('#pcome', come); if ((await p.isChecked('#pok')) !== okk) await p.click('#pok'); await p.click('#go'); await attesa(200); return p.innerText('#err'); };
   ok(/Troppo poco/.test(await prova('astucci segnati in uscita', 'lama storta', 'regolata lama', true)), 'soluzione troppo corta: "troppo poco per insegnare"');
   ok(/non ha risolto/i.test(await prova('astucci segnati in uscita', 'lama storta', 'provato a regolare la lama e la guida più volte ma senza risultato, da rivedere', true)), 'racconta tentativi falliti: non è una soluzione');
