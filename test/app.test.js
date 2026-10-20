@@ -160,6 +160,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(await p.isVisible('#pezzo') && !(await p.innerText('#iprop')), 'SOSTITUZIONE: compare subito il codice pezzo');
   await p.click('#gua [data-v="ALTRO"]'); await attesa(150);
   ok(await p.isVisible('#catbox .chips') && await p.getAttribute('#int [data-v="SOSTITUZIONE"]', 'aria-pressed') === 'true', 'ALTRO: la categoria la sceglie il tecnico; la sua scelta di intervento resta');
+  ok(await p.$$eval('#sheet input:not([type]), #sheet textarea', l => l.length > 0 && l.every(e => e.getAttribute('autocomplete') === 'off')), 'campi di testo senza suggerimenti di indirizzi/contatti (autocomplete off)');
   ok(await p.isVisible('#phgrp .camtile') && await p.isVisible('#phgrp .galbtn') && (await p.getAttribute('#gal', 'capture')) === null, 'foto chiusura: si può scattare o scegliere dalla galleria (input senza capture)');
   const big = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 4000; c.height = 3000; const x = c.getContext('2d'); x.fillStyle = '#3a6'; x.fillRect(0, 0, 4000, 3000); return c.toDataURL('image/jpeg', .9).split(',')[1]; });
   const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#phgrp .galbtn')]);
