@@ -112,6 +112,11 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/vbox tol/.test(tb) && /valida ancora fino al/.test(tb) && /ancora 27 giorni/.test(tb), 'tecnico: box arancio "scaduta · in tolleranza", valida fino al… (27 giorni rimasti)');
   if (process.env.SHOT_TOL) { await p.evaluate(() => { closeSh(); shAbil('ROSSI Mario', () => {}); }); await attesa(200); await p.screenshot({ path: process.env.SHOT_TOL.replace('.png', '2.png') }); }
   await p.evaluate(() => { S.avviso = Object.assign({}, S.avviso, { tolV: 0, tolC: 0 }); closeSh(); });
+  // corso MD_20: stessa logica delle convalide, testi da corso
+  const md = await p.evaluate(() => { const old = S.convalide; S.convalide = { list: old.list.concat([{ man: 'ROSSI Mario', cat: 'MD_20', desc: 'Corso MD_20', scad: Date.now() + 10 * 864e5 }]), ignote: [], cats: ['G', 'H', 'MD_20'] };
+    const b = boxConv('ROSSI Mario'), mb = boxConv('BIANCHI Luca'); shScadRep('tutti'); const t = document.querySelector('#sheet').innerText; closeSh(); S.convalide = old; return { b, mb, t }; });
+  ok(/Corso MD_20 in scadenza/.test(md.b) && /Prenota il corso/.test(md.b) && /Corso MD_20: data non registrata/.test(md.mb), 'corso MD_20: avviso in scadenza; chi non ce l\'ha: "data non registrata"');
+  ok(/CORSO\s*MD_20/.test(md.t), 'Scadenze del reparto: colonna CORSO MD_20');
 
   console.log('\nAccesso che resta (iPhone)');
   await esci(); await entra('Mario', 'Rossi');
