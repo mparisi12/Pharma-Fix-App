@@ -60,6 +60,12 @@ let ver = 1, full = 0, same = 0; const posts = [];
   await p.fill('#lotto', '601095'); await p.click('#sheet #go'); await attesa(2500);
   ok(posts.some(o => o.action === 'open' && o.code === 'ST3-04' && o.lotto === '601095'), 'fermo inviato al foglio');
   ok(full > f0, 'dopo l\'invio i dati nuovi si riscaricano');
+  // lotto corretto a mano: al fermo successivo sulla stessa linea viene riproposto, anche se c'è il programma
+  const lt = await p.evaluate(() => { const eq = eqBy('ST3-05') || { code: 'ST3-05', linea: 'ST3', macchina: 'BILANCIA', area: 'Packaging' }; const old = S.programma;
+    S.programma = { ST3: { [dKey(giornoProd())]: '601090' } }; closeSh(); openSheet(eq);
+    const r = { v: document.querySelector('#lotto').value, sel: (document.querySelector('#lch [aria-pressed="true"]') || {}).textContent || '', hint: document.querySelector('#sheet .hint').textContent };
+    closeSh(); S.programma = old; return r; });
+  ok(lt.v === '601095' && /Ultimo usato · 601095/.test(lt.sel) && /Ultimo lotto usato su ST3/.test(lt.hint), 'apri fermo: riproposto l\'ultimo lotto scritto a mano (601095), non il primo del programma (601090)');
 
   console.log('\nDocumenti');
   await p.evaluate(() => go({ name: 'doc', code: 'ST3-04', tab: 'sch' })); await attesa(300);
