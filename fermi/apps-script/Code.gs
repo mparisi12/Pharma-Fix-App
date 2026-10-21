@@ -2261,10 +2261,13 @@ const SH_VEST = 'Vestizioni', VEST_H = ['Tecnico', 'Data vestizione', 'Durata (m
    - "Scadenza Cat. G", "Scadenza Cat. H"…: scritte dallo script dal foglio Convalide (data, MANCA o esonerato). Non modificare.
    - riquadro "Impostazioni" a destra: durata standard della vestizione (mesi, se la colonna Durata è vuota),
      preavviso vestizione e preavviso convalide GMP (giorni prima della scadenza). */
-const VEST_STER = 'Area sterile (SI/NO)', CONV_NOME_ = { G: 'regolazione', H: 'sostituzione' };
+const VEST_STER = 'Area sterile (SI/NO)', CONV_NOME_ = { G: 'regolazione', H: 'sostituzione', MD_20: 'corso' };
+// Scadenze che valgono per tutti quelli in area sterile anche se lo scadenziario non le riporta (data scritta a mano in "Ultima convalida")
+const CONV_FISSE = ['MD_20'];
 const VEST_SET = [['Durata standard vestizione (mesi)', 12], ['Preavviso vestizione (giorni prima)', 60], ['Preavviso convalide GMP (giorni prima)', 60],
-  ['Durata standard convalide interventi (mesi)', 12], ['Tolleranza vestizione (giorni dopo la scadenza)', 30], ['Tolleranza convalide GMP (giorni dopo la scadenza)', 30]];
-const VEST_SET_RE = [/^durata standard vestizione/i, /^preavviso vestizione/i, /^preavviso convalide/i, /^durata standard convalide/i, /^tolleranza vestizione/i, /^tolleranza convalide/i];
+  ['Durata standard convalide interventi (mesi)', 12], ['Tolleranza vestizione (giorni dopo la scadenza)', 30], ['Tolleranza convalide GMP (giorni dopo la scadenza)', 30],
+  ['Durata corso MD_20 (mesi)', 12]];
+const VEST_SET_RE = [/^durata standard vestizione/i, /^preavviso vestizione/i, /^preavviso convalide/i, /^durata standard convalide/i, /^tolleranza vestizione/i, /^tolleranza convalide/i, /^durata corso md/i];
 const VEST_NOTA = 'Viola = scritte dallo script dal foglio Convalide (non modificare). Giallo = in preavviso, arancio = scaduta ma in tolleranza (ancora valida), rosso = oltre la tolleranza o MANCA. Area sterile NO = esonerato: niente avvisi.';
 let VEST_MEMO = null;
 function vestSetup_(ss) {
@@ -2292,7 +2295,7 @@ function vestSetup_(ss) {
       sh.getRange(2, cSter, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SI', 'NO'], true).setAllowInvalid(false).build()).setBackground('#fff3d6');
     }
     // Colonne delle convalide
-    const conv = convalideTutte_(ss).list, cats = [...new Set(conv.map(x => x.cat))].sort(), cCat = {};
+    const conv = convalideTutte_(ss).list, cats = [...new Set(conv.map(x => x.cat).concat(CONV_FISSE))].sort(), cCat = {};
     const cUlt = {};
     cats.forEach(k => {
       cCat[k] = trova(new RegExp('^scadenza cat\\.?\\s*' + k + '\\b', 'i')) ||
@@ -2345,7 +2348,8 @@ function vestSetup_(ss) {
     }
     const sv = riga.map(r => Number(blocco[r - 2][1])), tol = x => String(x).trim() === '' || !(Number(x) >= 0) ? 0 : Math.round(Number(x));
     const set = { durata: sv[0] > 0 ? sv[0] : 12, avvV: sv[1] > 0 ? sv[1] : VEST_AVVISO, avvC: sv[2] > 0 ? sv[2] : VEST_AVVISO, durC: sv[3] > 0 ? sv[3] : 12,
-      tolV: tol(blocco[riga[4] - 2][1]), tolC: tol(blocco[riga[5] - 2][1]) };
+      tolV: tol(blocco[riga[4] - 2][1]), tolC: tol(blocco[riga[5] - 2][1]), durMD: sv[6] > 0 ? sv[6] : 12 };
+    const durK = k => k === 'MD_20' ? set.durMD : set.durC; // durata per categoria (il corso MD_20 ha la sua)
     const L = c => sh.getRange(1, c).getA1Notation().replace(/\d+$/, ''), abs = r => '$' + L(cSet + 1) + '$' + r;
     // Scadenza (colonna D) con la durata standard
     const fD = '=ARRAYFORMULA(IF(B2:B="","",DATE(YEAR(B2:B),MONTH(B2:B)+IF(C2:C="",' + abs(riga[0]) + ',C2:C),DAY(B2:B))))';
@@ -2363,10 +2367,10 @@ function vestSetup_(ss) {
           if (!nm || /^no$/i.test(String(r[cSter - 1]).trim())) return [cur];
           let d = cur instanceof Date ? cur : dataConv_(cur);
           const x = eff.find(c => c.cat === k && c.man.toUpperCase() === nm.toUpperCase());
-          const base = x ? piu(new Date(x.scad), -set.durC) : null;
+          const base = x ? piu(new Date(x.scad), -durK(k)) : null;
           if (base && (!d || d.getTime() < base.getTime())) { d = base; cambia = true; }
           if (!d) return [cur];
-          const sc = piu(d, set.durC).getTime();
+          const sc = piu(d, durK(k)).getTime();
           if (x) { if (sc > x.scad) { x.scad = sc; x.da = 'ultima convalida'; } }
           else eff.push({ man: nm, cat: k, desc: (conv.find(c => c.cat === k) || {}).desc || '', scad: sc, da: 'ultima convalida' });
           return [d];
@@ -2401,7 +2405,7 @@ function vestSetup_(ss) {
       sh.setConditionalFormatRules(regole);
       props.setProperty('VEST_CF', firma);
     }
-    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cUlt: cUlt, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC, durC: set.durC, tolV: set.tolV, tolC: set.tolC,
+    return VEST_MEMO = { sh: sh, cSter: cSter, cCat: cCat, cUlt: cUlt, cSet: cSet, durata: set.durata, avvV: set.avvV, avvC: set.avvC, durC: set.durC, durMD: set.durMD, tolV: set.tolV, tolC: set.tolC,
       conv: conv2.sort((a, b) => a.man.localeCompare(b.man) || a.cat.localeCompare(b.cat)) };
   } finally { if (preso) try { lock.releaseLock(); } catch (e) {} }
 }
@@ -2454,7 +2458,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '20/10/2026 19:30';
+const VERSIONE_SCRIPT = '21/10/2026 10:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2667,9 +2671,9 @@ function convalideLeggi_(ss) {
   const best = {}, ignote = [];
   sh.getDataRange().getValues().forEach(r => {
     const txt = r.map(x => x instanceof Date ? '' : String(x));
-    const iItem = txt.findIndex(x => /categoria\s+[A-Z]\b/i.test(x)); if (iItem < 0) return;
-    const cat = txt[iItem].match(/categoria\s+([A-Z])\b/i)[1].toUpperCase();
-    const desc = (txt[iItem].split(/\s+-\s+/)[1] || '').replace(/\s+/g, ' ').trim();
+    let iItem = txt.findIndex(x => /categoria\s+[A-Z]\b/i.test(x)), cat, desc;
+    if (iItem >= 0) { cat = txt[iItem].match(/categoria\s+([A-Z])\b/i)[1].toUpperCase(); desc = (txt[iItem].split(/\s+-\s+/)[1] || '').replace(/\s+/g, ' ').trim(); }
+    else { iItem = txt.findIndex(x => /\bMD[\s_-]?20\b/i.test(x)); if (iItem < 0) return; cat = 'MD_20'; desc = 'Corso MD_20'; } // corso MD_20 nello scadenziario
     let d = null; for (const x of r) { if ((d = dataConv_(x))) break; } if (!d) return;
     const ogg = txt.filter((x, i) => i !== iItem).sort((a, b) => b.length - a.length)[0] || '';
     const tok = normNome_(ogg);
@@ -2682,9 +2686,9 @@ function convalideLeggi_(ss) {
 }
 // Convalide effettive (scadenziario + ultima convalida dal foglio Vestizioni)
 function convalideEff_(ss) { let c = null; try { c = vestSetup_(ss); } catch (e) { Logger.log(e); } return c && c.conv ? c.conv : convalideTutte_(ss).list; }
-function convalide_(ss) { const x = convalideTutte_(ss); return { list: convalideEff_(ss), ignote: x.ignote.slice(0, 30) }; }
+function convalide_(ss) { const x = convalideTutte_(ss), list = convalideEff_(ss); return { list: list, ignote: x.ignote.slice(0, 30), cats: [...new Set(list.map(c => c.cat).concat(CONV_FISSE))].sort() }; }
 function convMancanti_(ss, list) {
-  const no = esonerati_(ss).map(x => x.toUpperCase()), cats = [...new Set(list.map(x => x.cat))].sort();
+  const no = esonerati_(ss).map(x => x.toUpperCase()), cats = [...new Set(list.map(x => x.cat).concat(CONV_FISSE))].sort();
   if (!cats.length) return [];
   const nomi = tecniciTutti_(ss).filter(n => no.indexOf(n.toUpperCase()) < 0);
   const out = []; nomi.forEach(n => { const m = cats.filter(k => !list.some(x => x.man.toUpperCase() === n.toUpperCase() && x.cat === k)); if (m.length) out.push({ man: n, cats: m }); });
