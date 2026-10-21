@@ -1740,12 +1740,16 @@ function openSheet(eq) {
   const cont = (S.continuo || []).some(c => U(c) === U(eq.linea)); // ciclo continuo (es. ST3): anche i lotti del giorno prima
   const lp = [...(cont ? progDi(eq.linea, giornoProd(now0) - 864e5) : []), ...progDi(eq.linea, giornoProd(now0)), ...progDi(eq.linea, now0)]
     .filter((x, i, a) => x.lotto && a.findIndex(y => y.lotto === x.lotto) === i);
+  // ultimo lotto usato (anche corretto a mano) su questa linea nelle ultime 12 ore: vince sul programma
+  const ult = allFermi().find(x => U(x.linea) === U(eq.linea) && LOTTO_OK(x.lotto) && now0 - (x.end || x.start) < 12 * 3600e3), ultL = ult ? String(ult.lotto) : '';
+  if (ultL && lp.length && !lp.some(x => x.lotto === ultL)) lp.unshift({ lotto: ultL, t: 'Ultimo usato · ' + ultL });
+  const sel = ultL || (lp.length ? lp[0].lotto : lotto);
   sheet(`<div class="sheet-h"><h3>Apri fermo</h3><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="pop-eq">${I.qr.replace('<svg', '<svg width="26" height="26" style="color:var(--crit);flex:none"')}<div style="min-width:0"><div class="ln">${esc(eq.linea)} · ${esc(nice(eq.macchina))}</div><div class="mc">${esc(eq.code)} · ${esc(areaLbl(eq.area))}</div></div></div>
     <div class="group"><label class="label" for="lotto">Lotto in produzione</label>
-      ${lp.length ? `<div class="lchips" id="lch">${lp.map((x, i) => `<button class="chip" type="button" data-v="${esc(x.lotto)}" aria-pressed="${i === 0}">${esc(x.t)}</button>`).join('')}</div>` : ''}
-      <input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(lp.length ? lp[0].lotto : lotto)}" placeholder="Numero lotto">
-      <div class="hint">${lp.length ? 'Dal programma di produzione' + (cont ? ' di ieri e di oggi (ciclo continuo)' : ' di oggi') + ': tocca il lotto giusto o scrivilo.' : lotto ? 'Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.' : ''}</div></div>
+      ${lp.length ? `<div class="lchips" id="lch">${lp.map((x, i) => `<button class="chip" type="button" data-v="${esc(x.lotto)}" aria-pressed="${x.lotto === sel}">${esc(x.t)}</button>`).join('')}</div>` : ''}
+      <input class="field lottobig" id="lotto" inputmode="numeric" autocomplete="off" value="${esc(sel)}" placeholder="Numero lotto">
+      <div class="hint">${ultL ? 'Ultimo lotto usato su ' + esc(eq.linea) + ' (fermo delle ' + hhmm(ult.start) + ')' + (lp.length ? ', oppure tocca un lotto del programma' : '') + ': controlla che sia ancora questo.' : lp.length ? 'Dal programma di produzione' + (cont ? ' di ieri e di oggi (ciclo continuo)' : ' di oggi') + ': tocca il lotto giusto o scrivilo.' : lotto ? 'Ultimo lotto su ' + esc(eq.linea) + ': controlla che sia ancora questo.' : ''}</div></div>
     <div class="group"><span class="label">Quando si è fermata?</span><div class="when" id="when">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${pad(new Date(now0).getHours())}:${pad(new Date(now0).getMinutes())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>si è fermata prima</small></button></div>
