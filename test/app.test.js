@@ -220,7 +220,14 @@ let ver = 1, full = 0, same = 0; const posts = [];
   D.fermi.push({ id: 'FC4', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
   await p.evaluate(() => { S.ver = 'x'; return refresh(); }); await attesa(400);
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC4')); }); await attesa(300);
-  await p.click('#gua [data-v="CAM. OMRON"]'); await p.click('#int [data-v="REGOLAZIONE"]'); await attesa(100);
+  // categoria: proposta e modificabile; "A SCELTA" la sceglie sempre il tecnico
+  await p.evaluate(() => { S.vociCat = Object.assign({}, S.vociCat, { SENSORE: 'A SCELTA' }); });
+  await p.click('#gua [data-v="SENSORE"]'); await attesa(150);
+  ok(await p.isVisible('#catbox .catch') && !(await p.$('#catbox .catch [aria-pressed="true"]')) && /dipende da cosa hai fatto/i.test(await p.innerText('#catbox')), 'voce A SCELTA (SENSORE): il tecnico sceglie la categoria, niente preselezionato');
+  if (process.env.SHOT_CAT) { await p.evaluate(() => document.querySelector('#catbox').scrollIntoView({ block: 'center' })); await p.screenshot({ path: process.env.SHOT_CAT }); }
+  await p.click('#catbox .catch [data-v="ELETTRICO"]'); await attesa(100);
+  ok(await p.evaluate(() => document.querySelector('#catbox .catch [data-v="ELETTRICO"]').getAttribute('aria-pressed')) === 'true' && /sensibilità, taratura/.test(await p.innerText('#catbox')), 'SENSORE: il tecnico sceglie ELETTRICO (con l\'aiuto "sensibilità, taratura")');
+  await p.click('#int [data-v="REGOLAZIONE"]'); await attesa(100);
   await p.fill('#altro', 'regolata lama'); await p.click('#psol'); await attesa(100);
   ok(await p.isVisible('#pcau') && await p.isVisible('#pcome') && (await p.inputValue('#pcome')) === 'regolata lama' && /Proponi come soluzione per i colleghi/.test(await p.innerText('#st4')), 'soluzione: domanda chiara, tre campi guidati, "come" parte dalla descrizione');
   const prova = async (sin, cau, come, okk) => { await p.fill('#pprob', sin); await p.fill('#pcau', cau); await p.fill('#pcome', come); if ((await p.isChecked('#pok')) !== okk) await p.click('#pok'); await p.click('#go'); await attesa(200); return p.innerText('#err'); };
@@ -232,6 +239,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   if (!(await p.isChecked('#pok'))) await p.click('#pok');
   await p.click('#go'); await attesa(300); await p.click('#go').catch(() => {}); await attesa(700);
   const so = posts.filter(o => o.action === 'soluzione').pop() || {};
+  ok((posts.filter(o => o.action === 'close' && o.id === 'FC4').pop() || {}).categoria === 'ELETTRICO', 'inviata la categoria scelta dal tecnico');
   ok(so.problema === 'astucci segnati in uscita' && /^Causa: lama inserimento storta\n allentate|^Causa: lama inserimento storta\nallentate/.test(so.soluzione), 'inviata: problema = cosa si vedeva, soluzione = causa + come');
   // tecnico: soluzione scartata con il motivo
   await p.evaluate(() => { closeSh(); S.solScartate = [{ id: 'SX1', ts: Date.now(), macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'regolato sponde', autore: 'ROSSI Mario', motivo: 'Troppo vaga: manca dove e come', da: 'VERDI Anna' }]; go('home'); }); await attesa(300);
