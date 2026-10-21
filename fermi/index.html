@@ -173,6 +173,7 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .chip .cnt{font:500 11px var(--mono);opacity:.75;margin-left:4px}
 .chips.ich2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chips.ich2 .chip{padding:9px 11px;font-weight:600;line-height:1.15}
 .chips.ich2 .chip small{display:block;font-weight:400;font-size:11.5px;opacity:.75;margin-top:3px;line-height:1.25}
+.catch .chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px}.catch .chip small{font-weight:400;font-size:11px;color:var(--muted)}
 .autotag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font:500 12px var(--mono)}
 .vdef{margin-top:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-left:3px solid var(--steel);background:var(--surface);border-radius:0 8px 8px 0}
 .revc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--surface)}.revc .why{font-size:12.5px;color:#a3402d;margin:4px 0}.revc .row{display:flex;gap:8px;margin-top:8px}.revc .row button{flex:1}
@@ -1072,7 +1073,7 @@ function intSheet(f, eq) {
 // Prima correzione: la fa direttamente chi ha registrato il fermo (o un coordinatore)
 function modSheet(f, eq, opt = {}) {
   const M = { cat: U(f.cat) ? (S.liste['Categoria'] || []).find(x => U(x) === U(f.cat)) || f.cat : null, int: intNorm(f.int), guasto: f.guasto || null, causa: f.causa || null };
-  M.catScelta = M.cat;
+  M.catScelta = M.cat; M.catG = M.guasto;
   sheet(`<div class="sheet-h"><div><h3>Correggi il fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · ${fmtDT(f.start)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="banner" style="margin-top:10px">Prima e unica correzione diretta: dopo, per cambiare ancora, dovrai chiederlo al responsabile.</div>
     <div class="group"><span class="label">Orari del fermo</span><div class="times"><label>Inizio<input class="field" type="time" id="mini" value="${hhmm(f.start)}"></label><label>Fine<input class="field" type="time" id="mfin" value="${hhmm(f.end)}"></label></div>
@@ -1979,21 +1980,25 @@ const interventi = () => { const l = (S.liste['Tipo intervento'] || []).map(U).f
   return (l.length && Object.keys(d).length ? l : Object.keys(INT_DEF)).map(v => [v, d[v] || INT_DEF[v] || '']); };
 const causeL = () => (S.liste['Causa'] || []).length ? S.liste['Causa'] : CAUSE_DEF;
 const intNorm = v => { const u = U(v); return u === 'RIAVVIO' ? 'RIPRISTINO' : interventi().some(x => x[0] === u) ? u : null; };
-const catDi = g => g && U(g) !== 'ALTRO' ? (S.vociCat || {})[U(g)] || null : null;
+const catDi = g => { const c = g && U(g) !== 'ALTRO' ? (S.vociCat || {})[U(g)] || null : null; return c && U(c) === 'A SCELTA' ? null : c; };
+const catAScelta = g => !!g && U((S.vociCat || {})[U(g)] || '') === 'A SCELTA';
+const CAT_AIUTO = { MECCANICO: 'posizione, montaggio, usura', ELETTRICO: 'sensibilità, taratura, cablaggio', AUTOMATION: 'parametri, ricetta, telecamera, PLC' };
 const intChips = sel => interventi().map(([v, d]) => `<button class="chip" type="button" data-v="${v}" aria-pressed="${intNorm(sel) === v}">${v}<small>${d}</small></button>`).join('');
 // L'intervento usato più spesso per questo guasto su questa macchina (almeno 2 volte): viene proposto già scelto
 function intProposto(code, g) {
   const c = {}; allFermi().forEach(f => { if (f.code === code && f.stato === 'CHIUSO' && U(f.guasto) === U(g)) { const i = intNorm(f.int); if (i) c[i] = (c[i] || 0) + 1; } });
   const t = Object.keys(c).sort((a, b) => c[b] - c[a])[0]; return t && c[t] >= 2 ? t : null;
 }
-// Categoria: automatica se la voce è nel foglio Voci guasto, altrimenti (ALTRO o voce nuova) la sceglie il tecnico
+// Categoria: automatica dalla voce (foglio Voci guasto); la sceglie il tecnico solo per ALTRO, voci nuove e voci "A SCELTA" (es. SENSORE: posizione o taratura)
 function catBox(el, g, M, onPick) {
-  const c = catDi(g); M.cat = c || (M.catScelta || null);
+  const c = catDi(g), scelta = catAScelta(g), mia = M.catScelta && M.catG === g ? M.catScelta : null;
+  M.cat = mia || c; M.catG = g;
   if (!g) { el.innerHTML = ''; return; }
   const def = (S.vociDesc || {})[U(g)], dh = def ? `<div class="vdef"><b>${esc(g.split(',')[0])}</b> = ${esc(def)}</div>` : '';
-  if (c) { el.innerHTML = dh + `<div class="autotag">Categoria <b>${esc(c)}</b> · automatica</div>`; return; }
-  el.innerHTML = dh + `<div style="margin-top:10px"><span class="label">Categoria${U(g) === 'ALTRO' ? '' : ' · voce non ancora classificata'}</span><div class="chips">${chips(S.liste['Categoria'] || [], M.cat)}</div></div>`;
-  singleChoice(el.querySelector('.chips'), v => { M.cat = M.catScelta = v; onPick && onPick(); });
+  const scegli = lab => { el.innerHTML = dh + `<div style="margin-top:10px"><span class="label">${lab}</span><div class="chips catch">${(S.liste['Categoria'] || []).map(x => `<button class="chip" type="button" data-v="${esc(x)}" aria-pressed="${U(M.cat || '') === U(x)}">${esc(x)}${CAT_AIUTO[U(x)] ? `<small>${esc(CAT_AIUTO[U(x)])}</small>` : ''}</button>`).join('')}</div></div>`;
+    singleChoice(el.querySelector('.chips'), v => { M.cat = M.catScelta = v; M.catG = g; onPick && onPick(); }); };
+  if (c) { M.cat = c; el.innerHTML = dh + `<div class="autotag">Categoria <b>${esc(c)}</b> · automatica</div>`; return; } // nessuna interpretazione: decide il foglio Voci guasto
+  scegli(scelta ? 'Categoria · per questa voce dipende da cosa hai fatto: scegli' : U(g) === 'ALTRO' ? 'Categoria' : 'Categoria · voce non ancora classificata');
 }
 // Come singleChoice, ma un secondo tocco toglie la scelta (per le domande facoltative)
 function toggleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const on = b.getAttribute('aria-pressed') !== 'true';

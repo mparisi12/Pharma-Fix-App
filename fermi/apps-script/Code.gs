@@ -265,6 +265,9 @@ const KPI_AREE = ['PACKAGING', 'FILLING'];
 const KPI_T = 31, KPI_N = 20; // riga intestazioni tabelle, righe mostrate nei grafici
 const KPI_C1 = 27, KPI_C2 = 33, MICRO_MIN = 3; // colonne delle tabelle per causa e per intervento (dopo quelle nascoste dei grafici); micro-fermo = meno di 3 minuti
 let KPI_NUOVO = false;
+// Pareto e guasto n°1 contano la coppia intervento · voce: "REG · MAG. ASTUCCI" e "SOS · MAG. ASTUCCI" sono problemi diversi
+const KPI_GH = 'Intervento · guasto', INT_BREVE = { REGOLAZIONE: 'REG', SOSTITUZIONE: 'SOS', RIPRISTINO: 'RIP', PULIZIA: 'PUL' };
+const intGuasto_ = (int, g) => (int && int.charAt(0) !== '(' ? (INT_BREVE[int] || int.slice(0, 3)) + ' · ' : '') + g;
 const ORE_GIORNO = 24; // stima MTBF: ore per giorno di produzione (3 turni)
 function buildKpi_(ss, keep) {
   const sh = ss.getSheetByName(SH_KPI) || ss.insertSheet(SH_KPI, 1);
@@ -291,14 +294,14 @@ function buildKpi_(ss, keep) {
   sh.getRange('A10:K10').setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange('F10').setBackground(Y);
   sh.getRange('F11').setValue('vuota = stima dal Programma (giorni con lotti × 24 h); scrivi le ore vere se le hai').setFontColor(G).setFontSize(9).setWrap(true);
-  sh.getRange('H11').setValue('RFR = interventi su quel guasto / totale interventi').setFontColor(G).setFontSize(9);
+  sh.getRange('H11').setValue('RFR = interventi su quel guasto (stesso tipo di intervento) / totale interventi').setFontColor(G).setFontSize(9);
 
   // grafici in alto (righe 12-29), tabelle sotto (da riga KPI_T)
   const t = KPI_T;
   sh.getRange(t - 1, 1).setValue('Pareto per FREQUENZA — quante volte succede').setFontWeight('bold');
-  sh.getRange(t, 1, 1, 5).setValues([['Tipo guasto', 'N° interventi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, 1, 1, 5).setValues([[KPI_GH, 'N° interventi', 'Tempo', '% cumulata', 'RFR']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, 7).setValue('Pareto per DURATA — quanto ferma la linea').setFontWeight('bold');
-  sh.getRange(t, 7, 1, 5).setValues([['Tipo guasto', 'Ore di fermo', 'N° interventi', '% cumulata', '% del tempo']]).setFontWeight('bold').setBackground(H);
+  sh.getRange(t, 7, 1, 5).setValues([[KPI_GH, 'Ore di fermo', 'N° interventi', '% cumulata', '% del tempo']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, 13).setValue('Fermi per macchina').setFontWeight('bold');
   sh.getRange(t, 13, 1, 6).setValues([['Linea', 'Macchina', 'N° fermi', 'Tempo', 'MTTR per intervento', 'Guasto n°1 · RFR']]).setFontWeight('bold').setBackground(H);
   sh.getRange(t - 1, KPI_C1).setValue('Per CAUSA — perché si guasta').setFontWeight('bold');
@@ -430,7 +433,7 @@ function calcolaKpi_(vals, f) {
   const n = rows.length, tot = rows.reduce((a, x) => a + x.dur, 0), nF = new Set(rows.map(x => x.g)).size; // n = interventi, nF = fermi (macchina ferma)
   const lotti = new Set(rows.map(x => x.lotto).filter(Boolean)).size;
   const grp = (key) => { const m = {}; rows.forEach(x => { const k = key(x); m[k] = m[k] || { n: 0, t: 0 }; m[k].n++; m[k].t += x.dur; }); return m; };
-  const g = grp(x => x.guasto);
+  const g = grp(x => intGuasto_(x.int, x.guasto));
   let cum = 0;
   const pareto = Object.keys(g).map(k => [k, g[k].n, g[k].t]).sort((a, b) => b[1] - a[1] || b[2] - a[2])
     .map(r => { cum += r[1]; return [r[0], r[1], r[2], cum / n, r[1] / n]; });
@@ -441,7 +444,7 @@ function calcolaKpi_(vals, f) {
   rows.forEach(x => {
     const k = x.linea + '\u0001' + x.macc;
     const m = mm[k] = mm[k] || { n: 0, t: 0, g: {}, f: new Set() };
-    m.n++; m.f.add(x.g); m.t += x.dur; m.g[x.guasto] = (m.g[x.guasto] || 0) + 1;
+    const kg = intGuasto_(x.int, x.guasto); m.n++; m.f.add(x.g); m.t += x.dur; m.g[kg] = (m.g[kg] || 0) + 1;
   });
   const top1 = (gg, tn) => { const k = Object.keys(gg).sort((a, b) => gg[b] - gg[a])[0]; return k ? k + ' · ' + Math.round(gg[k] / tn * 100) + '%' : ''; };
   const macchine = Object.keys(mm).map(k => { const p = k.split('\u0001'), m = mm[k]; return [p[0], p[1], m.f.size, m.t, m.t / m.n, top1(m.g, m.n)]; })
@@ -463,7 +466,7 @@ function aggiornaValoriKpi() {
   const sh = ss.getSheetByName(SH_KPI);
   if (!sh) return;
   // foglio KPI della versione precedente: lo ricrea tenendo filtri e ore di funzionamento
-  if (!KPI_NUOVO && (sh.getRange(KPI_T, 7).getValue() !== 'Tipo guasto' || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico %: guasto' ||
+  if (!KPI_NUOVO && (sh.getRange(KPI_T, 7).getValue() !== KPI_GH || sh.getRange('A2').getValue() !== 'Area' || sh.getRange(KPI_T, 20).getValue() !== 'Grafico %: guasto' ||
       sh.getMaxColumns() < KPI_C2 + 4 || sh.getRange(KPI_T, KPI_C1).getValue() !== 'Causa' || sh.getRange('J9').getValue() !== 'N° interventi')) {
     const area = KPI_AREE.indexOf(String(sh.getRange('B2').getValue()).toUpperCase()) >= 0 ? String(sh.getRange('B2').getValue()).toUpperCase() : '';
     const filtri = sh.getRange('B3:B5').getValues(), date = sh.getRange('D6:D7').getValues(), ore = sh.getRange('F10').getValue();
@@ -796,6 +799,15 @@ function classificazione_(ss) {
     }
     props.setProperty('CLASS_V3', '1');
   }
+  // V4: categoria "A SCELTA" nel foglio Voci guasto (voci che possono essere meccaniche o elettriche: la sceglie il tecnico)
+  if (props.getProperty('CLASS_V4') !== '1') {
+    const vs = ss.getSheetByName(SH_VOCI);
+    if (vs && vs.getMaxRows() > 1) {
+      vs.getRange(2, 2, vs.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO', 'A SCELTA'], true).setAllowInvalid(false).build());
+      vs.getRange(1, 2).setNote('Categoria della voce: l\'app la scrive da sola alla chiusura del fermo. A SCELTA = la voce può essere meccanica o elettrica (es. SENSORE: posizione o taratura): il tecnico deve sceglierla ogni volta.');
+    }
+    props.setProperty('CLASS_V4', '1');
+  }
   vociSync_(ss);
 }
 /* =================== Unione voci guasto ===================
@@ -885,7 +897,7 @@ function vociSync_(ss) {
   const r0 = sh.getLastRow() + 1;
   sh.getRange(r0, 1, righe.length, 4).setValues(righe);
   righe.forEach((r, i) => sh.getRange(r0 + i, 2).setBackground(/^storico/.test(r[2]) ? null : '#fff2cc'));
-  sh.getRange(2, 2, sh.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'], true).setAllowInvalid(false).build());
+  sh.getRange(2, 2, sh.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO', 'A SCELTA'], true).setAllowInvalid(false).build());
   VOCI_MEMO = null;
 }
 function fermiConvalida_(ss, forza) {
@@ -2002,7 +2014,7 @@ function closeFermo_(p) {
   sh.getRange(r, C.FINE).setValue(d).setNumberFormat('HH:mm');
   if (p.manutentore && !daAltri) sh.getRange(r, C.MAN).setValue(p.manutentore);
   if (daAltri) sh.getRange(r, C.MAN).setNote('Chiuso da ' + p.manutentore + ' (coordinatore) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
-  const cat = String(p.categoria || '').trim() || (vociCat_(SpreadsheetApp.getActiveSpreadsheet())[String(p.guasto || '').trim().toUpperCase()] || '');
+  const cat = String(p.categoria || '').trim() || (c0 => c0 === 'A SCELTA' ? '' : c0)(vociCat_(SpreadsheetApp.getActiveSpreadsheet())[String(p.guasto || '').trim().toUpperCase()] || '');
   sh.getRange(r, C.CAT, 1, 4).setValues([[cat, p.intervento || '', p.guasto || '', p.altro || '']]);
   if (p.causa || p.proposta) causaCol_(sh);
   if (p.causa) sh.getRange(r, C.CAUSA).setValue(String(p.causa).trim());
@@ -2458,7 +2470,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '21/10/2026 10:30';
+const VERSIONE_SCRIPT = '21/10/2026 18:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
