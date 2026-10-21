@@ -109,13 +109,13 @@ console.log('\nArea sterile: esonerati e convalide mancanti');
   const { ctx, sheets } = nuovo();
   sheets.Liste.rows = [['Manutentori'], ['GIALLI Marco'], ['MORO Riccardo'], ['FERRI Luca']];
   sheets.Vestizioni = new Sheet('Vestizioni', [['Tecnico', 'Data vestizione', 'Durata (mesi)', 'Scadenza', 'Giorni mancanti', 'Note'], ['GIALLI Marco', new ctx.DD(2026, 0, 10), 12], ['MORO Riccardo'], ['FERRI Luca', '', '', '', '', '', 'NO']]);
-  sheets.Convalide = new Sheet('Convalide', [['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria G - regolazione'], ['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria H - sostituzione']]);
+  sheets.Convalide = new Sheet('Convalide', [['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria G - regolazione'], ['x', 'Convalida Sterile Marco Gialli', '2027/01/10', 'Categoria H - sostituzione'], ['x', 'Formazione Marco Gialli', '2027/03/01', 'Corso MD 20']]);
   const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   ok(JSON.stringify(ctx.esonerati_(ss)) === '["FERRI Luca"]', 'colonna Area sterile: NO = esonerato');
   ok(/sterile/i.test(sheets.Vestizioni.rows[0][6]), 'colonna Area sterile presente nel foglio Vestizioni');
   const m = ctx.convMancanti_(ss, ctx.convalideTutte_(ss).list);
-  ok(m.length === 1 && m[0].man === 'MORO Riccardo' && m[0].cats.join() === 'G,H', 'chi è in sterile senza convalide: mancanti G e H (gli esonerati no)');
-  ok(/mancanti: MORO G H/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
+  ok(m.length === 1 && m[0].man === 'MORO Riccardo' && m[0].cats.join() === 'G,H,MD_20', 'chi è in sterile senza convalide: mancanti G, H e corso MD_20 (gli esonerati no); "Corso MD 20" letto dallo scadenziario');
+  ok(/mancanti: MORO G H MD_20/.test(ctx.rigaConvalide_()), 'riepilogo: riga con i mancanti');
 }
 console.log('\nFoglio Vestizioni: impostazioni e convalide');
 {
@@ -133,11 +133,12 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   sheets.Vestizioni.rows[3][6] = 'NO'; // FERRI esonerato (colonna G già scritta a mano, senza intestazione)
   sheets.Vestizioni.rows[0][6] = 'Area sterile (SI/NO)';
   const c = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet()), V = sheets.Vestizioni.rows;
-  ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cUlt.G === 10 && c.cUlt.H === 11 && c.cSet === 13, 'colonne: G area sterile, H/I scadenze, J/K ultima convalida, M–N impostazioni');
+  ok(c.cSter === 7 && c.cCat.G === 8 && c.cCat.H === 9 && c.cCat.MD_20 === 10 && c.cUlt.G === 11 && c.cUlt.H === 12 && c.cUlt.MD_20 === 13 && c.cSet === 15, 'colonne: G area sterile, H–J scadenze (G, H, corso MD_20), K–M ultima convalida, O–P impostazioni');
+  ok(c.durMD === 12 && V[2][c.cCat.MD_20 - 1] === 'MANCA', 'corso MD_20: durata 12 mesi di base, MANCA finché non c\'è la data');
   ok(c.durata === 13 && c.avvV === 45 && c.avvC === 90 && c.durC === 12, 'impostazioni: durata 13 (la più usata), preavvisi presi dal foglio Avvisi');
   ok(!sheets.Avvisi.rows.some(r => /Preavviso/.test(r[4] || '')), 'righe di preavviso tolte dal foglio Avvisi');
   ok(isD(V[1][7]) && V[1][7].getDate() === 22 && V[2][7] === 'MANCA' && V[3][7] === 'esonerato', 'Cat. G: data / MANCA / esonerato');
-  ok(/\$N\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($N$2)');
+  ok(/\$P\$2/.test(sheets.Vestizioni.f['2,4'] || ''), 'formula Scadenza usa la durata standard ($P$2)');
   ok((sheets.Vestizioni.cf || []).length === 7, 'colori: esonerati, vestizione e convalide oltre tolleranza / in tolleranza / in preavviso');
   ok(c.tolV === 30 && c.tolC === 30, 'impostazioni: tolleranza 30 giorni (vestizione e convalide)');
   V[3][2] = ''; const r = ctx.vestizioni_(ctx.SpreadsheetApp.getActiveSpreadsheet()).find(x => x.man === 'FERRI Fabio');
@@ -145,7 +146,7 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   // nuova categoria nello scadenziario: colonna nuova prima del riquadro Impostazioni
   sheets.Convalide.rows.push(['x', 'Convalida Sterile Marco Gialli', '2027/01/01', 'Categoria F - pulizia']);
   ({ ctx } = car(sheets)); const c2 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
-  ok(c2.cCat.F === 12 && c2.cUlt.F === 13 && c2.cSet === 15 && V[0][14] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonne aggiunte, Impostazioni spostate a destra');
+  ok(c2.cCat.F === 14 && c2.cUlt.F === 15 && c2.cSet === 17 && V[0][16] === 'Impostazioni' && c2.durata === 13, 'categoria nuova: colonne aggiunte, Impostazioni spostate a destra');
   // ultima convalida + durata standard
   ({ ctx } = car(sheets)); V[1][c2.cUlt.G - 1] = new ctx.DD(2026, 9, 1); V[2][c2.cUlt.H - 1] = new ctx.DD(2026, 5, 1);
   const c3 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
@@ -159,8 +160,12 @@ console.log('\nFoglio Vestizioni: impostazioni e convalide');
   const VS = sheets.Vestizioni.rows, cs = c3.cSet - 1; VS[4][cs] = ''; VS[4][cs + 1] = '';
   ({ ctx } = car(sheets)); const c4 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
   const imp = VS.slice(1, 12).map(x => String(x[cs] || ''));
-  ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /^tolleranza vestizione/i.test(imp[4]) && /^tolleranza convalide/i.test(imp[5]) && !imp[6] && /arancio/.test(imp[7]) && imp.filter(x => /^Viola/.test(x)).length === 1,
+  ok(/durata standard convalide/i.test(VS[4][cs]) && c4.durC === 12 && /^tolleranza vestizione/i.test(imp[4]) && /^tolleranza convalide/i.test(imp[5]) && /^durata corso md_20/i.test(imp[6]) && !imp[7] && /arancio/.test(imp[8]) && imp.filter(x => /^Viola/.test(x)).length === 1,
     'foglio già impostato: impostazioni nuove in fila, nota dei colori spostata sotto e aggiornata');
+  // corso MD_20 con durata sua: ultima data scritta a mano + "Durata corso MD_20 (mesi)"
+  VS[1 + 6][cs + 1] = 24; ({ ctx } = car(sheets)); VS[2][c3.cUlt.MD_20 - 1] = new ctx.DD(2026, 0, 15);
+  const c6 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet()), md = c6.conv.find(x => x.man === 'MORO Riccardo' && x.cat === 'MD_20');
+  ok(c6.durMD === 24 && md && new Date(md.scad).getFullYear() === 2028 && new Date(md.scad).getMonth() === 0, 'corso MD_20: data 15/01/2026 + 24 mesi = 15/01/2028 (durata sua, non quella delle convalide)');
   // tolleranza scritta a mano: 0 = nessuna, testo strano = 0
   VS[1 + 5][cs + 1] = 0; VS[1 + 4][cs + 1] = 45; ({ ctx } = car(sheets)); const c5 = ctx.vestSetup_(ctx.SpreadsheetApp.getActiveSpreadsheet());
   ok(c5.tolV === 45 && c5.tolC === 0, 'tolleranza letta dal riquadro (0 = nessuna tolleranza)');
