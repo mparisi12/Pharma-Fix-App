@@ -560,27 +560,31 @@ const progLinea = l => Object.keys(S.programma || {}).find(k => U(k) === U(l));
 const progDi = (linea, t) => { const k = progLinea(linea); return k ? progVoci(S.programma[k][dKey(t)]) : []; };
 // Giorno di produzione "di adesso": prima delle 6 vale ancora quello di ieri (turno 3)
 const giornoProd = (now = Date.now()) => new Date(now).getHours() < 6 ? now - 864e5 : now;
-// Vestizione per l'area sterile: scadenza per tecnico (foglio Vestizioni). Avviso da 60 giorni prima
+// Vestizione per l'area sterile: scadenza per tecnico (foglio Convalide MF). Avviso da 60 giorni prima
 const VEST_AVVISO = 60;
 // Preavviso (giorni prima della scadenza): dal foglio Avvisi, separato per vestizione e convalide GMP
 const avvGG = x => (x && x.cat ? (S.avviso || {}).conv : (S.avviso || {}).vest) || VEST_AVVISO;
 const vestDi = (nome = S.man) => S.vestizioni.find(v => U(v.man) === U(nome)) || null;
 const vestGiorni = v => v.manca ? -99999 : Math.round((new Date(v.scad).setHours(0, 0, 0, 0) - oggi0()) / 864e5);
-// Tolleranza (giorni dopo la scadenza, foglio Vestizioni → Impostazioni): scaduta ma ancora valida → stato 'tol' (arancio)
+// Tolleranza (giorni dopo la scadenza, foglio Convalide MF → Impostazioni): scaduta ma ancora valida → stato 'tol' (arancio)
 const tolGG = x => Math.max(0, Number(x && x.cat ? (S.avviso || {}).tolC : (S.avviso || {}).tolV) || 0);
 const tolFine = v => { const d = new Date(v.scad); d.setDate(d.getDate() + tolGG(v)); return d.getTime(); };
 const vestStato = v => !v ? '' : v.manca ? 'exp' : !v.scad ? '' : vestGiorni(v) < 0 ? (-vestGiorni(v) <= tolGG(v) ? 'tol' : 'exp') : vestGiorni(v) <= avvGG(v) ? 'warn' : 'ok';
 const tolResto = v => tolGG(v) + vestGiorni(v); // giorni di tolleranza rimasti (0 = ultimo giorno)
-// Convalide GMP (foglio Convalide, dallo scadenziario): una scadenza per persona e categoria (G regolazione, H sostituzione…)
+// Convalide GMP (foglio Scadenziario MF): una scadenza per persona e categoria (G regolazione, H sostituzione…)
 const convDi = (nome = S.man) => ((S.convalide || {}).list || []).filter(c => U(c.man) === U(nome));
-const CONV_NOME = { G: 'Regolazione', H: 'Sostituzione componente', MD_20: 'Corso MD_20' }, CONV_BREVE = { G: 'REGOL.', H: 'SOSTIT.' };
+const CONV_NOME = { G: 'Regolazione', H: 'Sostituzione componente', MD_20: 'Corso MD_20', MF: 'Partecipazione MF' }, CONV_BREVE = { G: 'REGOL.', H: 'SOSTIT.' };
 // Corso MD_20: stessa scadenza/preavviso/tolleranza delle convalide, ma è un corso (non una categoria di intervento)
-const isCorso = c => /^MD/.test(String(c && c.cat || c || ''));
-const convTit = c => isCorso(c) ? 'Corso ' + c.cat : 'Convalida GMP Cat. ' + c.cat;
-const convK = k => isCorso(k) ? 'MD' : k;
+const isCorso = c => /^(MD|MF$)/.test(String(c && c.cat || c || '')); // corso MD_20 e partecipazione Media Fill (MF)
+const isMF = c => String(c && c.cat || c || '') === 'MF';
+const convTit = c => isMF(c) ? 'Partecipazione MF' : isCorso(c) ? 'Corso ' + c.cat : 'Convalida GMP Cat. ' + c.cat;
+const convK = k => isMF(k) ? 'MF' : isCorso(k) ? 'MD' : k;
+// Ordine come nel foglio Convalide MF: MD_20, Vestizione, Partecipazione MF, Cat. G, Cat. H, poi le altre
+const ordMF = k => ['MD_20', 'V', 'MF', 'G', 'H'].indexOf(k) >= 0 ? ['MD_20', 'V', 'MF', 'G', 'H'].indexOf(k) : 10;
+const sortMF = l => l.slice().sort((a, b) => ordMF(a) - ordMF(b) || String(a).localeCompare(String(b)));
 const convNome = c => CONV_NOME[c.cat] || c.desc || 'Categoria ' + c.cat;
 // Tutte le scadenze di una persona: vestizione (V) + convalide
-// Esonerati dall'area sterile (colonna "Area sterile" = NO nel foglio Vestizioni): nessuna scadenza, fuori dagli elenchi
+// Esonerati dall'area sterile (colonna "Area sterile" = NO nel foglio Convalide MF): nessuna scadenza, fuori dagli elenchi
 const esonerato = n => (S.sterileNo || []).some(x => U(x) === U(n));
 const convCats = () => (S.convalide || {}).cats || [...new Set(((S.convalide || {}).list || []).map(c => c.cat))].sort();
 // Chi lavora in sterile e non ha una categoria nello scadenziario: convalida "mancante" (vale come scaduta)
@@ -1569,10 +1573,11 @@ const fmtDL = t => { const d = new Date(t); return pad(d.getDate()) + '/' + pad(
 function boxConv(nome = S.man) {
   return scadDi(nome).filter(c => c.tipo !== 'V' && /warn|tol|exp/.test(vestStato(c))).sort((a, b) => vestGiorni(a) - vestGiorni(b)).map(c => {
     const st = vestStato(c), g = vestGiorni(c), d = c.scad ? fmtDL(c.scad) : '', cosa = convNome(c).toLowerCase();
-    if (isCorso(c)) return c.manca ? `<div class="vbox exp">${IK.vest}<div><b>${esc(convTit(c))}: data non registrata</b><div class="hint">Non risulta la data del corso: vale come scaduto. Se l'hai fatto avvisa il responsabile.</div></div></div>`
-      : st === 'tol' ? `<div class="vbox tol">${IK.vest}<div><b>${esc(convTit(c))} scaduto · in tolleranza</b><div class="hint">Scaduto il <b style="display:inline">${d}</b>, valido ancora fino al <b style="display:inline">${fmtDL(tolFine(c))}</b> (${ggTol(tolResto(c))}). Rinnovalo subito con il responsabile.</div></div></div>`
-      : st === 'warn' ? `<div class="vbox warn">${IK.vest}<div><b>${esc(convTit(c))} in scadenza</b><div class="hint">Scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota il corso con il responsabile.</div></div></div>`
-      : `<div class="vbox exp">${IK.vest}<div><b>${esc(convTit(c))} SCADUTO</b><div class="hint">Scaduto il <b style="display:inline">${d}</b>. Rinnovalo con il responsabile.</div></div></div>`;
+    if (isCorso(c)) { const o = isMF(c) ? 'a' : 'o', cosaC = isMF(c) ? 'la partecipazione' : 'il corso';
+      return c.manca ? `<div class="vbox exp">${IK.vest}<div><b>${esc(convTit(c))}: data non registrata</b><div class="hint">Non risulta la data: vale come scadut${o}. Se l'hai fatt${o} avvisa il responsabile.</div></div></div>`
+      : st === 'tol' ? `<div class="vbox tol">${IK.vest}<div><b>${esc(convTit(c))} scadut${o} · in tolleranza</b><div class="hint">Scadut${o} il <b style="display:inline">${d}</b>, valid${o} ancora fino al <b style="display:inline">${fmtDL(tolFine(c))}</b> (${ggTol(tolResto(c))}). Rinnoval${o} subito con il responsabile.</div></div></div>`
+      : st === 'warn' ? `<div class="vbox warn">${IK.vest}<div><b>${esc(convTit(c))} in scadenza</b><div class="hint">Scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota ${cosaC} con il responsabile.</div></div></div>`
+      : `<div class="vbox exp">${IK.vest}<div><b>${esc(convTit(c))} SCADUT${o.toUpperCase()}</b><div class="hint">Scadut${o} il <b style="display:inline">${d}</b>. Rinnoval${o} con il responsabile.</div></div></div>`; }
     if (c.manca) return `<div class="vbox exp">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} non trovata</b><div class="hint">Non risulti nello scadenziario per gli interventi di <b style="display:inline">${esc(cosa)}</b>: vale come scaduta. In area sterile li fa un collega abilitato. Se è un errore avvisa il responsabile.</div></div></div>`;
     if (st === 'tol') return `<div class="vbox tol">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} scaduta · in tolleranza</b><div class="hint">Interventi di <b style="display:inline">${esc(cosa)}</b> in area sterile · scaduta il <b style="display:inline">${d}</b>, valida ancora fino al <b style="display:inline">${fmtDL(tolFine(c))}</b> (${ggTol(tolResto(c))}). Rinnova subito con il responsabile.</div></div></div>`;
     return st === 'warn' ? `<div class="vbox warn">${IK.vest}<div><b>Convalida GMP Cat. ${esc(c.cat)} in scadenza</b><div class="hint">Interventi di <b style="display:inline">${esc(cosa)}</b> in area sterile · scade il <b style="display:inline">${d}</b> · ${ggTxt(g)}. Prenota il rinnovo con il responsabile.</div></div></div>`
@@ -1582,13 +1587,13 @@ function boxConv(nome = S.man) {
 const scadTag = x => { if (!x) return '<span class="tag nd">—</span>'; if (x.manca) return '<span class="tag r">Mancante</span>'; const st = vestStato(x), g = vestGiorni(x); return st === 'exp' ? '<span class="tag r">Scaduta</span>' : st === 'tol' ? '<span class="tag o">Tolleranza</span>' : st === 'warn' ? `<span class="tag f">${ggTxt(g)}</span>` : '<span class="tag v">Valida</span>'; };
 // Le mie abilitazioni (o quelle di un collega, per il coordinatore)
 function shAbil(nome, back) {
-  const l = scadDi(nome), v = l.find(x => x.tipo === 'V'), cv = l.filter(x => x.tipo !== 'V').sort((a, b) => a.tipo.localeCompare(b.tipo));
+  const l = scadDi(nome), v = l.find(x => x.tipo === 'V'), cv = l.filter(x => x.tipo !== 'V').sort((a, b) => ordMF(a.tipo) - ordMF(b.tipo) || a.tipo.localeCompare(b.tipo));
   const riga = (k, t1, t2, x) => `<div class="abil ${x ? (vestStato(x) === 'ok' ? '' : vestStato(x)) : ''}"><span class="k">${esc(k)}</span><div><div class="t1">${t1}</div><div class="t2">${t2}</div></div>${scadTag(x)}</div>`;
-  const quando = x => x.manca ? (isCorso(x) ? 'data del corso non registrata' : 'non trovata nello scadenziario') : vestStato(x) === 'tol' ? 'scaduta il ' + fmtDL(x.scad) + ', in tolleranza fino al ' + fmtDL(tolFine(x)) : (vestStato(x) === 'exp' ? 'scaduta il ' : vestStato(x) === 'warn' ? 'scade il ' : 'fino al ') + fmtDL(x.scad);
+  const quando = x => x.manca ? (isCorso(x) ? 'data non registrata nel foglio Convalide MF' : 'non trovata nello scadenziario') : vestStato(x) === 'tol' ? 'scaduta il ' + fmtDL(x.scad) + ', in tolleranza fino al ' + fmtDL(tolFine(x)) : (vestStato(x) === 'exp' ? 'scaduta il ' : vestStato(x) === 'warn' ? 'scade il ' : 'fino al ') + fmtDL(x.scad);
   sheet(`<div class="sheet-h"><div><h3>${U(nome) === U(S.man) ? 'Le mie abilitazioni' : esc(nome)}</h3><div class="hint" style="margin-top:4px">${U(nome) === U(S.man) ? esc(nome) + ' · ' : 'Abilitazioni · '}avviso ${avvGG({})} giorni prima (vestizione) e ${avvGG({ cat: 'G' })} (convalide)${tolGG({}) || tolGG({ cat: 'G' }) ? ` · tolleranza ${tolGG({})} / ${tolGG({ cat: 'G' })} giorni dopo la scadenza` : ''}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
-    ${riga('V', 'Vestizione sterile', v ? 'accesso all\'area sterile · ' + quando(v) : 'data non inserita nel foglio Vestizioni', v)}
-    ${cv.length ? cv.map(c => isCorso(c) ? riga(convK(c.cat), esc(convTit(c)), quando(c), c) : riga(c.cat, 'Cat. ' + esc(c.cat) + ' · ' + esc(convNome(c)), esc(c.desc || '') + (c.desc ? ' · ' : '') + quando(c), c)).join('') : '<div class="empty" style="margin-top:8px">Nessuna convalida GMP nello scadenziario.</div>'}
-    <div class="hint" style="margin-top:14px">Le convalide e il corso MD_20 vengono dallo scadenziario (foglio <b style="display:inline">Convalide</b>) o dalla data scritta nel foglio Vestizioni. Con una convalida scaduta, in area sterile quell'intervento lo fa un collega abilitato.</div>
+    ${[{ tipo: 'V' }, ...cv].sort((a, b) => ordMF(a.tipo) - ordMF(b.tipo) || a.tipo.localeCompare(b.tipo)).map(c => c.tipo === 'V' ? riga('V', 'Vestizione sterile', v ? 'accesso all\'area sterile · ' + quando(v) : 'data non inserita nel foglio Convalide MF', v)
+      : isCorso(c) ? riga(convK(c.cat), esc(convTit(c)), quando(c), c) : riga(c.cat, 'Cat. ' + esc(c.cat) + ' · ' + esc(convNome(c)), esc(c.desc || '') + (c.desc ? ' · ' : '') + quando(c), c)).join('')}
+    <div class="hint" style="margin-top:14px">Le convalide vengono dallo <b style="display:inline">Scadenziario MF</b> o dalla data scritta nel foglio <b style="display:inline">Convalide MF</b>, come il corso MD_20 e la partecipazione MF. Con una convalida scaduta, in area sterile quell'intervento lo fa un collega abilitato.</div>
     <button class="linkbtn" id="abk">‹ Indietro</button>`);
   $('#abk').onclick = back;
 }
@@ -1603,13 +1608,13 @@ function shScadRep(filtro) {
   const nW = righe.filter(r => r.warn).length, nE = righe.filter(r => r.exp).length, nT = righe.filter(r => r.tol).length;
   const vis = righe.filter(r => filtro === 'scad' ? r.exp : filtro === 'tol' ? r.tol : filtro === 'rinn' ? r.warn : true);
   const cella = x => !x ? '<span class="tag nd">—</span>' : x.manca ? '<span class="tag r">MANCA</span>' : vestStato(x) === 'exp' ? '<span class="tag r">SCAD.</span>' : vestStato(x) === 'tol' ? `<span class="tag o" title="in tolleranza fino al ${fmtDL(tolFine(x))}">${fmtD(tolFine(x))}</span>` : `<span class="tag ${vestStato(x) === 'warn' ? 'f' : 'v'}">${fmtD(x.scad)}</span>`;
-  const cols = ['V', ...cats], nomeCol = c => c === 'V' ? 'VESTIZ.' : isCorso(c) ? 'CORSO<br>' + esc(c) : 'CAT. ' + c + (CONV_BREVE[c] ? '<br>' + CONV_BREVE[c] : '');
+  const cols = sortMF(['V', ...cats]), nomeCol = c => c === 'V' ? 'VESTIZ.' : isMF(c) ? 'PART.<br>MF' : isCorso(c) ? 'CORSO<br>' + esc(c) : 'CAT. ' + c + (CONV_BREVE[c] ? '<br>' + CONV_BREVE[c] : '');
   const ign = (S.convalide || {}).ignote || [];
   sheet(`<div class="sheet-h"><div><h3>Scadenze del reparto</h3><div class="hint" style="margin-top:4px">Vestizione e convalide GMP · prima i più urgenti</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div>
     <div class="chips filters" id="sfil" style="margin-top:6px"><button class="chip" data-v="tutti" aria-pressed="${filtro === 'tutti'}">Tutti</button><button class="chip" data-v="rinn" aria-pressed="${filtro === 'rinn'}">Da rinnovare · ${nW}</button><button class="chip" data-v="scad" aria-pressed="${filtro === 'scad'}">Scadute · ${nE}</button>${nT ? `<button class="chip" data-v="tol" aria-pressed="${filtro === 'tol'}">In tolleranza · ${nT}</button>` : ''}</div>
     ${vis.length ? `<div class="sgrid" style="grid-template-columns:1fr${' 64px'.repeat(cols.length)}"><span></span>${cols.map(c => `<span class="h">${nomeCol(c)}</span>`).join('')}
       ${vis.map(r => `<button class="n" data-p="${esc(r.n)}">${esc(r.n)}</button>${cols.map(c => `<span class="c">${cella(r.per[c])}</span>`).join('')}`).join('')}</div>` : '<div class="empty" style="margin-top:12px">Nessuno in questo elenco.</div>'}
-    <div class="hint" style="margin-top:12px">Tocca un nome per il dettaglio. Rosso = scaduta o non trovata nello scadenziario (MANCA), giallo = in preavviso (vestizione ${avvGG({})} gg, convalide ${avvGG({ cat: 'G' })} gg)${tolGG({}) || tolGG({ cat: 'G' }) ? `, arancio = scaduta ma in tolleranza: la data è l'ultimo giorno valido (vestizione ${tolGG({})} gg, convalide ${tolGG({ cat: 'G' })} gg)` : ''}, — = data della vestizione da inserire.${(S.sterileNo || []).length ? ' Esonerati dall\'area sterile: ' + S.sterileNo.map(esc).join(', ') + '.' : ''} Vestizioni: foglio <b style="display:inline">Vestizioni</b>; convalide: incolla lo scadenziario nel foglio <b style="display:inline">Convalide</b>.</div>
+    <div class="hint" style="margin-top:12px">Tocca un nome per il dettaglio. Rosso = scaduta o non trovata nello scadenziario (MANCA), giallo = in preavviso (vestizione ${avvGG({})} gg, convalide ${avvGG({ cat: 'G' })} gg)${tolGG({}) || tolGG({ cat: 'G' }) ? `, arancio = scaduta ma in tolleranza: la data è l'ultimo giorno valido (vestizione ${tolGG({})} gg, convalide ${tolGG({ cat: 'G' })} gg)` : ''}, — = data della vestizione da inserire.${(S.sterileNo || []).length ? ' Esonerati dall\'area sterile: ' + S.sterileNo.map(esc).join(', ') + '.' : ''} Date nel foglio <b style="display:inline">Convalide MF</b>; lo scadenziario si incolla nel foglio <b style="display:inline">Scadenziario MF</b>.</div>
     ${ign.length ? `<h2>Non riconosciuti nello scadenziario · ${ign.length}</h2><div class="hint" style="margin-top:0">${ign.map(esc).join('<br>')}</div><div class="hint">Controlla che il nome sia scritto come nell'elenco Manutentori del foglio Liste.</div>` : ''}
     <button class="linkbtn" id="sbk">‹ Indietro</button>`);
   $('#sfil').onclick = e => { const b = e.target.closest('[data-v]'); if (b) shScadRep(b.dataset.v); };

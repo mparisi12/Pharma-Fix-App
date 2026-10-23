@@ -119,8 +119,11 @@ let ver = 1, full = 0, same = 0; const posts = [];
   if (process.env.SHOT_TOL) { await p.evaluate(() => { closeSh(); shAbil('ROSSI Mario', () => {}); }); await attesa(200); await p.screenshot({ path: process.env.SHOT_TOL.replace('.png', '2.png') }); }
   await p.evaluate(() => { S.avviso = Object.assign({}, S.avviso, { tolV: 0, tolC: 0 }); closeSh(); });
   // corso MD_20: stessa logica delle convalide, testi da corso
-  const md = await p.evaluate(() => { const old = S.convalide; S.convalide = { list: old.list.concat([{ man: 'ROSSI Mario', cat: 'MD_20', desc: 'Corso MD_20', scad: Date.now() + 10 * 864e5 }]), ignote: [], cats: ['G', 'H', 'MD_20'] };
-    const b = boxConv('ROSSI Mario'), mb = boxConv('BIANCHI Luca'); shScadRep('tutti'); const t = document.querySelector('#sheet').innerText; closeSh(); S.convalide = old; return { b, mb, t }; });
+  const md = await p.evaluate(() => { const old = S.convalide; S.convalide = { list: old.list.concat([{ man: 'ROSSI Mario', cat: 'MD_20', desc: 'Corso MD_20', scad: Date.now() + 10 * 864e5 }, { man: 'ROSSI Mario', cat: 'MF', desc: 'Partecipazione MF', scad: Date.now() - 5 * 864e5 }]), ignote: [], cats: ['G', 'H', 'MD_20', 'MF'] };
+    const b = boxConv('ROSSI Mario'), mb = boxConv('BIANCHI Luca'); shScadRep('tutti'); const t = document.querySelector('#sheet').innerText, hs = [...document.querySelectorAll('#sheet .sgrid .h')].map(e => e.innerText.replace(/\s+/g, ' '));
+    closeSh(); shAbil('ROSSI Mario', () => {}); const ab = [...document.querySelectorAll('#sheet .abil .k')].map(e => e.textContent); closeSh(); S.convalide = old; return { b, mb, t, hs, ab }; });
+  ok(/Partecipazione MF SCADUTA/.test(md.b) && /Partecipazione MF: data non registrata/.test(md.mb), 'partecipazione MF: avviso al femminile (scaduta), chi non ce l\'ha "data non registrata"');
+  ok(md.hs.join('|') === 'CORSO MD_20|VESTIZ.|PART. MF|CAT. G REGOL.|CAT. H SOSTIT.' && md.ab.join('') === 'MDVMFGH', 'ordine come nel foglio Convalide MF: MD_20, vestizione, partecipazione MF, Cat. G, Cat. H: ' + md.hs.join('|') + ' / ' + md.ab.join(''));
   ok(/Corso MD_20 in scadenza/.test(md.b) && /Prenota il corso/.test(md.b) && /Corso MD_20: data non registrata/.test(md.mb), 'corso MD_20: avviso in scadenza; chi non ce l\'ha: "data non registrata"');
   ok(/CORSO\s*MD_20/.test(md.t), 'Scadenze del reparto: colonna CORSO MD_20');
 
