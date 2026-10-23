@@ -8,9 +8,9 @@ function a1(s) {
 }
 class Sheet {
   constructor(n, rows = []) { this.n = n; this.rows = rows; }
-  getName() { return this.n; } getLastRow() { return this.rows.length; } getMaxRows() { return 1000; } getMaxColumns() { return 30; } getLastColumn() { return Math.max(0, ...this.rows.map(r => r.length)); }
-  appendRow(r) { this.rows.push(r); } clearContents() { this.rows = []; } clear() { this.rows = []; }
-  getDataRange() { return this.getRange(1, 1, Math.max(this.rows.length, 1), Math.max(1, ...this.rows.map(r => r.length))); }
+  getName() { return this.n; } getLastRow() { return this.rows.length; } getMaxRows() { return 1000; } getMaxColumns() { return 30; } getLastColumn() { return Math.max(0, ...Array.from(this.rows, r => r ? r.length : 0)); }
+  appendRow(r) { this.rows.push(r); } clearContents() { this.rows.length = 0; } clear() { this.rows.length = 0; }
+  getDataRange() { return this.getRange(1, 1, Math.max(this.rows.length, 1), Math.max(1, this.getLastColumn())); }
   getRange(r, c, nr = 1, nc = 1) {
     if (typeof r === 'string') { const x = a1(r); if (!x) return any(); [r, c, nr, nc] = x; }
     const sh = this;
@@ -40,12 +40,13 @@ Sheet.prototype.insertChart = function (c) { (this.charts = this.charts || []).p
 Sheet.prototype.newChart = function () { const o = { opt: {} }; const b = new Proxy({}, { get: (t, k) => k === 'build' ? () => o : k === 'setOption' ? (a, v) => { o.opt[a] = v; return b; } : (...a) => { o[k] = a; return b; } }); return b; };
 Sheet.prototype.insertColumnBefore = function (c) { this.rows.forEach(r => { while (r.length < c - 1) r.push(''); r.splice(c - 1, 0, ''); }); return this; };
 Sheet.prototype.setConditionalFormatRules = function (r) { this.cf = r; };
-for (const m of ['hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
+Sheet.prototype.setName = function (n) { this.n = n; return this; };
+for (const m of ['setFrozenColumns', 'hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
 
 function carica(sheets) {
   const src = fs.readFileSync(path.join(__dirname, '../fermi/apps-script/Code.gs'), 'utf8');
   const props = {}, cache = {};
-  const ss = { getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)), deleteSheet: s => delete sheets[s.n], getSheets: () => Object.values(sheets), toast() {}, setActiveSheet() {} };
+  const ss = { getSheetByName: n => Object.values(sheets).find(x => x && x.n === n) || null, insertSheet: n => (sheets[n] = new Sheet(n)), deleteSheet: s => delete sheets[s.n], getSheets: () => Object.values(sheets), toast() {}, setActiveSheet() {} };
   const blob = b => ({ getBytes: () => b, getDataAsString: () => Buffer.from(b).toString('utf8') });
   const p2 = n => String(n).padStart(2, '0');
   const ctx = {
