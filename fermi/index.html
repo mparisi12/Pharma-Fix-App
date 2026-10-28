@@ -240,6 +240,11 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .abil.warn .k{background:var(--amber);color:#fff}.abil.exp .k{background:var(--crit);color:#fff}
 .abil .t1{font-weight:600}.abil .t2{font-size:13px;color:var(--muted)}
 .sgrid{display:grid;gap:0 6px;align-items:center;font-size:14px;margin-top:12px}
+.lnkline{display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left;color:var(--ink)}.lnkline svg{width:22px;height:22px;color:var(--steel);flex:none}.lnkline b{display:block;font-size:15px}.lnkline small{color:var(--muted);font-size:12px}.lnkline .chev{margin-left:auto;font-size:22px;color:var(--muted)}
+.lchips2{margin:-2px 0 8px}
+.mrow{display:block;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}.mrow .mt{display:flex;justify-content:space-between;gap:8px}.mrow .mt span{font:500 12px var(--mono);color:var(--muted);white-space:nowrap}
+.mrow .bar{height:6px;border-radius:3px;background:var(--surface2);margin:6px 0 4px;overflow:hidden}.mrow .bar i{display:block;height:100%;background:var(--crit);border-radius:3px}.mrow .t2{font-size:12px;color:var(--muted)}
+.icard .mac{font:600 11px var(--mono);color:var(--steel);text-transform:uppercase;letter-spacing:.03em}
 .sgridw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}.sgrid.fitta{gap:0 4px;font-size:13px}.sgrid.fitta .tag{min-width:46px;font-size:11px;padding:3px 4px}.sgrid.fitta .h{font-size:10px}
 .sgrid .h{font:600 11px var(--mono);letter-spacing:.04em;color:var(--muted);text-align:center;padding-bottom:6px}
 .sgrid .n{font-weight:600;padding:9px 0;border-top:1px solid var(--line);border-left:0;border-right:0;border-bottom:0;background:none;text-align:left;color:inherit;font-size:14px}
@@ -871,7 +876,7 @@ function render() {
   const n = S.view.name;
   $$('nav.tabs [data-nav]').forEach(b => b.toggleAttribute('aria-current', b.dataset.nav === (n === 'equip' ? '' : n === 'anoform' ? 'ano' : n)));
   $$('nav.tabs [data-nav]').forEach(b => { if (b.hasAttribute('aria-current')) b.setAttribute('aria-current', 'page'); });
-  ({ home: renderHome, equip: renderEquip, sol: renderSol, doc: renderDoc, ano: renderAno, anoform: renderAnoForm }[n] || renderHome)();
+  ({ home: renderHome, equip: renderEquip, linea: renderLinea, sol: renderSol, doc: renderDoc, ano: renderAno, anoform: renderAnoForm }[n] || renderHome)();
   setTimeout(avvisoCompiti, 0);
 }
 /* Avviso al centro dello schermo: compiti nuovi per me (o per il mio turno) che non ho ancora visto.
@@ -941,6 +946,7 @@ function renderHome() {
     <h2>Anomalie da gestire · ${ano.length}${ano.length > 3 ? '<button class="more" data-go="ano">Tutte</button>' : ''}</h2>
     <div class="list">${ano.length ? ano.slice(0, 3).map(anoCard).join('') : '<div class="empty">Nessuna anomalia aperta.</div>'}</div>
     <h2>Chiusi oggi · ${today.length}</h2>
+    ${today.length ? `<div class="chips lchips2">${[...new Set(today.map(f => f.linea))].sort().map(l => `<button class="chip" data-linea="${esc(l)}">${esc(l)} · ${today.filter(f => f.linea === l).length}<span class="cnt">›</span></button>`).join('')}</div>` : ''}
     <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
   const rb = $('#revban'); if (rb) rb.onclick = shRevisione;
@@ -971,7 +977,44 @@ function bindCommon() {
   $$('[data-close]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.close); if (f) needMan(() => canClose(f) ? closeSheet(f) : toast('Può chiuderlo solo ' + apertoDa(f) + ' o un coordinatore', 3500)); });
   $$('[data-go]').forEach(b => b.onclick = () => go({ name: b.dataset.go, code: b.dataset.code || undefined }));
   $$('[data-ano]').forEach(b => b.onclick = () => anoSheet(b.dataset.ano));
+  $$('[data-linea]').forEach(b => b.onclick = () => go({ name: 'linea', code: b.dataset.linea }));
   bindBack();
+}
+
+/* ================= Fermi per linea ================= */
+// Riepilogo della linea: Filling e Packaging sempre separati (mai sommati), per macchina e ultimi interventi
+const LINEA_GG = [[1, 'Oggi'], [7, '7 giorni'], [30, '30 giorni']];
+function renderLinea() {
+  const lin = S.view.code || '', gg = S.view.gg || 7, now = Date.now();
+  const da = gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : now - gg * 864e5;
+  const eqs = S.equipment.filter(e => U(e.linea) === U(lin));
+  const tutti = allFermi().filter(f => U(f.linea) === U(lin) && f.stato === 'CHIUSO' && f.end && f.start >= da).sort((a, b) => b.start - a.start);
+  const aperti = allFermi().filter(f => U(f.linea) === U(lin) && f.stato === 'APERTO');
+  const areaDi = f => { const e = eqBy(f.code) || eqs.find(x => U(x.macchina) === U(f.macchina)); return e && isFill(e) ? 'FILLING' : 'PACKAGING'; };
+  const aree = ['FILLING', 'PACKAGING'].filter(a => eqs.some(e => (isFill(e) ? 'FILLING' : 'PACKAGING') === a) || tutti.some(f => areaDi(f) === a));
+  const blocco = a => {
+    const l = tutti.filter(f => areaDi(f) === a), nF = new Set(l.map(f => f.gruppo || f.id)).size, min = l.reduce((t, f) => t + (f.end - f.start) / 60000, 0);
+    const per = {}; l.forEach(f => { const k = f.code || f.macchina; (per[k] = per[k] || { code: f.code, macchina: f.macchina, n: 0, min: 0, g: {} }); per[k].n++; per[k].min += (f.end - f.start) / 60000;
+      const kg = (f.int ? nice(f.int).slice(0, 3).toUpperCase() + ' · ' : '') + (f.guasto || '—'); per[k].g[kg] = (per[k].g[kg] || 0) + 1; });
+    const righe = Object.values(per).sort((x, y) => y.min - x.min), maxMin = Math.max(1, ...righe.map(x => x.min));
+    const top = gg => { const k = Object.keys(gg).sort((x, y) => gg[y] - gg[x])[0]; return k ? k + (gg[k] > 1 ? ' ×' + gg[k] : '') : ''; };
+    return `<h2>${a === 'FILLING' ? 'Filling' : 'Packaging'}<span class="h2r">${l.length ? nF + (nF === 1 ? ' fermo' : ' fermi') + ' · ' + l.length + (l.length === 1 ? ' intervento' : ' interventi') + ' · ' + fmtDur(min) : 'nessun fermo'}</span></h2>
+      ${righe.length ? `<div class="list">${righe.map(x => `<button class="mrow" ${x.code ? `data-eq="${esc(x.code)}"` : ''}><div class="mt"><b>${esc(nice(x.macchina))}</b><span>${x.n} int. · ${fmtDur(x.min)}</span></div>
+        <div class="bar"><i style="width:${Math.round(x.min / maxMin * 100)}%"></i></div><div class="t2">${esc(top(x.g))}</div></button>`).join('')}</div>` : ''}`;
+  };
+  const shown = S.view.more || 10;
+  $('#view').innerHTML = `
+    ${topline('Linea ' + lin, 'fermi chiusi · Filling e Packaging separati', 'home')}
+    <div class="chips filters" id="lgg">${LINEA_GG.map(([v, t]) => `<button class="chip" data-v="${v}" aria-pressed="${v === gg}">${t}</button>`).join('')}</div>
+    ${aperti.length ? `<div class="banner" style="margin-top:10px">In corso adesso: ${[...new Set(aperti.map(f => nice(f.macchina)))].map(esc).join(', ')}</div>` : ''}
+    ${aree.map(blocco).join('')}
+    <h2>Ultimi interventi della linea${tutti.length ? ' · ' + tutti.length : ''}<span class="h2r">dal più recente</span></h2>
+    ${tutti.length ? histList(tutti.slice(0, shown)) : '<div class="empty">Nessun fermo chiuso in questo periodo.</div>'}
+    ${tutti.length > shown ? '<button class="morebtn" id="morelin">Mostra altri · ' + Math.min(10, tutti.length - shown) + ' di ' + (tutti.length - shown) + '</button>' : ''}`;
+  singleChoice($('#lgg'), v => go({ name: 'linea', code: lin, gg: +v }));
+  const ml = $('#morelin'); if (ml) ml.onclick = () => { const y = window.scrollY; S.view.more = shown + 10; renderLinea(); window.scrollTo(0, y); };
+  $$('[data-int]').forEach(b => b.onclick = () => { const f = tutti.find(x => x.id === b.dataset.int); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); });
+  bindCommon();
 }
 
 /* ================= Scheda macchina ================= */
@@ -1011,6 +1054,7 @@ function renderEquip() {
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
     </div>
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
+    <button class="lnkline" data-linea="${esc(eq.linea)}">${IK.line}<span><b>Fermi di tutta la linea ${esc(eq.linea)}</b><small>riepilogo per macchina e ultimi interventi</small></span><span class="chev">›</span></button>
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
     ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi · ' + Math.min(10, hist.length - shown) + ' di ' + (hist.length - shown) + '</button>' : ''}
@@ -1044,7 +1088,7 @@ function histList(list) {
     const min = (f.end - f.start) / 60000;
     out += `<button class="icard" data-int="${esc(f.id)}">
       <div class="r1"><span class="ore">${hhmm(f.start)} → ${hhmm(f.end)}</span>${f.orari === 'DICHIARATI' ? '<span class="tag d">DICHIARATI</span>' : ''}<span class="dur${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
-      <div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
+      ${S.view.name === 'linea' ? `<div class="mac">${esc(nice(f.macchina))}</div>` : ''}<div class="t1">${esc(f.guasto || '—')}${f.int ? ' · ' + esc(nice(f.int)) : ''}</div>
       ${f.altro ? `<div class="ds">${esc(f.altro)}</div>` : ''}
       <div class="ft"><span>${[f.man, f.lotto && f.lotto !== 'undefined' ? 'lotto ' + f.lotto : '', f.cat ? nice(f.cat) : ''].filter(Boolean).map(esc).join(' · ')}</span>${f.fotoC ? I.cam.replace('<svg', '<svg class="ph"') : ''}${f.pending ? '<span class="pend">IN CODA</span>' : ''}</div>
     </button>`;
@@ -1622,7 +1666,7 @@ function shScadRep(filtro) {
   $$('#sheet [data-p]').forEach(b => b.onclick = () => shAbil(b.dataset.p, () => shScadRep(filtro)));
   $('#sbk').onclick = () => $('#manbtn').click();
 }
-const IK = { cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>', vest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
+const IK = { line: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="9" width="5" height="6" rx="1"/><rect x="9.5" y="9" width="5" height="6" rx="1"/><rect x="17" y="9" width="5" height="6" rx="1"/><path d="M2 19h20"/></svg>', cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>', vest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
   team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4 1.5 4.6 4.5"/></svg>',
   fmt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/><path d="M14 7h6M17 4v6M4 17h7"/></svg>' };
 function menuCompiti() {
@@ -2192,7 +2236,7 @@ async function checkUpdate() {
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.vociDesc = c.vociDesc || {}; S.intDesc = c.intDesc || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.solScartate = c.solScartate || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
-  if (['sol', 'doc', 'ano', 'anoform'].includes(h)) S.view = { name: h, code: eq || undefined };
+  if (['sol', 'doc', 'ano', 'anoform', 'linea'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
   render(); bannerIos();
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
