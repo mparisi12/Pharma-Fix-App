@@ -388,6 +388,29 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(await p.evaluate(() => !Object.keys(localStorage).some(k => /FP-A|6000002/.test(localStorage.getItem(k) || ''))), 'i dati dei formati non restano salvati sul telefono');
   await p.evaluate(() => closeSh());
 
+  console.log('\nFermi per linea');
+  const SP = process.env.SHOT_LIN || '';
+  await p.evaluate(() => { const t = Date.now(), h = 3600e3, mk = (id, code, mac, ore, min, g, int, man, alt) => ({ id, code, linea: 'ST3', macchina: mac, start: t - ore * h, end: t - ore * h + min * 60000, stato: 'CHIUSO', guasto: g, int, man, altro: alt || '', lotto: '601095' });
+    S.equipment = S.equipment.concat([{ code: 'ST3-03', linea: 'ST3', area: 'Packaging', macchina: 'ETICHETTATRICE' }]);
+    S.fermi = S.fermi.filter(f => f.linea !== 'ST3' || f.stato === 'APERTO').concat([mk('L1', 'ST3-04', 'ASTUCCIATRICE', 2, 25, 'MAG. ASTUCCI', 'REGOLAZIONE', 'ROSSI Mario', 'regolate guide magazzino'), mk('L2', 'ST3-04', 'ASTUCCIATRICE', 30, 40, 'MAG. ASTUCCI', 'REGOLAZIONE', 'BIANCHI Luca'),
+      mk('L3', 'ST3-03', 'ETICHETTATRICE', 5, 15, 'PARAM VIDEOJET', 'REGOLAZIONE', 'ROSSI Mario'), mk('L4', 'ST3-02', 'RIEMPITRICE', 8, 50, 'H7, Sblocco Homing', 'RIPRISTINO', 'BIANCHI Luca'), mk('L5', 'ST3-04', 'ASTUCCIATRICE', 60, 20, 'CHIUSURE AST', 'SOSTITUZIONE', 'ROSSI Mario'), mk('L6', 'ST3-02', 'RIEMPITRICE', 200, 30, 'H7, Sblocco Homing', 'RIPRISTINO', 'ROSSI Mario')]); go('home'); });
+  await attesa(300);
+  ok(await p.isVisible('.lchips2 [data-linea="ST3"]'), 'home: sotto "Chiusi oggi" le linee con il numero di interventi');
+  if (SP) await p.evaluate(() => document.querySelector('.lchips2').scrollIntoView({ block: 'center' })), await p.screenshot({ path: SP.replace('.png', '_home.png') });
+  await p.click('.lchips2 [data-linea="ST3"]'); await attesa(300);
+  const lv = await p.innerText('#view');
+  ok(/linea st3/i.test(lv) && /filling/i.test(lv) && /packaging/i.test(lv) && /astucciatrice/i.test(lv) && /riempitrice/i.test(lv), 'vista linea: Filling e Packaging separati, per macchina');
+  ok(/linea · 5/i.test(lv) && /1 fermo · 1 intervento · 50′/.test(lv), 'ultimi 7 giorni: 5 interventi (quello di 8 giorni fa escluso); Filling: 1 fermo, 1 intervento, 50 min');
+  if (SP) await p.screenshot({ path: SP, fullPage: true });
+  await p.click('#lgg [data-v="30"]'); await attesa(200);
+  ok(/linea · 6/i.test(await p.innerText('#view')), '30 giorni: compare anche il fermo di 8 giorni fa');
+  await p.click('.mrow[data-eq="ST3-04"]'); await attesa(300);
+  ok(await p.isVisible('.lnkline[data-linea="ST3"]'), 'scheda macchina: link "Fermi di tutta la linea ST3"');
+  if (SP) { await p.evaluate(() => document.querySelector('.lnkline').scrollIntoView({ block: 'center' })); await p.screenshot({ path: SP.replace('.png', '_mac.png') }); }
+  await p.click('.lnkline'); await attesa(300);
+  ok(/linea st3/i.test(await p.innerText('#view')), 'dal link si apre la vista della linea');
+  await p.evaluate(() => go('home'));
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
