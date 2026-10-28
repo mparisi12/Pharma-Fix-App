@@ -1054,10 +1054,10 @@ function renderEquip() {
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
     </div>
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
+    <button class="lnkline" data-linea="${esc(eq.linea)}">${IK.line}<span><b>Fermi di tutta la linea ${esc(eq.linea)}</b><small>riepilogo per macchina e ultimi interventi</small></span><span class="chev">›</span></button>
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
     ${hist.length > shown ? '<button class="morebtn" id="morehist">Mostra altri interventi · ' + Math.min(10, hist.length - shown) + ' di ' + (hist.length - shown) + '</button>' : ''}
-    <button class="lnkline" data-linea="${esc(eq.linea)}">${IK.line}<span><b>Fermi di tutta la linea ${esc(eq.linea)}</b><small>riepilogo per macchina e ultimi interventi</small></span><span class="chev">›</span></button>
     <div class="center" style="margin-top:18px"><button class="linkbtn" id="ppadd" style="font-size:14px;color:var(--muted)">Conosci una soluzione per questa macchina? Aggiungila</button></div>
     ${isCoord() ? `<div class="center" style="margin-top:14px"><a class="linkbtn" href="qr.html?eq=${encodeURIComponent(C)}" target="_blank" rel="noopener">Stampa etichetta QR di questa macchina</a></div>` : ''}`;
   const of = $('#openf'); if (of) of.onclick = () => needMan(() => openSheet(eq));
