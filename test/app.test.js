@@ -393,6 +393,28 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(await p.evaluate(() => !Object.keys(localStorage).some(k => /FP-A|6000002/.test(localStorage.getItem(k) || ''))), 'i dati dei formati non restano salvati sul telefono');
   await p.evaluate(() => closeSh());
 
+  console.log('\nVoci guasto: solo quelle della macchina (foglio Guasti)');
+  const vg = await p.evaluate(() => {
+    const old = { g: S.guasti, f: S.fermi };
+    S.guasti = { 'ST3-04': ['MAG. ASTUCCI', 'CHIUSURE AST', 'SENSORE'], 'ST3-03': ['PARAM VIDEOJET'], ST3: ['GUIDE'], 'ST1MAR-05': ['MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ARIA COMPRESSA', 'INCASTRO'] };
+    const t = Date.now(), f = (id, code, g) => ({ id, code, linea: 'ST3', macchina: 'X', start: t - 3600e3, end: t - 3000e3, stato: 'CHIUSO', guasto: g });
+    S.fermi = old.f.concat([f('V1', 'ST3-04', 'CHIUSURE AST'), f('V2', 'ST3-04', 'CHIUSURE AST'), f('V3', 'ST3-04', 'INCASTRO'), f('V4', 'ST3-03', 'CHIUSURE AST')]);
+    const eq = { code: 'ST3-04', linea: 'ST3', area: 'Packaging', macchina: 'ASTUCCIATRICE' };
+    const lista = guastiFor(eq), altra = guastiFor({ code: 'ST3-05', linea: 'ST3', area: 'Packaging', macchina: 'BILANCIA' }), mar = guastiFor({ code: 'ST1MAR-05', linea: 'ST1 MAR', area: 'Packaging', macchina: 'ASTUCCIATRICE' });
+    const chipsTxt = html => [...new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').querySelectorAll('[data-v]')].map(b => b.dataset.v);
+    const ordine = chipsTxt(guaChips(eq, null));
+    closeSh(); closeSheet({ id: 'VX', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: t - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
+    const chiusura = [...document.querySelectorAll('#gua [data-v]')].map(b => b.dataset.v); closeSh();
+    S.guasti = old.g; S.fermi = old.f;
+    return { lista, altra, mar, ordine, chiusura };
+  });
+  ok(vg.lista.join('|') === 'MAG. ASTUCCI|CHIUSURE AST|SENSORE|GUIDE|ARIA COMPRESSA|INCASTRO|ALTRO', 'ST3-04: voci della macchina + linea ST3 + TUTTE, senza doppioni (SENSORE una volta), ALTRO in fondo: ' + vg.lista.join('|'));
+  ok(!vg.lista.includes('PARAM VIDEOJET') && !vg.lista.includes('MAG. ISTRUZIONI'), 'niente voci di altre macchine (PARAM VIDEOJET dell\'etichettatrice, MAG. ISTRUZIONI di ST1 MAR)');
+  ok(vg.altra.join('|') === 'GUIDE|SENSORE|ARIA COMPRESSA|INCASTRO|ALTRO', 'macchina senza riga propria: solo linea + TUTTE + ALTRO');
+  ok(vg.mar.join('|') === 'MAG. ISTRUZIONI|SENSORE|ARIA COMPRESSA|INCASTRO|ALTRO', 'altra linea: la riga di linea ST3 non c\'entra');
+  ok(vg.ordine.slice(0, 2).join('|') === 'CHIUSURE AST|INCASTRO' && vg.ordine.at(-1) === 'ALTRO', 'in ordine di frequenza su QUESTA macchina (il fermo dell\'etichettatrice non conta), ALTRO sempre in fondo: ' + vg.ordine.join('|'));
+  ok(vg.chiusura.join('|') === vg.ordine.join('|'), 'chiusura fermo: le stesse voci, nello stesso ordine');
+
   console.log('\nFermi per linea');
   const SP = process.env.SHOT_LIN || '';
   await p.evaluate(() => { const t = Date.now(), h = 3600e3, mk = (id, code, mac, ore, min, g, int, man, alt) => ({ id, code, linea: 'ST3', macchina: mac, start: t - ore * h, end: t - ore * h + min * 60000, stato: 'CHIUSO', guasto: g, int, man, altro: alt || '', lotto: '601095' });

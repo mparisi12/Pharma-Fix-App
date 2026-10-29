@@ -491,4 +491,15 @@ console.log('\nSoluzioni: scarto con motivo');
   const a = ctx.archivio_(ss);
   ok(!a.soluzioni.length && a.solScartate.length === 1 && a.solScartate[0].motivo === 'Troppo vaga: manca dove e come' && a.solScartate[0].autore === 'ROSSI Mario' && a.solScartate[0].da === 'VERDI Anna', 'l\'app riceve la scartata con motivo (non tra le soluzioni)');
 }
+
+console.log('\nFoglio Guasti: voci per macchina');
+{
+  const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)', 'Tipi di guasto'], ['TUTTE', 'vale per tutte', 'SENSORE', ' ', 'INCASTRO'], ['st3-04', 'ST3 · ASTUCCIATRICE', 'MAG. ASTUCCI', '', 'CHIUSURE AST  '], ['ST3-05', 'ST3 · BILANCIA']]);
+  const g = ctx.guasti_(ss);
+  ok(g['ST3-04'].join('|') === 'MAG. ASTUCCI|CHIUSURE AST' && g.TUTTE.join('|') === 'SENSORE|INCASTRO', 'righe del foglio Guasti: codice in maiuscolo, colonna B solo promemoria, celle vuote e spazi ignorati');
+  ok(Array.isArray(g['ST3-05']) && g['ST3-05'].length === 0, 'macchina senza voci: elenco vuoto (l\'app mostrerà linea + TUTTE + ALTRO)');
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice()]); sheets.Liste.rows = [['Manutentori'], ['ROSSI Mario']];
+  ok(JSON.stringify(ctx.init_().guasti) === JSON.stringify(g), 'l\'app riceve esattamente le voci del foglio Guasti');
+}
 fine('Script');
