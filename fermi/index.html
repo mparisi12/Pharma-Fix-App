@@ -451,6 +451,12 @@ const URG = { 1: 'CRITICO', 2: 'URGENTE', 3: 'PROGRAMMABILE' };
 const urgTag = u => `<span class="urg u${u}">${u} · ${URG[u] || ''}</span>`;
 
 /* ================= Dati: server + coda locale ================= */
+// Fermi rivisti da questo telefono ("Va bene" / "Correggi" in Da rivedere): spariscono subito dall'avviso,
+// senza aspettare il foglio. Tornano solo se il foglio rifiuta l'operazione. Dopo 6 ore decide il foglio.
+let RIV_LOC = load('rivLoc', {});
+const rivLocale = id => { const t = RIV_LOC[id]; return !!t && Date.now() - t < 6 * 3600e3; };
+function rivSegna(id, si) { if (si) RIV_LOC[id] = Date.now(); else delete RIV_LOC[id];
+  Object.keys(RIV_LOC).forEach(k => { if (Date.now() - RIV_LOC[k] > 6 * 3600e3) delete RIV_LOC[k]; }); save('rivLoc', RIV_LOC); }
 function allFermi() {
   const m = new Map(S.fermi.map(f => [f.id, { ...f }]));
   for (const op of OUTBOX) {
@@ -714,7 +720,7 @@ async function sync() {
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
         if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
-        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a|corrett|foglio Equipment|il titolo|link valido/.test(e.message)) { toast('Scartato: ' + e.message); }
+        if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a|corrett|foglio Equipment|il titolo|link valido/.test(e.message)) { toast('Scartato: ' + e.message); if (op.action === 'rivisto' || (op.action === 'modifica' && op.rivisto)) { rivSegna(op.fermo, false); toast('Revisione non registrata dal foglio: il fermo torna in "Da rivedere"', 4500); } }
         else { if (!S.offSince) S.offSince = Date.now(); S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
       if (op.action === 'approvaSol') { const x = S.soluzioni.find(s => s.id === op.id); if (x) x.stato = op.esito === 'NO' ? 'SCARTATA' : 'VERIFICATA'; }
@@ -1150,7 +1156,7 @@ function modSheet(f, eq, opt = {}) {
     if (msg) { e.textContent = msg; e.hidden = false; return; }
     const cambiati = Math.abs(ini - f.start) >= 60000 || Math.abs(fin - f.end) >= 60000;
     enqueue({ action: 'modifica', id: uid('M'), fermo: f.id, inizio: cambiati ? ini : undefined, fine: cambiati ? fin : undefined, categoria: M.cat, intervento: M.int, guasto: M.guasto, causa: M.causa || '', rivisto: opt.rivisto || undefined, altro: alt, lotto: lot, pezzo: U(M.int) === 'SOSTITUZIONE' ? pz : '', ts: Date.now(), manutentore: S.man });
-    if (opt.rivisto) { f.rivisto = S.man; } closeSh(); toast(opt.rivisto ? 'Fermo corretto e rivisto' : 'Fermo corretto. Altre modifiche: Chiedi correzione', 3500); if (opt.back) setTimeout(opt.back, 150);
+    if (opt.rivisto) { f.rivisto = S.man; rivSegna(f.id, true); } closeSh(); toast(opt.rivisto ? 'Fermo corretto e rivisto' : 'Fermo corretto. Altre modifiche: Chiedi correzione', 3500); if (opt.back) setTimeout(opt.back, 150);
   });
 }
 // Correzioni: chi ha registrato il fermo (o un coordinatore) chiede la modifica, il responsabile la fa nel foglio
@@ -1991,7 +1997,7 @@ function motiviRev(f, all) {
 function daRivedere() {
   if (!isCoord()) return [];
   const all = allFermi(), da = Date.now() - REV_GG * 864e5;
-  return all.filter(f => f.stato === 'CHIUSO' && !f.rivisto && !f.pending && f.end && f.end >= da && f.orari !== 'CARTACEO')
+  return all.filter(f => f.stato === 'CHIUSO' && !f.rivisto && !rivLocale(f.id) && !f.pending && f.end && f.end >= da && f.orari !== 'CARTACEO')
     .map(f => ({ f, m: motiviRev(f, all) })).filter(x => x.m.length).sort((a, b) => b.f.end - a.f.end);
 }
 function shRevisione() {
@@ -2007,7 +2013,7 @@ function shRevisione() {
       ${m.map(x => `<div class="why">⚠ ${esc(x)}</div>`).join('')}
       <div class="row"><button class="morebtn" data-ok="${esc(f.id)}">Va bene</button><button class="morebtn" data-fix="${esc(f.id)}">Correggi</button></div></div>`).join('') : '<div class="empty">Niente da rivedere 👍</div>'}`);
   $$('[data-ok]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.ok); if (!f) return;
-    enqueue({ action: 'rivisto', id: uid('R'), fermo: f.id, manutentore: S.man, ts: Date.now() }); f.rivisto = S.man;
+    rivSegna(f.id, true); enqueue({ action: 'rivisto', id: uid('R'), fermo: f.id, manutentore: S.man, ts: Date.now() }); f.rivisto = S.man;
     const c = b.closest('.revc'); c.style.opacity = .4; c.querySelector('.row').innerHTML = '<div class="hint">✓ rivisto</div>'; render(); });
   $$('[data-fix]').forEach(b => b.onclick = () => { const f = allFermi().find(x => x.id === b.dataset.fix); if (f) modSheet(f, eqBy(f.code) || { code: f.code, linea: f.linea, macchina: f.macchina }, { rivisto: true, back: shRevisione }); });
 }
