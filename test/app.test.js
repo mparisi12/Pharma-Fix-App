@@ -270,6 +270,11 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/parla di sostituzione/.test(await p.innerText('#sheet')), 'motivo mostrato: descrizione "sostituito" ma intervento REGOLAZIONE');
   await p.click('[data-ok="RV1"]'); await attesa(600);
   ok(posts.some(o => o.action === 'rivisto' && o.fermo === 'RV1' && o.manutentore === 'VERDI Anna'), '"Va bene": il fermo viene segnato come rivisto');
+  await p.evaluate(() => { closeSh(); S.ver = 'zz'; return refresh(); }); await attesa(400); await p.evaluate(() => go('home')); await attesa(200);
+  ok(await p.evaluate(() => S.fermi.some(f => f.id === 'RV1' && !f.rivisto)) && !(await p.isVisible('#revban')), '"Va bene": l\'avviso sparisce subito, anche se il foglio non ha ancora aggiornato i dati');
+  await p.evaluate(() => { rivSegna('RV1', false); go('home'); }); await attesa(200);
+  ok(await p.isVisible('#revban'), 'se il foglio rifiuta la revisione, il fermo torna in "Da rivedere"');
+  await p.evaluate(() => { rivSegna('RV1', true); go('home'); }); await attesa(100);
 
   console.log('\nTelefono nuovo aperto dal QR (macchine solo dal foglio)');
   const tel = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
