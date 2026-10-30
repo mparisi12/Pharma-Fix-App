@@ -502,4 +502,23 @@ console.log('\nFoglio Guasti: voci per macchina');
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice()]); sheets.Liste.rows = [['Manutentori'], ['ROSSI Mario']];
   ok(JSON.stringify(ctx.init_().guasti) === JSON.stringify(g), 'l\'app riceve esattamente le voci del foglio Guasti');
 }
+
+console.log('\nPiù foto in chiusura');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C;
+  const r = new Array(31).fill(''); r[C.ID - 1] = 'FX1'; r[C.EQ - 1] = 'ST3-04';
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H.slice(0, 6)), r]);
+  const files = {}; ctx.PropertiesService.getScriptProperties().setProperty('FOLDER_ID', 'F');
+  ctx.DriveApp = { getFolderById: () => ({ getFilesByName: n => { let done = !files[n]; return { hasNext: () => !done, next: () => { done = true; return { getUrl: () => files[n] }; } }; },
+    createFile: b => { const n = b.getName ? b.getName() : 'x'; files[n] = 'https://drive/' + n; return { getUrl: () => files[n] }; } }) };
+  const nb = ctx.Utilities.newBlob; ctx.Utilities.newBlob = (d, t, n) => Object.assign(nb(d), { getName: () => n });
+  const a = ctx.fotoFermo_({ fermo: 'FX1', id: 'P000001', n: 2, foto: 'AAAA', ts: Date.now() });
+  ctx.fotoFermo_({ fermo: 'FX1', id: 'P000001', n: 2, foto: 'AAAA', ts: Date.now() }); // invio ripetuto
+  ctx.fotoFermo_({ fermo: 'FX1', id: 'P000002', n: 3, foto: 'BBBB', ts: Date.now() });
+  const cell = String(sheets.Fermi.rows[1][C.FOTO_X - 1]), righe = cell.split('\n');
+  ok(sheets.Fermi.rows[0][C.FOTO_X - 1] === 'Altre foto chiusura' && righe.length === 2 && /_chiusura_2_/.test(righe[0]) && /_chiusura_3_/.test(righe[1]), 'foto 2 e 3: un link per riga in "Altre foto chiusura", nome con il numero della foto');
+  ok(Object.keys(files).length === 2, 'invio ripetuto della stessa foto: non la duplica');
+  let err = ''; try { ctx.fotoFermo_({ fermo: 'NON-ESISTE', id: 'P3', n: 2, foto: 'A' }); } catch (e) { err = e.message; }
+  ok(/non trovato/.test(err), 'foto di un fermo che non c\'è: rifiutata');
+}
 fine('Script');
