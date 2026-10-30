@@ -32,7 +32,7 @@ const HEAD = [
   'Orari', 'Registrato alle', 'Telefono'
 ];
 const C = { LOTTO: 1, DATA: 2, INIZIO: 3, FINE: 4, MAN: 5, MACC: 6, CAT: 7, INT: 8, GUASTO: 9, ALTRO: 10,
-  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25, PROP: 26, RIV: 27, GRUPPO: 28, GIRO: 29, MULTI: 30 }; // CAUSA e seguenti sono fuori da HEAD: le colonne si aggiungono solo quando servono
+  DUR: 11, IG: 12, LINEA: 13, TURNO: 14, PEZZO: 15, FOTO_A: 16, FOTO_C: 17, STATO: 18, ID: 19, EQ: 20, APERTO_DA: 21, ORARI: 22, REG: 23, TEL: 24, CAUSA: 25, PROP: 26, RIV: 27, GRUPPO: 28, GIRO: 29, MULTI: 30, FOTO_X: 31 }; // CAUSA e seguenti sono fuori da HEAD: le colonne si aggiungono solo quando servono
 
 const DEF_LISTE = {
   'Categoria': ['MECCANICO', 'ELETTRICO', 'AUTOMATION', 'ALTRO'],
@@ -691,7 +691,7 @@ let VDESC_MEMO = null;
 let VOCI_MEMO = null;
 // Colonne in fondo al foglio Fermi (fuori da HEAD): Causa, Voce proposta (con ALTRO), Rivisto (coordinatore),
 // e per i fermi con più interventi: Fermo n. (uguale per tutti gli interventi dello stesso fermo), Intervento n., Più interventi?
-const EXTRA_H = ['Causa', 'Voce proposta (con ALTRO)', 'Rivisto (coordinatore)', 'Fermo n.', 'Intervento n.', 'Più interventi?'];
+const EXTRA_H = ['Causa', 'Voce proposta (con ALTRO)', 'Rivisto (coordinatore)', 'Fermo n.', 'Intervento n.', 'Più interventi?', 'Altre foto chiusura'];
 function causaCol_(sh) {
   const ultima = C.CAUSA + EXTRA_H.length - 1;
   if (sh.getMaxColumns() < ultima) sh.insertColumnsAfter(sh.getMaxColumns(), ultima - sh.getMaxColumns());
@@ -1726,10 +1726,11 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica', 'foto'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
+    else if (p.action === 'foto') res = fotoFermo_(p);
     else if (p.action === 'cancel') res = cancelFermo_(p);
     else if (p.action === 'soluzione') res = addSoluzione_(p);
     else if (p.action === 'anomalia') res = addAnomalia_(p);
@@ -1843,6 +1844,7 @@ function init_() {
       fermi.push({ id: r[C.ID - 1], code: r[C.EQ - 1], linea: r[C.LINEA - 1], macchina: r[C.MACC - 1], lotto: String(r[C.LOTTO - 1]),
         start: start, end: end, stato: stato, cat: r[C.CAT - 1], int: r[C.INT - 1], guasto: r[C.GUASTO - 1], causa: String((cause[i] || [])[0] || ''), prop: String((extra[i] || [])[1] || ''), rivisto: String((extra[i] || [])[2] || ''),
         gruppo: String((extra[i] || [])[3] || ''), giro: Number((extra[i] || [])[4]) || 0, multi: String((extra[i] || [])[5] || ''),
+        fotoX: String((extra[i] || [])[6] || '').split(/\s+/).filter(u => /^https?:/.test(u)),
         altro: r[C.ALTRO - 1], man: r[C.MAN - 1], apertoDa: r[C.APERTO_DA - 1],
         pezzo: String(r[C.PEZZO - 1] || ''), orari: String(r[C.ORARI - 1] || ''), nCorr: nCorr[String(r[C.ID - 1])] || 0, corr: (c => c && String(c.da).toUpperCase() !== String(r[C.MAN - 1]).trim().toUpperCase() ? c : null)(corr[String(r[C.ID - 1])]), fotoC: ((fotoC[i][0] || '').match(/"(https?:[^"]+)"/) || [])[1] || '' });
     });
@@ -1916,6 +1918,21 @@ function savePhoto_(b64, name) {
   const folder = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('FOLDER_ID'));
   const blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', name + '.jpg');
   return folder.createFile(blob).getUrl();
+}
+// Foto in più della chiusura (2ª e 3ª): arrivano dopo la chiusura, una alla volta; i link vanno in "Altre foto chiusura", uno per riga
+function fotoFermo_(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SH_FERMI), r = findRow_(sh, p.fermo);
+  if (!r) throw new Error('Fermo non trovato per la foto');
+  if (!p.foto) return { vuota: true };
+  causaCol_(sh);
+  const cell = sh.getRange(r, C.FOTO_X), prima = String(cell.getValue() || '').trim();
+  const code = String(sh.getRange(r, C.EQ).getValue() || 'fermo'), d = new Date(Number(p.ts) || Date.now());
+  const nome = Utilities.formatDate(d, TZ, 'yyyyMMdd-HHmm') + '_' + code + '_chiusura_' + (Number(p.n) || 2) + '_' + String(p.id || '').slice(-6);
+  let url = '';
+  try { const it = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('FOLDER_ID')).getFilesByName(nome + '.jpg'); if (it.hasNext()) url = it.next().getUrl(); } catch (e) { Logger.log(e); }
+  if (!url) url = savePhoto_(p.foto, nome); // invio ripetuto: la foto c'è già, non la duplica
+  if (prima.indexOf(url) < 0) cell.setValue((prima ? prima + '\n' : '') + url).setWrap(true);
+  return { url: url };
 }
 function linkFormula_(url) {
   return url ? '=HYPERLINK("' + url + '","Foto")' : '';
@@ -2461,7 +2478,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '23/10/2026 18:00';
+const VERSIONE_SCRIPT = '30/10/2026 21:40';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
