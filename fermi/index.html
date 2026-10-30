@@ -329,6 +329,8 @@ textarea.field{min-height:64px;resize:vertical}
 .mwarn{border:1px solid var(--crit);border-radius:12px;padding:10px 12px;color:var(--ink);background:var(--surface)}.mwarn b{color:var(--crit)}.mwarn .row{display:flex;gap:8px}.mwarn .row button{flex:1}
 .propsol{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer}
 .solbox{margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}.solbox .label{margin-top:10px}.solbox .label:first-child{margin-top:0}.solbox textarea{min-height:84px}
+.phxi{margin-top:10px}.phxb{text-align:center}.phxb .annot{display:inline-block;max-width:100%}.phxb .annot canvas{max-height:170px;width:auto!important;max-width:100%}.phxb .hint{text-align:left}.phxb .hint{font-size:12px}.phxh{display:flex;justify-content:space-between;align-items:center}.phadd{display:grid;grid-template-columns:1fr 1fr;gap:8px}.phadd .galbtn{margin-top:0}
+.fotorow{display:flex;gap:8px;margin-top:8px}.fotorow a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;margin-top:0}
 .scmot{margin-top:10px}.scmot .chips{margin:6px 0}
 .propsol input{width:22px;height:22px;margin:1px 0 0;flex:none;accent-color:var(--steel)}.propsol b{display:block;font-size:14px}.propsol span{font-size:12px;color:var(--muted)}
 .dangerzone{margin-top:28px;padding-top:14px;border-top:1px dashed var(--line);text-align:center}
@@ -1108,7 +1110,7 @@ function intSheet(f, eq) {
     <div class="ctxbar"><div><div class="hint" style="margin:0">${dayLabel(f.start).toLowerCase().replace(/^./, c => c.toUpperCase())} · turno ${turnoOf(f.start)}</div><div class="ore big">${hhmm(f.start)} → ${hhmm(f.end)}</div></div><span class="dur big${min >= 60 ? ' long' : ''}">${fmtDur(min)}</span></div>
     ${f.altro ? `<div class="group"><span class="label">Descrizione</span><div class="scard"><div>${esc(f.altro)}</div></div></div>` : ''}
     <div class="stats grid2">${cell('Tecnico', f.man)}${cell('Lotto', f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}${cell('Categoria', nice(f.cat || ''))}${cell('Pezzo sostituito', f.pezzo)}${cell('Orari', f.orari === 'DICHIARATI' ? (isFill(eq) ? 'Dichiarati (batch record)' : 'Scritti a mano (registrato dopo)') : f.orari === 'CARTACEO' ? 'Da foglio cartaceo' : 'Tempo reale')}${cell('Tipo guasto', f.guasto)}${f.causa ? cell('Causa', f.causa) : ''}</div>
-    ${f.fotoC ? `<a class="submit blue" href="${esc(f.fotoC)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${I.cam.replace('<svg', '<svg width="20" height="20"')}Apri foto</a>` : ''}
+    ${f.fotoC || (f.fotoX || []).length ? `<div class="fotorow">${[f.fotoC, ...(f.fotoX || [])].filter(Boolean).map((u, i, a) => `<a class="submit blue" href="${esc(u)}" target="_blank" rel="noopener">${I.cam.replace('<svg', '<svg width="20" height="20"')}${a.length > 1 ? 'Foto ' + (i + 1) : 'Apri foto'}</a>`).join('')}</div>` : ''}
     ${puoCorreggere(f) && !f.pending && (!(f.nCorr > 0) || isCoord()) ? `<div style="margin-top:12px"><button class="morebtn" id="modf">Correggi il fermo</button><div class="hint center">La prima correzione la fai tu. Le successive andranno chieste al responsabile.</div></div>`
     : puoCorreggere(f) ? (CORR[f.id] ? `<div class="hint center" style="margin-top:12px">Correzione chiesta il ${fmtDT(CORR[f.id])}: la sistema il responsabile.</div>`
       : `<div id="corrbox" style="margin-top:12px"><button class="linkbtn" id="corr" style="width:100%">Hai sbagliato qualcosa? Chiedi una correzione</button></div>`) : ''}`);
@@ -2109,7 +2111,19 @@ function closeSheet(f, opt = {}) {
     <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
     ${REG ? '' : N > 1 ? '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Intervento ' + N + ' aperto per sbaglio (la macchina era già ripartita)? Gli interventi già registrati restano.</div><button class="linkbtn danger" id="canc">Annulla l\'intervento ' + N + '</button></div>'
       : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
-  C.big = true; C.gal = true; photoBox($('#phgrp'), C, 'Foto della zona di intervento');
+  C.big = true; C.gal = true; C.extra = []; photoBox($('#phgrp'), C, 'Foto della zona di intervento', nuova => { if (nuova) drawExtra(); });
+  // foto in più (fino a 3 in tutto): prima/dopo, pezzo sostituito… partono dopo la chiusura, una alla volta
+  $('#phgrp').insertAdjacentHTML('afterend', '<div class="group" id="phx"></div>');
+  const FOTO_MAX = 3;
+  function drawExtra() {
+    const w = $('#phx'); if (!w) return; const rest = FOTO_MAX - 1 - C.extra.length;
+    w.innerHTML = C.extra.map((P, i) => `<div class="phxi" data-i="${i}"><div class="phxh"><span class="label">Foto ${i + 2}</span><button class="linkbtn danger" type="button" data-rm="${i}">Togli</button></div><div class="phxb"></div></div>`).join('')
+      + (C.img && rest > 0 ? `<div class="hint" style="margin:10px 0 6px">Altre foto? Prima/dopo, pezzo sostituito… · puoi aggiungerne ancora ${rest}</div><div class="phadd"><button class="galbtn" type="button" data-add="cam">${I.cam}Scatta foto</button><button class="galbtn" type="button" data-add="gal">${I.gal}Dalla galleria</button></div>` : '');
+    C.extra.forEach((P, i) => photoBox(w.querySelector(`[data-i="${i}"] .phxb`), P, ''));
+    w.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { C.extra.splice(+b.dataset.rm, 1); drawExtra(); });
+    w.querySelectorAll('[data-add]').forEach(b => b.onclick = () => capture(im => { C.extra.push({ img: im, circles: [], gal: true }); drawExtra(); }, b.dataset.add === 'gal'));
+  }
+  drawExtra();
   C.fineOra = false; const cw = $('#cwhen'); if (cw) singleChoice(cw, v => { C.fineOra = v === 'ora'; $('#cfwrap').hidden = !C.fineOra; if (C.fineOra) $('#cfin').focus(); });
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pcome').value.trim()) $('#pcome').value = $('#altro').value.trim(); };
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
@@ -2195,6 +2209,7 @@ function closeSheet(f, opt = {}) {
     if (REG) enqueue({ action: 'open', id: f.id, code: f.code, linea: f.linea, macchina: f.macchina, lotto, ts: ini, turno: turnoOf(ini), manutentore: S.man, foto: '', dichiarato: true, reg: now, gruppo: grp, giro });
     enqueue({ action: 'close', id: f.id, ts: fin, inizio: FILL && dich && ini !== f.start ? ini : undefined, manutentore: S.man, categoria: C.cat, intervento: C.int, guasto: C.guasto, causa: C.causa || undefined, proposta: gprop || undefined,
       altro, pezzo: sost() ? $('#pezzo').value.trim() : '', lotto, foto: C.img ? toJpeg(C.img, C.circles) : '', dichiarato: dich || undefined, reg: now, gruppo: grp, giro, multi });
+    (C.extra || []).forEach((P, i) => enqueue({ action: 'foto', id: uid('P'), fermo: f.id, n: i + 2, foto: toJpeg(P.img, P.circles), ts: fin, manutentore: S.man }));
     if (psol) enqueue({ action: 'soluzione', id: uid('S'), code: eq.code, linea: eq.linea, guasto: C.guasto || '', problema: pprob, soluzione: 'Causa: ' + pcau + '\n' + pcome, ricambi: sost() ? $('#pezzo').value.trim() : '', ts: now, manutentore: S.man });
     delete PRE_G[f.id]; save('preg', PRE_G);
     if (CONT) { // l'intervento successivo parte dalla fine di questo, stessa macchina e stesso lotto

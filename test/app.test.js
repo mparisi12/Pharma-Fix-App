@@ -251,6 +251,31 @@ let ver = 1, full = 0, same = 0; const posts = [];
   const so = posts.filter(o => o.action === 'soluzione').pop() || {};
   ok((posts.filter(o => o.action === 'close' && o.id === 'FC4').pop() || {}).categoria === 'ELETTRICO', 'inviata la categoria scelta dal tecnico');
   ok(so.problema === 'astucci segnati in uscita' && /^Causa: lama inserimento storta\n allentate|^Causa: lama inserimento storta\nallentate/.test(so.soluzione), 'inviata: problema = cosa si vedeva, soluzione = causa + come');
+  // più foto in chiusura (fino a 3): la 2ª e la 3ª partono dopo la chiusura come operazioni a sé
+  D.fermi.push({ id: 'FC5', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  await p.evaluate(() => { S.ver = 'x5'; return refresh(); }); await attesa(400);
+  await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC5')); }); await attesa(300);
+  ok(!(await p.isVisible('#phx [data-add]')), 'prima della foto principale non si aggiungono altre foto');
+  const img = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 1600; c.height = 1200; const x = c.getContext('2d'); x.fillStyle = '#c63'; x.fillRect(0, 0, 1600, 1200); return c.toDataURL('image/jpeg', .9).split(',')[1]; });
+  const scegli = async sel => { const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click(sel)]); await fc.setFiles({ name: 'f.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(img, 'base64') }); await attesa(400); };
+  await scegli('#phgrp .galbtn');
+  ok(/ancora 2/.test(await p.innerText('#phx')), 'dopo la prima foto: "puoi aggiungerne ancora 2"');
+  await scegli('#phx [data-add="gal"]');
+  if (process.env.SHOT_FOTO) { await p.evaluate(() => document.querySelector('#phx').scrollIntoView({ block: 'center' })); await p.screenshot({ path: process.env.SHOT_FOTO.replace('.png', 'b.png') }); }
+  await scegli('#phx [data-add="gal"]');
+  ok((await p.$$('#phx .phxi canvas')).length === 2 && !(await p.isVisible('#phx [data-add]')), '3 foto in tutto: poi i pulsanti spariscono');
+  if (process.env.SHOT_FOTO) { await p.evaluate(() => document.querySelector('#phgrp').scrollIntoView({ block: 'start' })); await p.screenshot({ path: process.env.SHOT_FOTO }); }
+  await p.click('#phx [data-rm="1"]'); await attesa(150);
+  ok((await p.$$('#phx .phxi')).length === 1 && /ancora 1/.test(await p.innerText('#phx')), '"Togli": la foto 3 si toglie e se ne può aggiungere ancora 1');
+  await scegli('#phx [data-add="cam"]').catch(() => {});
+  await p.click('#gua [data-v="CAM. OMRON"]'); await p.click('#int [data-v="REGOLAZIONE"]'); await attesa(100);
+  await p.fill('#altro', 'regolata telecamera e messa a fuoco'); await p.click('#go'); await attesa(300); await p.click('#go').catch(() => {}); await attesa(900);
+  const fx = posts.filter(o => o.action === 'foto' && o.fermo === 'FC5'), cl5 = posts.filter(o => o.action === 'close' && o.id === 'FC5').pop() || {};
+  ok(cl5.foto && fx.length === 2 && fx.map(o => o.n).join() === '2,3' && fx.every(o => o.foto && o.foto.length < 400000), 'chiusura con la foto 1, poi foto 2 e 3 inviate a parte (ridimensionate)');
+  ok(posts.indexOf(cl5) < posts.indexOf(fx[0]), 'prima parte la chiusura, poi le foto');
+  const det = await p.evaluate(() => { const f = Object.assign({}, S.fermi.find(x => x.id === 'FC5') || { id: 'FC5', start: Date.now() - 6e5, end: Date.now(), linea: 'ST3', macchina: 'AST' }, { stato: 'CHIUSO', end: Date.now(), fotoC: 'https://drive/1', fotoX: ['https://drive/2', 'https://drive/3'] });
+    intSheet(f, eqBy('ST3-04')); const t = [...document.querySelectorAll('#sheet .fotorow a')].map(a => a.textContent.trim()); closeSh(); return t; });
+  ok(det.join('|') === 'Foto 1|Foto 2|Foto 3', 'dettaglio dell\'intervento: Foto 1 · Foto 2 · Foto 3');
   // tecnico: soluzione scartata con il motivo
   await p.evaluate(() => { closeSh(); S.solScartate = [{ id: 'SX1', ts: Date.now(), macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'regolato sponde', autore: 'ROSSI Mario', motivo: 'Troppo vaga: manca dove e come', da: 'VERDI Anna' }]; go('home'); }); await attesa(300);
   ok(await p.isVisible('#scartban'), 'tecnico: avviso "una tua soluzione è stata scartata"');
