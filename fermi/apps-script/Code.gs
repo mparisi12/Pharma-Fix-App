@@ -2522,7 +2522,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '31/10/2026 11:00';
+const VERSIONE_SCRIPT = '31/10/2026 12:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2574,8 +2574,12 @@ function kpiRisorseCalcola_(ss, filtri) {
     const n = String(k.fattoDa).trim().toUpperCase(); kt[n] = kt[n] || { f: 0, t: 0 }; kt[n].f++; if (!k.ritardo) kt[n].t++; } }); } catch (e) { Logger.log(e); }
   // i coordinatori (colonna Coordinatori del foglio Liste) non compaiono: intervenire non è il loro ruolo principale.
   // I loro interventi restano nel calcolo delle mediane del reparto.
+  // Compaiono solo i tecnici della colonna Manutentori (chi non c'è più, esterni, nomi scritti a mano: no).
+  // I loro interventi restano nelle mediane del reparto, come quelli dei coordinatori.
   const coord = coordinatori_().map(x => x.toUpperCase());
-  const nomi = [...new Set(nel.map(f => String(f.man).trim()).filter(Boolean))].filter(n => coord.indexOf(n.toUpperCase()) < 0);
+  const lvM = listeVal_(), cM = lvM[0].indexOf('Manutentori');
+  const inLista = cM < 0 ? [] : lvM.slice(1).map(r => String(r[cM]).trim().toUpperCase()).filter(Boolean);
+  const nomi = [...new Set(nel.map(f => String(f.man).trim()).filter(Boolean))].filter(n => coord.indexOf(n.toUpperCase()) < 0 && inLista.indexOf(n.toUpperCase()) >= 0);
   const rows = nomi.map(n => {
     const fs = nel.filter(f => String(f.man).trim() === n), N = n.toUpperCase();
     const rel = fs.filter(f => med[f.k] > 0).map(f => f.m / med[f.k]);
