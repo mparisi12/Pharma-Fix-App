@@ -463,6 +463,48 @@ let ver = 1, full = 0, same = 0; const posts = [];
   ok(/linea st3/i.test(await p.innerText('#view')), 'dal link si apre la vista della linea');
   await p.evaluate(() => go('home'));
 
+  console.log('\nTelefono in attesa di approvazione: schermata che si sblocca da sola, ID in più punti, approvazione dal coordinatore');
+  {
+    let approvato = false; const P3 = []; const daApp = [{ tecnico: 'ROSSI Mario', dev: 'T-NUOVO1', modello: 'Android K', quando: Date.now() - 4 * 60000, vecchi: [{ modello: 'Android K', ultimo: Date.now() - 10 * 864e5 }], altro: '' },
+      { tecnico: 'BIANCHI Luca', dev: 'T-ALTRO9', modello: 'iOS iPhone', quando: Date.now() - 60 * 60000, vecchi: [], altro: 'NERI Paolo' }];
+    const tw = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await tw.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
+    await tw.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url());
+      if (r.request().method() === 'POST') { P3.push(JSON.parse(r.request().postData())); return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); }
+      if (/action=login/.test(u)) return r.fulfill({ contentType: 'application/json', body: approvato || /VERDI/.test(u) ? '{"ok":true}' : JSON.stringify({ ok: false, error: 'Telefono non autorizzato per ROSSI Mario: telefono nuovo. Chiedi al responsabile di approvarlo' }) });
+      if (/action=telefoni/.test(u)) return r.fulfill({ contentType: 'application/json', body: JSON.stringify(/VERDI/.test(u) ? { ok: true, telefoni: daApp } : { ok: false, error: 'Sezione riservata ai coordinatori' }) });
+      r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, ver: 'TW' }) }); });
+    const w = await tw.newPage(); w.on('pageerror', e => errori.push(e.message));
+    await w.goto(`http://localhost:${PORT}/fermi/`); await w.waitForTimeout(600);
+    const dev0 = await w.evaluate(() => DEV);
+    await w.fill('#lpin', 'prova'); await w.fill('#lnome', 'Mario'); await w.fill('#lcogn', 'Rossi'); await w.click('#lgo'); await w.waitForTimeout(1500);
+    ok(await w.isVisible('#lwait') && await w.isHidden('#lform') && /in attesa/i.test(await w.innerText('#lwait')) && /ROSSI Mario/.test(await w.innerText('#lwtxt')), 'telefono in attesa: schermata di attesa al posto dell\'errore');
+    if (SP) await w.screenshot({ path: SP.replace('.png', '_telwait.png') });
+    approvato = true; await w.click('#lwgo'); await w.waitForTimeout(1200);
+    ok(await w.isHidden('#login') && /ROSSI Mario/.test(await w.innerText('#manbtn')), 'approvato: entra senza riscrivere nome e codice');
+    const copie = await w.evaluate(async () => ({ c: devCookie(), i: await media('get', 'cfg:dev'), k: await (await (await caches.open(DEV_CACHE)).match(DEV_URL)).text() }));
+    ok(/^T-[A-Z0-9]{4,12}$/.test(dev0) && copie.c === dev0 && copie.i === dev0 && copie.k === dev0, 'ID del telefono salvato anche in cookie, archivio e cache');
+    await w.evaluate(() => localStorage.removeItem('pf_dev')); await w.reload(); await w.waitForTimeout(1200);
+    ok(await w.evaluate(() => DEV) === dev0, 'memoria piccola svuotata: stesso ID (dal cookie)');
+    await w.evaluate(() => { localStorage.removeItem('pf_dev'); document.cookie = 'pf_dev=; max-age=0'; }); await w.reload(); await w.waitForTimeout(1200);
+    ok(await w.evaluate(() => DEV) === dev0, 'memoria piccola e cookie svuotati: stesso ID (dall\'archivio)');
+    await w.evaluate(async () => { localStorage.removeItem('pf_dev'); document.cookie = 'pf_dev=; max-age=0'; await media('del', 'cfg:dev'); }); await w.reload(); await w.waitForTimeout(1200);
+    ok(await w.evaluate(() => DEV) === dev0, 'resta solo la cache: stesso ID');
+    ok(!(await w.isVisible('#telban')), 'un tecnico non vede i telefoni da approvare');
+    // coordinatore
+    await w.evaluate(() => { salvaSess(null); showLogin(); }); await w.fill('#lnome', 'Anna'); await w.fill('#lcogn', 'Verdi'); await w.click('#lgo'); await w.waitForTimeout(1500);
+    ok(await w.isVisible('#telban') && /2 telefoni da approvare/.test(await w.innerText('#telban')), 'coordinatore: banner "2 telefoni da approvare" in home');
+    await w.click('#telban'); await w.waitForTimeout(300);
+    const sh = await w.innerText('#sheet');
+    ok(/telefono nuovo/i.test(sh) && /Stesso modello/.test(sh) && /telefono di un altro/i.test(sh) && /NERI Paolo/.test(sh), 'elenco: caso "stesso modello" e caso "telefono di un altro" spiegati');
+    if (SP) await w.screenshot({ path: SP.replace('.png', '_telapp.png') });
+    await w.click('[data-tel="0"][data-es="OK"]'); await w.waitForTimeout(1500);
+    const op = P3.find(o => o.action === 'telefono') || {};
+    ok(op.tecnico === 'ROSSI Mario' && op.devT === 'T-NUOVO1' && op.esito === 'OK' && op.manutentore === 'VERDI Anna', 'Approva: inviato al foglio');
+    ok(/1 telefono da approvare/i.test(await w.innerText('#sheet h3').catch(() => '')) || /BIANCHI Luca/.test(await w.innerText('#sheet')) && !/ROSSI Mario/.test(await w.innerText('#sheet')), 'approvato: sparisce subito dall\'elenco');
+    await tw.close();
+  }
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
