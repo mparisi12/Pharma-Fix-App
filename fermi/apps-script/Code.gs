@@ -2522,7 +2522,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '31/10/2026 12:00';
+const VERSIONE_SCRIPT = '31/10/2026 12:10';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -2667,7 +2667,10 @@ function aggiornaKpiRisorse() {
       x.ric, pc(x.tempo), pc(x.desc), x.ano, x.sol, x.comp, x.q]);
     const rng = sh.getRange(r + 1, 1, nr, KR_H.length);
     rng.setValues(vals);
+    // formato di ogni colonna scritto sempre: la clear() non toglie i formati rimasti da un calcolo precedente (es. 200%)
+    sh.getRange(r + 1, 2, nr, 6).setNumberFormats(K.rows.map(() => ['0', '0.0', '0', '0.00', '0.00', '0']));
     sh.getRange(r + 1, 8, nr, 3).setNumberFormat('0%');
+    sh.getRange(r + 1, 11, nr, 2).setNumberFormat('0');
     const bg = K.rows.map(x => { const row = new Array(KR_H.length).fill(null);
       if (x.rel !== null) row[5] = x.rel <= 0.85 ? '#dff1e7' : x.rel >= 1.2 ? '#fde9a9' : null;
       if (x.tempo !== null) row[8] = x.tempo >= 0.8 ? '#dff1e7' : x.tempo < 0.6 ? '#fde9a9' : null;
@@ -2686,11 +2689,13 @@ function aggiornaKpiRisorse() {
   if (nr) {
     const mxv = Math.max(1, ...K.mat.map(x => Math.max(...x)));
     const mrng = sh.getRange(r + 1, 1, nr, K.linee.length + 1);
+    sh.getRange(r + 1, 2, nr, K.linee.length).setNumberFormat('0');
     mrng.setValues(K.rows.map((x, i) => [x.n].concat(K.mat[i].map(v => v || ''))));
     mrng.setBackgrounds(K.mat.map(x => [null].concat(x.map(v => { if (!v) return null; const t = 0.12 + 0.75 * v / mxv; const c = c0 => Math.round(255 - (255 - c0) * t); return '#' + [36, 90, 122].map(c).map(z => ('0' + z.toString(16)).slice(-2)).join(''); }))));
     sh.getRange(r + 1, 2, nr, K.linee.length).setHorizontalAlignment('center');
   }
   r += nr + 1;
+  sh.getRange(r, 2, 1, K.linee.length).setNumberFormat('0');
   sh.getRange(r, 1, 1, K.linee.length + 1).setValues([['Esperti (≥5 interventi)'].concat(K.esperti.map(e => e <= 1 ? e + ' ⚠' : e))]).setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange(r, 2, 1, K.linee.length).setBackgrounds([K.esperti.map(e => e <= 1 ? '#fde9a9' : null)]);
   r += 1;
@@ -2700,7 +2705,7 @@ function aggiornaKpiRisorse() {
   sh.getRange(r, 1).setValue('RICORRENZA PER TIPO DI GUASTO · stesso guasto sulla stessa macchina entro 24 ore').setFontWeight('bold').setFontSize(12);
   r++;
   sh.getRange(r, 1, 1, 3).setValues([['Tipo guasto', 'Interventi', 'Ricorrenza 24h']]).setFontWeight('bold').setBackground('#dfe7ec');
-  if (K.guasti.length) { sh.getRange(r + 1, 1, K.guasti.length, 3).setValues(K.guasti.map(g => [g.g, g.n, g.r])); sh.getRange(r + 1, 3, K.guasti.length, 1).setNumberFormat('0%'); }
+  if (K.guasti.length) { sh.getRange(r + 1, 1, K.guasti.length, 3).setValues(K.guasti.map(g => [g.g, g.n, g.r])); sh.getRange(r + 1, 2, K.guasti.length, 1).setNumberFormat('0'); sh.getRange(r + 1, 3, K.guasti.length, 1).setNumberFormat('0%'); }
   sh.setColumnWidth(1, 220); for (let c = 2; c <= KR_H.length; c++) sh.setColumnWidth(c, c === KR_H.length ? 210 : 105);
   try { krGrafico_(ss, sh, K); } catch (e) { Logger.log(e); }
   sh.setRowHeight(KR_T, 54);
