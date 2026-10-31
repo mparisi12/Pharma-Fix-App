@@ -52,6 +52,24 @@ header.top{display:flex;align-items:center;gap:10px;padding-block:26px 6px} /* p
 .approw{display:flex;gap:8px;margin-top:6px}.appbtn{flex:1;border-radius:10px;padding:11px;font:600 15px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .appbtn.ok{background:var(--ok);border-color:var(--ok);color:#fff}.appbtn.no{color:var(--crit)}.appbtn.no.armed{background:var(--crit);border-color:var(--crit);color:#fff}
 .appban{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;font:inherit}.appban svg{width:20px;height:20px;flex:none}
+.lwait{text-align:center;padding-top:18px}
+.lwait .ic{width:84px;height:84px;border-radius:50%;background:var(--amber-soft);border:2px solid var(--amber);color:var(--amber-ink);margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+.lwait h3{font:700 28px/1.1 var(--display);text-transform:uppercase;margin:0 0 10px}
+.lwait p{font-size:15px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.lwait .pulse{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin:4px 0 14px}
+.lwait .pulse i{width:9px;height:9px;border-radius:50%;background:var(--amber)}
+@media (prefers-reduced-motion:no-preference){.lwait .pulse i{animation:blink 1.4s infinite}@keyframes blink{50%{opacity:.25}}}
+.lwait .linkbtn{display:block;margin:12px auto 0}
+.telc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+.telc .n{font:700 20px var(--display);letter-spacing:.03em}
+.telc .m{font-size:13px;color:var(--muted);margin-top:2px}
+.telc .old{font-size:13px;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface2);line-height:1.4}
+.telc .old.red{background:var(--crit-soft)}
+.telc .row{display:flex;gap:8px;margin-top:10px}
+.telc .row button{flex:1;border-radius:10px;padding:12px;font:700 17px var(--display);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.telc .tap{background:var(--ok);color:#fff;border:0}.telc .tbl{background:var(--surface);color:var(--crit);border:1px solid var(--crit)}
+.ttag{display:inline-block;font:600 11px var(--body);padding:2px 7px;border-radius:6px;background:var(--amber-soft);color:var(--amber-ink);border:1px solid var(--amber);margin-left:6px;vertical-align:2px;letter-spacing:0}
+.ttag.red{background:var(--crit-soft);border-color:var(--crit);color:var(--crit)}
 .banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;font-size:13px;margin-block:6px;color:var(--amber-ink)}
 h2{font:700 17px/1.2 var(--display);letter-spacing:.07em;text-transform:uppercase;margin:22px 0 10px;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
 h2 .more{font:600 13px var(--body);letter-spacing:0;text-transform:none;color:var(--steel);background:none;border:0;padding:0}
@@ -369,7 +387,7 @@ textarea.field{min-height:64px;resize:vertical}
 <div id="sheet"></div>
 <div id="login" class="login" hidden><div class="in">
   <h1>Pharma-Fix</h1><div class="label" style="margin-top:6px">Manutenzione · accesso tecnico</div>
-  <p>Inserisci nome e cognome. Devono essere nell'elenco dei manutentori abilitati.</p>
+  <p id="lintro">Inserisci nome e cognome. Devono essere nell'elenco dei manutentori abilitati.</p>
   <form id="lform" novalidate>
     <div id="pinwrap"><label class="label" for="lpin">Codice reparto</label><input class="field" id="lpin" type="password" autocomplete="off" inputmode="text">
       <div class="hint">Lo chiedi al responsabile. Serve solo la prima volta su questo telefono.</div></div>
@@ -378,6 +396,15 @@ textarea.field{min-height:64px;resize:vertical}
     <div class="err" id="lerr" hidden></div>
     <button class="submit" type="submit" id="lgo">Entra</button>
   </form>
+  <div id="lwait" class="lwait" hidden>
+    <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+    <h3>Telefono in attesa<br>di approvazione</h3>
+    <p id="lwtxt"></p>
+    <div class="pulse"><i></i><span id="lwst">controllo ogni 20 secondi…</span></div>
+    <button class="submit" type="button" id="lwgo">Riprova adesso</button>
+    <button class="linkbtn" type="button" id="lwback">Non sono io: torna all'accesso</button>
+    <div class="hint" style="margin-top:16px;line-height:1.45"><b>Perché succede?</b> Il telefono ha cancellato la memoria dell'app (pulizia di Android, oppure su iPhone hai aperto da Safari o dalla fotocamera invece che dall'icona). Apri sempre Pharma-Fix dall'icona sulla schermata Home.</div>
+  </div>
 </div></div>
 <div id="scanwrap"></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
@@ -404,11 +431,29 @@ const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform 
 const STANDALONE = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 let OUTBOX = load('outbox', []);
 // Identificativo di questo telefono: ogni tecnico è legato al suo telefono (foglio Telefoni)
-const DEV = load('dev', '') || (() => { const d = 'T-' + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase(); save('dev', d); return d; })();
+// Salvato in più punti (memoria piccola, cookie, archivio IndexedDB, cache): se uno si svuota lo riprende dagli altri
+// e il telefono non risulta "nuovo". Se il telefono cancella TUTTI i dati dell'app, va riapprovato (dall'app, coordinatore).
+const devCookie = () => { try { const m = document.cookie.match(/(?:^|; )pf_dev=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; } catch { return ''; } };
+const devValido = d => /^T-[A-Z0-9]{4,12}$/.test(String(d || ''));
+let DEV = [load('dev', ''), devCookie()].find(devValido) || '';
+const DEV_CACHE = 'pf-id', DEV_URL = './__pf_dev';
+function devCopie() { // scrive l'identificativo in tutti i punti
+  save('dev', DEV);
+  try { document.cookie = 'pf_dev=' + encodeURIComponent(DEV) + '; max-age=63072000; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); } catch {}
+  media('put', 'cfg:dev', DEV).catch(() => {});
+  try { if (window.caches) caches.open(DEV_CACHE).then(c => c.put(DEV_URL, new Response(DEV))).catch(() => {}); } catch {}
+}
+async function devRecupera() { // all'avvio: se la memoria piccola è vuota lo riprende dalle copie, altrimenti ne crea uno nuovo
+  if (!devValido(DEV)) { try { const d = await media('get', 'cfg:dev'); if (devValido(d)) DEV = d; } catch {} }
+  if (!devValido(DEV)) { try { if (window.caches) { const r = await (await caches.open(DEV_CACHE)).match(DEV_URL); const d = r ? (await r.text()).trim() : ''; if (devValido(d)) DEV = d; } } catch {} }
+  if (!devValido(DEV)) DEV = 'T-' + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+  devCopie();
+}
 const DEV_NAME = (() => { const u = navigator.userAgent; const m = u.match(/\(([^)]+)\)/); const parts = m ? m[1].split(';').map(x => x.trim()) : [];
   const model = parts.find(x => /Build|SM-|Pixel|Redmi|iPhone|iPad|moto|Nokia|OnePlus|HUAWEI|Xiaomi/i.test(x)) || parts[parts.length - 1] || '';
   return ((/Android/.test(u) ? 'Android ' : /iPhone|iPad/.test(u) ? 'iOS ' : '') + model.replace(/Build.*/, '')).trim().slice(0, 60); })();
 const isTelErr = e => /Telefono non/.test(e && e.message || '');
+const isTelAttesa = msg => /Telefono non autorizzato per/.test(msg || ''); // in attesa (non bloccato): si sblocca quando il coordinatore approva
 
 const $ = s => document.querySelector(s);
 // iPhone: niente suggerimenti di indirizzi/contatti (AutoFill) sopra la tastiera nei campi di testo dell'app
@@ -676,6 +721,7 @@ const getPin = () => load('pin', '');
 const setPin = p => { save('pin', p); (p ? media('put', 'cfg:pin', p) : media('del', 'cfg:pin')).catch(() => {}); };
 function salvaSess(sess) { try { sessionStorage.setItem('pf_sess', JSON.stringify(sess)); } catch {} save('sess', sess); (sess ? media('put', 'cfg:sess', sess) : media('del', 'cfg:sess')).catch(() => {}); }
 async function ripristina() { // prima dell'avvio: se la memoria piccola è vuota, riprende codice e accesso dalla copia
+  await devRecupera();
   if (MOCK) return;
   try { if (!getPin()) { const p = await media('get', 'cfg:pin'); if (p) save('pin', p); }
     if (!load('sess', null)) { const x = await media('get', 'cfg:sess'); if (x) save('sess', x); } } catch {}
@@ -714,14 +760,14 @@ async function apiPost(op) {
 }
 let syncing = false, retryT = null;
 async function sync() {
-  if (syncing || (!MOCK && !getPin())) return; syncing = true; clearTimeout(retryT);
+  if (syncing || (!MOCK && (!getPin() || !DEV))) return; syncing = true; clearTimeout(retryT);
   try {
     while (OUTBOX.length) {
       const op = OUTBOX[0];
       try { await apiPost(op); }
       catch (e) {
         if (isPinErr(e)) { pinInvalid(); return; }
-        if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 60000); return; } // resta in coda finché il responsabile approva
+        if (isTelErr(e)) { S.net = 'tel'; S.telErr = e.message; renderSync(); retryT = setTimeout(sync, 20000); return; } // resta in coda finché il responsabile approva
         if (e.server && /non trovat|solo fermi aperti|non abilitato|obbligatori|non valido|mancante|coordinator|aperto|non è più|annullato|assegnato a|corrett|foglio Equipment|il titolo|link valido/.test(e.message)) { toast('Scartato: ' + e.message); if (op.action === 'rivisto' || (op.action === 'modifica' && op.rivisto)) { rivSegna(op.fermo, false); toast('Revisione non registrata dal foglio: il fermo torna in "Da rivedere"', 4500); } }
         else { if (!S.offSince) S.offSince = Date.now(); S.net = 'off'; renderSync(); retryT = setTimeout(sync, 15000); return; }
       }
@@ -744,8 +790,45 @@ function applyInit(j) {
   save('cache', { equipment: S.equipment, liste: S.liste, guasti: S.guasti, vociCat: S.vociCat, vociDesc: S.vociDesc, intDesc: S.intDesc, fermi: S.fermi, soluzioni: S.soluzioni, solScartate: S.solScartate, documenti: S.documenti, anomalie: S.anomalie, compiti: S.compiti, vestizioni: S.vestizioni, sterileNo: S.sterileNo, convalide: S.convalide, turni: S.turni, programma: S.programma, continuo: S.continuo, avviso: S.avviso });
 }
 let NET_KO = 0, RETRY_NET = null; // tentativi falliti di fila per mancanza di rete
+/* Telefoni da approvare (solo coordinatori): letti a parte, non finiscono nella copia dei dati di tutti */
+let TEL_AT = 0; const TEL_FATTI = new Set(); S.telDA = [];
+async function telCheck(forza) {
+  if (MOCK || !S.man || !isCoord() || !getPin() || !DEV || (!forza && Date.now() - TEL_AT < 50000)) return;
+  TEL_AT = Date.now();
+  try {
+    const r = await fetch(CFG.API_URL + '?action=telefoni&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
+    const j = await r.json(); if (!j.ok) return;
+    const prima = telDA().length;
+    S.telDA = j.telefoni || [];
+    for (const k of [...TEL_FATTI]) if (!S.telDA.some(t => telK(t) === k)) TEL_FATTI.delete(k);
+    if (telDA().length !== prima && S.view.name === 'home') render();
+  } catch {}
+}
+const telK = t => t.tecnico + '|' + t.dev;
+const telDA = () => (S.telDA || []).filter(t => !TEL_FATTI.has(telK(t)));
+function shTelefoni() {
+  const l = telDA();
+  if (!l.length) { closeSh(); render(); return; }
+  sheet(`<div class="sheet-h"><div><h3>Telefoni da approvare</h3><div class="hint" style="margin-top:4px">Approva solo se il tecnico è lì con te o ti ha avvisato</div></div><button class="x" data-x>✕</button></div>
+    ${l.map((t, i) => { const stesso = (t.vecchi || []).some(v => v.modello && v.modello === t.modello);
+      return `<div class="telc"><div class="n">${esc(t.tecnico)} ${t.altro ? '<span class="ttag red">telefono di un altro</span>' : (t.vecchi || []).length ? '<span class="ttag">telefono nuovo</span>' : ''}</div>
+      <div class="m">${esc(t.modello || 'modello sconosciuto')}${t.quando ? ' · richiesta ' + esc(fmtDT(t.quando)) : ''}</div>
+      ${t.altro ? `<div class="old red">Questo telefono è già registrato a <b>${esc(t.altro)}</b>. Approva solo se ha cambiato davvero telefono.</div>` : ''}
+      ${(t.vecchi || []).length ? `<div class="old">Ha già ${t.vecchi.length === 1 ? 'un telefono approvato' : t.vecchi.length + ' telefoni approvati'}: ${t.vecchi.map(v => '<b>' + esc(v.modello || '?') + '</b>' + (v.ultimo ? ', ultimo uso ' + esc(fmtDT(v.ultimo)) : '')).join(' · ')}
+        ${stesso ? '<br><span style="color:var(--muted)">Stesso modello: quasi certamente l\'app ha perso la memoria, non è un telefono diverso.</span>' : ''}</div>` : ''}
+      <div class="row"><button class="tap" data-tel="${i}" data-es="OK">Approva</button><button class="tbl" data-tel="${i}" data-es="BLOCCATO">Blocca</button></div></div>`; }).join('')}
+    <div class="hint center" style="margin-top:12px">Approvando, i vecchi telefoni dello stesso tecnico diventano «SOSTITUITO» nel foglio Telefoni.</div>`);
+  $$('[data-tel]').forEach(b => b.onclick = () => {
+    const t = l[+b.dataset.tel], es = b.dataset.es;
+    TEL_FATTI.add(telK(t));
+    enqueue({ action: 'telefono', id: uid('T'), tecnico: t.tecnico, devT: t.dev, esito: es, manutentore: S.man, ts: Date.now() });
+    toast(es === 'OK' ? t.tecnico + ': telefono approvato, entra da solo tra pochi secondi' : t.tecnico + ': telefono bloccato', 3500);
+    shTelefoni();
+  });
+}
 async function refresh() {
   if (!MOCK && !getPin()) return;
+  telCheck();
   // mando la versione dei dati che ho: se sul foglio non è cambiato niente arriva solo { same: true }
   clearTimeout(RETRY_NET);
   try { const j = await apiGet(getPin(), S.loaded ? S.ver : ''); if (j.same && j.ver === S.ver) { S.net = 'ok'; S.lastSync = Date.now(); } else applyInit(j); NET_KO = 0; S.offSince = null; }
@@ -943,6 +1026,7 @@ function renderHome() {
     ${coord && daRivedere().length ? `<button class="banner appban" id="revban">${I.sol}<span><b>${daRivedere().length} ${daRivedere().length === 1 ? 'fermo da rivedere' : 'fermi da rivedere'}</b> · registrazioni sospette, tocca per vederle</span></button>` : ''}
     ${corrNuove().length ? `<button class="banner appban" id="corrban">${I.sol}<span><b>${corrNuove().length === 1 ? 'Un tuo fermo è stato corretto' : corrNuove().length + ' tuoi fermi sono stati corretti'}</b> dal coordinatore · tocca per vedere cosa</span></button>` : ''}
     ${scartNuove().length ? `<button class="banner appban" id="scartban">${I.sol}<span><b>${scartNuove().length === 1 ? 'Una tua soluzione è stata scartata' : scartNuove().length + ' tue soluzioni sono state scartate'}</b> · tocca per leggere perché</span></button>` : ''}
+    ${coord && telDA().length ? (l => `<button class="banner appban" id="telban"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><span><b>${l.length === 1 ? '1 telefono da approvare' : l.length + ' telefoni da approvare'}</b> · ${l.length === 1 ? esc(l[0].tecnico) + ' è bloccato' : esc(l.map(t => t.tecnico).join(', ')) + ' sono bloccati'}, tocca per sbloccare</span></button>`)(telDA()) : ''}
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
     <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
     <div class="center"><button class="linkbtn" id="manual">Problemi con il QR? Scegli la macchina a mano</button></div>
@@ -958,6 +1042,7 @@ function renderHome() {
     <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
   const rb = $('#revban'); if (rb) rb.onclick = shRevisione;
+  const tb = $('#telban'); if (tb) tb.onclick = shTelefoni;
   const cb2 = $('#corrban'); if (cb2) cb2.onclick = shCorrNuove;
   const sb = $('#scartban'); if (sb) sb.onclick = shMieSol;
   $('#manual').onclick = () => pickSheet(afterScan); // come dopo il QR: scheda macchina + pop-up Apri fermo
@@ -1491,7 +1576,7 @@ function getSession() {
   return s && s.exp > Date.now() && (!S.cacheOk || abilitati().includes(s.man)) ? s.man : '';
 }
 function showLogin() {
-  S.man = ''; renderHeader(); $('#login').hidden = false;
+  S.man = ''; renderHeader(); $('#login').hidden = false; lwaitStop();
   $('#pinwrap').hidden = MOCK || !!getPin(); $('#lpin').value = '';
   $('#lerr').hidden = true; $('#lnome').value = ''; $('#lcogn').value = '';
   setTimeout(() => $('#lnome').focus(), 50);
@@ -1513,21 +1598,52 @@ $('#lform').onsubmit = async e => {
   btn.disabled = false; btn.textContent = 'Entra';
   if (!t) { err.textContent = 'Non trovo "' + n.trim() + ' ' + c.trim() + '" tra i manutentori abilitati. Controlla come è scritto o chiedi al responsabile di aggiungerti.'; err.hidden = false; return; }
   if (!MOCK) { // il nome deve essere quello del proprietario di questo telefono
-    const okList = load('devok', []);
     btn.disabled = true; btn.textContent = 'Verifica…';
-    try {
-      const r = await fetch(CFG.API_URL + '?action=login&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(t) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
-      const j = await r.json();
-      if (!j.ok) { if (isPinErr({ message: j.error })) { pinInvalid(); return; } return fail(j.error || 'Accesso non riuscito'); }
-      if (!okList.includes(t)) save('devok', [...okList, t]);
-    } catch { if (!okList.includes(t)) return fail('Primo accesso con questo nome su questo telefono: serve la connessione.'); }
+    const r = await loginTel(t);
     btn.disabled = false; btn.textContent = 'Entra';
+    if (r === 'pin') return;
+    if (r !== true) { if (isTelAttesa(r)) return lwaitStart(t); return fail(r); }
   }
+  entra(t);
+};
+// Verifica sul foglio che questo telefono sia del tecnico: true, 'pin' (codice cambiato) o il messaggio d'errore
+async function loginTel(t) {
+  const okList = load('devok', []);
+  try {
+    if (!DEV) await devRecupera();
+    const r = await fetch(CFG.API_URL + '?action=login&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(t) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
+    const j = await r.json();
+    if (!j.ok) { if (isPinErr({ message: j.error })) { pinInvalid(); return 'pin'; } return j.error || 'Accesso non riuscito'; }
+    if (!okList.includes(t)) save('devok', [...okList, t]);
+    return true;
+  } catch { return okList.includes(t) ? true : 'Primo accesso con questo nome su questo telefono: serve la connessione.'; }
+}
+function entra(t) {
+  lwaitStop();
   salvaSess({ man: t, exp: Date.now() + SESSION_MS });
-  S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t);
+  S.man = t; $('#login').hidden = true; render(); toast('Ciao ' + t); telCheck(true);
   if (PENDING_EQ) { const e2 = PENDING_EQ; PENDING_EQ = null; const e3 = eqBy(e2.code); if (e3) afterScan(e3); else apriDopoCaricamento(e2.code); }
   sync();
-};
+}
+// Telefono in attesa: al posto dell'errore, una schermata che riprova da sola finché il coordinatore approva
+let LWAIT_T = null;
+function lwaitStop() { clearTimeout(LWAIT_T); LWAIT_T = null; const w = $('#lwait'); if (w) { w.hidden = true; $('#lform').hidden = false; $('#lintro').hidden = false; } }
+function lwaitStart(t) {
+  $('#lform').hidden = true; $('#lintro').hidden = true; $('#lwait').hidden = false; $('#lerr').hidden = true;
+  $('#lwtxt').innerHTML = '<b>' + esc(t) + '</b>: il coordinatore vede la richiesta sull\'app.<br>Appena approva, Pharma-Fix si apre da sola: <b>non serve chiudere l\'app.</b>';
+  const prova = async () => {
+    clearTimeout(LWAIT_T); $('#lwst').textContent = 'controllo…';
+    const r = await loginTel(t);
+    if ($('#lwait').hidden) return;
+    if (r === true) return entra(t);
+    if (r === 'pin') return;
+    if (!isTelAttesa(r)) { lwaitStop(); const e = $('#lerr'); e.textContent = r; e.hidden = false; return; }
+    $('#lwst').textContent = 'controllo ogni 20 secondi…';
+    LWAIT_T = setTimeout(() => { if (document.visibilityState === 'visible') prova(); else LWAIT_T = setTimeout(prova, 20000); }, 20000);
+  };
+  $('#lwgo').onclick = prova; $('#lwback').onclick = () => { lwaitStop(); $('#lnome').focus(); };
+  LWAIT_T = setTimeout(prova, 20000);
+}
 // Telefono nuovo aperto dal QR: le macchine arrivano dal foglio solo dopo l'accesso, quindi si aspetta il primo caricamento
 function apriDopoCaricamento(code, n = 10) { const e = eqBy(code); if (e) return afterScan(e); if (n > 0) setTimeout(() => apriDopoCaricamento(code, n - 1), 1500); }
 // iPhone fuori dall'app della schermata Home (Safari o Chrome, anche aperti dal QR con la fotocamera): avviso
@@ -2265,7 +2381,7 @@ async function checkUpdate() {
   ripristina().then(() => {
     S.man = getSession(); rinnovaSess(); render();
     if (!S.man) { PENDING_EQ = deep || (eq && !h ? { code: eq } : null); showLogin(); } else if (deep) afterScan(deep);
-    caricaBozzaAno(); sync(); cleanMedia();
+    caricaBozzaAno(); sync(); cleanMedia(); telCheck(true);
   });
   setInterval(() => { if (document.visibilityState === 'visible') { if (!OUTBOX.length) refresh(); checkUpdate(); } }, 60000);
   checkUpdate();

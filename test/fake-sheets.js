@@ -64,7 +64,7 @@ function carica(sheets) {
     }
   };
   vm.createContext(ctx);
-  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.SOL_H=SOL_H;this.EXTRA_H=EXTRA_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;this.PARTICELLE_=PARTICELLE_;this.C=C;', ctx);
+  vm.runInContext(src + ';this.C=C;this.HEAD=HEAD;this.DOC_H=DOC_H;this.SOL_H=SOL_H;this.EXTRA_H=EXTRA_H;this.TEL_H=TEL_H;this.DD=Date;this.isCoordinatore_=isCoordinatore_;this.PARTICELLE_=PARTICELLE_;this.C=C;', ctx);
   return { ctx, ss, props, cache };
 }
 

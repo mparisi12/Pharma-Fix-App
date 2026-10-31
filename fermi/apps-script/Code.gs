@@ -1144,7 +1144,7 @@ function indovinaCodice_(rep, mac, eq, linee) {
    Ogni nome è legato al suo telefono. Il primo telefono con cui un tecnico entra viene registrato in automatico;
    un telefono diverso, o un telefono già di un altro tecnico, resta DA APPROVARE finché il responsabile non scrive OK. */
 const SH_TEL = 'Telefoni';
-const TEL_H = ['Tecnico', 'ID telefono', 'Modello', 'Primo accesso', 'Ultimo uso', 'Stato (OK / DA APPROVARE / BLOCCATO)'];
+const TEL_H = ['Tecnico', 'ID telefono', 'Modello', 'Primo accesso', 'Ultimo uso', 'Stato (OK / DA APPROVARE / BLOCCATO / SOSTITUITO)'];
 function telSheet_(ss) {
   let sh = ss.getSheetByName(SH_TEL);
   if (!sh) {
@@ -1169,6 +1169,9 @@ function checkTelefono_(man, dev, devName) {
       if (!(prev instanceof Date) || Date.now() - prev.getTime() > 3600e3) cell.setValue(new Date()).setNumberFormat('dd/MM/yyyy HH:mm');
       return;
     }
+    if (st === 'SOSTITUITO') { // vecchio telefono tornato in uso: torna nella lista da approvare
+      sh.getRange(mine + 2, 6).setValue('DA APPROVARE'); sh.getRange(mine + 2, 1, 1, TEL_H.length).setBackground('#fbeaa0');
+    }
     throw new Error(st === 'BLOCCATO' ? 'Telefono non autorizzato: bloccato dal responsabile' : 'Telefono non autorizzato per ' + man + ': in attesa di approvazione del responsabile');
   }
   const altro = rows.find(r => String(r[1]).trim() === dev && String(r[0]).trim() !== man && stato(r) === 'OK');
@@ -1180,6 +1183,41 @@ function checkTelefono_(man, dev, devName) {
   if (auto) return;
   sh.getRange(r, 1, 1, TEL_H.length).setBackground('#fbeaa0');
   throw new Error('Telefono non autorizzato per ' + man + ': ' + (altro ? 'è il telefono di ' + altro[0] : 'telefono nuovo') + '. Chiedi al responsabile di approvarlo');
+}
+
+/* Telefoni da approvare dall'app (solo coordinatori). Per ognuno: i telefoni già OK dello stesso tecnico
+   e l'eventuale altro tecnico che usa già quel telefono, così il coordinatore capisce al volo il caso. */
+function telefoniDaApprovare_() {
+  const sh = telSheet_(SpreadsheetApp.getActiveSpreadsheet()), last = sh.getLastRow();
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, TEL_H.length).getValues() : [];
+  const st = r => String(r[5] || '').trim().toUpperCase(), tec = r => String(r[0] || '').trim(), dv = r => String(r[1] || '').trim();
+  const ms = v => v instanceof Date ? v.getTime() : null;
+  return rows.filter(r => st(r) === 'DA APPROVARE' && tec(r) && dv(r)).map(r => {
+    const altro = rows.find(x => dv(x) === dv(r) && tec(x) !== tec(r) && st(x) === 'OK');
+    return { tecnico: tec(r), dev: dv(r), modello: String(r[2] || ''), quando: ms(r[4]) || ms(r[3]),
+      vecchi: rows.filter(x => tec(x) === tec(r) && st(x) === 'OK').map(x => ({ modello: String(x[2] || ''), ultimo: ms(x[4]) })),
+      altro: altro ? tec(altro) : '' };
+  });
+}
+// Approva o blocca dall'app. Approvando, gli altri telefoni OK dello stesso tecnico diventano SOSTITUITO
+function telefonoEsito_(p) {
+  if (!isCoordinatore_(p.manutentore)) throw new Error('Solo i coordinatori possono approvare i telefoni');
+  const esito = p.esito === 'OK' ? 'OK' : p.esito === 'BLOCCATO' ? 'BLOCCATO' : '';
+  if (!esito) throw new Error('Esito non valido');
+  const sh = telSheet_(SpreadsheetApp.getActiveSpreadsheet()), last = sh.getLastRow();
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, TEL_H.length).getValues() : [];
+  const tecnico = String(p.tecnico || '').trim(), dev = String(p.devT || '').trim();
+  const i = rows.findIndex(r => String(r[0]).trim() === tecnico && String(r[1]).trim() === dev);
+  if (i < 0) throw new Error('Telefono non trovato nel foglio Telefoni');
+  const prima = String(rows[i][5] || '').trim().toUpperCase();
+  if (prima !== 'DA APPROVARE') return { gia: prima }; // già deciso (dal foglio o da un altro coordinatore)
+  sh.getRange(i + 2, 6).setValue(esito);
+  sh.getRange(i + 2, 1, 1, TEL_H.length).setBackground(esito === 'OK' ? null : '#f6d0c9');
+  sh.getRange(i + 2, 6).setNote(esito + ' da ' + p.manutentore + ' (app) il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
+  if (esito === 'OK') rows.forEach((r, j) => {
+    if (j !== i && String(r[0]).trim() === tecnico && String(r[5] || '').trim().toUpperCase() === 'OK') sh.getRange(j + 2, 6).setValue('SOSTITUITO');
+  });
+  return {};
 }
 
 /* Orari dichiarati (fermi FILLING registrati all'uscita dallo sterile): solo dentro il turno in cui si registra */
@@ -1708,6 +1746,11 @@ function doGet(e) {
       if (!isCoordinatore_(e.parameter.man)) throw new Error('Sezione riservata ai coordinatori');
       return formatiJson_();
     }
+    if (action === 'telefoni') { // telefoni in attesa: solo coordinatori, dal loro telefono
+      checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
+      if (!isCoordinatore_(e.parameter.man)) throw new Error('Sezione riservata ai coordinatori');
+      return json_({ ok: true, telefoni: telefoniDaApprovare_() });
+    }
     if (action === 'login') { // nome + telefono: il telefono deve essere quello del tecnico
       const lock = LockService.getScriptLock(); lock.waitLock(20000);
       try { checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName); SpreadsheetApp.flush(); }
@@ -1726,7 +1769,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
-    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica', 'foto'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
+    if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica', 'foto', 'telefono'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
     else if (p.action === 'close') res = closeFermo_(p);
@@ -1742,6 +1785,7 @@ function doPost(e) {
     else if (p.action === 'documento') res = addDocumento_(p);
     else if (p.action === 'compito') res = addCompito_(p);
     else if (p.action === 'compitoStato') res = statoCompito_(p);
+    else if (p.action === 'telefono') res = telefonoEsito_(p);
     else throw new Error('Azione sconosciuta');
     SpreadsheetApp.flush();
     bumpVer_(); // i telefoni scaricano i dati nuovi al prossimo giro
@@ -2478,7 +2522,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '30/10/2026 21:40';
+const VERSIONE_SCRIPT = '31/10/2026 11:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto

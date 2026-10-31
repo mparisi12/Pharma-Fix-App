@@ -521,4 +521,35 @@ console.log('\nPiù foto in chiusura');
   let err = ''; try { ctx.fotoFermo_({ fermo: 'NON-ESISTE', id: 'P3', n: 2, foto: 'A' }); } catch (e) { err = e.message; }
   ok(/non trovato/.test(err), 'foto di un fermo che non c\'è: rifiutata');
 }
+console.log('\nTelefoni: approvazione dall\'app (coordinatori) e vecchio telefono SOSTITUITO');
+{
+  const { ctx, sheets } = nuovo(); ctx.checkKey_ = () => {};
+  const D = ctx.DD || Date;
+  sheets.Telefoni = new Sheet('Telefoni', [ctx.TEL_H.slice(),
+    ['ROSSI Mario', 'T-OLD1', 'Android K', new D(), new D(), 'OK'],
+    ['VERDI Anna', 'T-COORD', 'iOS iPhone', new D(), new D(), 'OK'],
+    ['NERI Paolo', 'T-ALTRO', 'iOS iPhone', new D(), new D(), 'OK']]);
+  let err = ''; try { ctx.checkTelefono_('ROSSI Mario', 'T-NEW1', 'Android K'); } catch (e) { err = e.message; }
+  ok(/telefono nuovo/.test(err) && sheets.Telefoni.rows[4][5] === 'DA APPROVARE', 'memoria persa: nuovo ID → DA APPROVARE');
+  err = ''; try { ctx.checkTelefono_('ROSSI Mario', 'T-NEW1', 'Android K'); } catch (e) { err = e.message; }
+  ok(/in attesa di approvazione/.test(err), 'secondo tentativo: in attesa');
+  const get = man => JSON.parse(ctx.doGet({ parameter: { key: 'k', action: 'telefoni', man, dev: man === 'VERDI Anna' ? 'T-COORD' : 'T-OLD1' } }).t);
+  ok(/coordinatori/.test(get('ROSSI Mario').error || ''), 'un tecnico chiede la lista: rifiutato');
+  const j = get('VERDI Anna');
+  ok(j.ok && j.telefoni.length === 1 && j.telefoni[0].tecnico === 'ROSSI Mario' && j.telefoni[0].vecchi.length === 1 && j.telefoni[0].vecchi[0].modello === 'Android K' && !j.telefoni[0].altro, 'coordinatore: vede la richiesta con il vecchio telefono');
+  const post = p => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(Object.assign({ key: 'k', action: 'telefono' }, p)) } }).t);
+  ok(/coordinatori/.test(post({ manutentore: 'ROSSI Mario', dev: 'T-OLD1', tecnico: 'ROSSI Mario', devT: 'T-NEW1', esito: 'OK' }).error || ''), 'un tecnico non può approvarsi da solo');
+  const r = post({ manutentore: 'VERDI Anna', dev: 'T-COORD', tecnico: 'ROSSI Mario', devT: 'T-NEW1', esito: 'OK' });
+  ok(r.ok && sheets.Telefoni.rows[4][5] === 'OK' && sheets.Telefoni.rows[1][5] === 'SOSTITUITO', 'approvato: nuovo OK, vecchio SOSTITUITO');
+  ok(post({ manutentore: 'VERDI Anna', dev: 'T-COORD', tecnico: 'ROSSI Mario', devT: 'T-NEW1', esito: 'BLOCCATO' }).gia === 'OK' && sheets.Telefoni.rows[4][5] === 'OK', 'già deciso: un secondo tocco non lo cambia');
+  ctx.checkTelefono_('ROSSI Mario', 'T-NEW1', 'Android K');
+  err = ''; try { ctx.checkTelefono_('ROSSI Mario', 'T-OLD1', 'Android K'); } catch (e) { err = e.message; }
+  ok(/in attesa/.test(err) && sheets.Telefoni.rows[1][5] === 'DA APPROVARE', 'vecchio telefono che torna: di nuovo da approvare');
+  err = ''; try { ctx.checkTelefono_('BIANCHI Luca', 'T-ALTRO', 'iOS iPhone'); } catch (e) { err = e.message; }
+  const l2 = get('VERDI Anna').telefoni, b = l2.find(x => x.dev === 'T-ALTRO');
+  ok(/NERI Paolo/.test(err) && b && b.altro === 'NERI Paolo', 'telefono di un altro: segnalato con il nome');
+  post({ manutentore: 'VERDI Anna', dev: 'T-COORD', tecnico: 'BIANCHI Luca', devT: 'T-ALTRO', esito: 'BLOCCATO' });
+  err = ''; try { ctx.checkTelefono_('BIANCHI Luca', 'T-ALTRO', 'iOS iPhone'); } catch (e) { err = e.message; }
+  ok(/bloccato/.test(err), 'bloccato dall\'app: resta fuori');
+}
 fine('Script');
