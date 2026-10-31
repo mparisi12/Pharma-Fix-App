@@ -24,6 +24,7 @@ class Sheet {
       if (k === 'getA1Notation') return () => { const L = n => { let x = ''; while (n > 0) { x = String.fromCharCode(65 + (n - 1) % 26) + x; n = Math.floor((n - 1) / 26); } return x; }; return L(c) + r; };
       if (k === 'getFormula') return () => (sh.f || {})[r + ',' + c] || '';
       if (k === 'setFormula') return f => { (sh.f = sh.f || {})[r + ',' + c] = f; return R; };
+      if (k === 'setNumberFormat') return f => { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) (sh.nf = sh.nf || {})[(r + i) + ',' + (c + j)] = f; return R; };
       if (k === 'setDataValidation') return v => { (sh.dv = sh.dv || []).push({ r, c, nr, nc, v }); return R; };
       if (k === 'setDataValidations') return v => { v.forEach((row, i) => (sh.dvr = sh.dvr || {})[(r + i) + ',' + c] = row[0]); return R; };
       return () => R;

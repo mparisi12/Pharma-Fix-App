@@ -222,6 +222,8 @@ console.log('\nKPI Risorse');
   ctx.aggiornaKpiRisorse(); ok((sheets['KPI Risorse'].charts || []).length === 1, 'ricalcolando non si duplicano i grafici');
   const celle = sheets['KPI Risorse'].rows.flat().filter(v => typeof v === 'string' && /^(↖|↗|↙|↘) /.test(v));
   ok(celle.length === 4 && celle.some(v => /ROSSI/.test(v)), 'i 4 quadranti in celle colorate con i nomi');
+  const kr = sheets['KPI Risorse'], re_ = kr.rows.findIndex(x => x && x[0] === 'Esperti (≥5 interventi)') + 1;
+  ok(re_ > 0 && kr.nf[re_ + ',3'] === '0' && kr.nf[re_ + ',2'] === '0', 'riga Esperti: formato numero intero (niente 200% rimasto da un calcolo precedente)');
 }
 console.log('\nFoglio Programma pesante');
 {
