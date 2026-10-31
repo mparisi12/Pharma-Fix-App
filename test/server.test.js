@@ -211,6 +211,9 @@ console.log('\nKPI Risorse');
   fermi.push(F('VERDI Anna', 'FORMATO', 20, 300)); // VERDI Anna è coordinatrice nel foglio Liste
   const K2 = ctx.aggiornaKpiRisorse();
   ok(!K2.rows.some(x => x.n === 'VERDI Anna'), 'i coordinatori non compaiono nella scheda');
+  fermi.push(F('LONTANO Ex', 'FORMATO', 90, 310), F('LONTANO Ex', 'FORMATO', 90, 320)); // non è nella colonna Manutentori
+  const K3 = ctx.aggiornaKpiRisorse();
+  ok(!K3.rows.some(x => x.n === 'LONTANO Ex') && K3.rows.some(x => x.n === 'ROSSI Mario'), 'chi non è nella colonna Manutentori non compare nei KPI Risorse');
   // grafico a quadranti: con turni per avere interventi per turno
   const g0 = new ctx.DD(t); const T = {}; ['ROSSI Mario', 'BIANCHI Luca'].forEach(n => { T[n] = {}; for (let i = 0; i < 10; i++) { const d = new ctx.DD(t + i * 864e5); T[n][ctx.Utilities.formatDate(d, '', 'yyyy-MM-dd')] = '1'; } });
   ctx.turniTutti_ = () => T; ctx.aggiornaKpiRisorse();
