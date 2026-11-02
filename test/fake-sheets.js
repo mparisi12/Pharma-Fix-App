@@ -33,6 +33,7 @@ class Sheet {
   }
 }
 Sheet.prototype.insertRowsAfter = function () { return this; };
+Sheet.prototype.insertRowAfter = function (r) { this.rows.splice(r, 0, []); return this; };
 Sheet.prototype.setRowHeight = function () { return this; };
 Sheet.prototype.deleteRow = function (r) { this.rows.splice(r - 1, 1); return this; };
 Sheet.prototype.getCharts = function () { return this.charts || []; };
