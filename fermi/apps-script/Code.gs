@@ -1364,10 +1364,20 @@ function mail_(tipo, oggetto, righe, opt) {
     MailApp.sendEmail(c.to, 'Pharma-Fix · ' + oggetto, corpo);
     canali.push('mail');
   } catch (e) { Logger.log('Mail non inviata: ' + e); }
+  let tgErr = '';
   if (c.tgToken && c.tgChat) {
     const r = telegram_(c.tgToken, c.tgChat, oggetto, righe);
-    if (r === true) canali.push('Telegram'); else Logger.log('Telegram non inviato: ' + r);
+    if (r === true) canali.push('Telegram'); else { tgErr = r; Logger.log('Telegram non inviato: ' + r); }
   }
+  mail_.ultimoErrore = tgErr;
+  if (tgErr) try { // anche il fallimento finisce nel registro, così si vede subito perché non arriva niente
+    const sh = c.sh, prima = String(sh.getRange(10, 2).getValue()), ieri = sh.getRange(10, 1).getValue();
+    if (!(/^NON INVIATO/.test(prima) && ieri instanceof Date && Date.now() - ieri.getTime() < 6 * 3600e3)) { // al massimo una riga ogni 6 ore
+      sh.insertRowAfter(9);
+      sh.getRange(10, 1, 1, 3).setValues([[new Date(), 'NON INVIATO su Telegram · ' + tipo, tgErr]]).setFontColor('#c23b2a');
+      sh.getRange(10, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    }
+  } catch (e) { Logger.log(e); }
   if (!canali.length) return false;
   try {
     c.sh.insertRowAfter(9);
@@ -1383,12 +1393,29 @@ function telegram_(token, chat, oggetto, righe) {
   const txt = testo_;
   const icona = /CRITICA/.test(oggetto) ? '🔴 ' : /RIPETUTO/.test(oggetto) ? '🔁 ' : /APERTO DA/.test(oggetto) ? '⏱️ ' : '🔔 ';
   const testo = typeof righe === 'string' ? icona + oggetto + '\n\n' + righe : icona + 'PHARMA-FIX · ' + oggetto + '\n\n' + righe.filter((r, i) => r[1] !== undefined || i > 0).map(([k, v]) => v === undefined ? '\n' + k : k + ': ' + txt(v)).join('\n'); // righe senza valore dopo la prima = titoli di sezione
+  const invia = id => { const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ chat_id: id, text: testo.slice(0, 4000), disable_web_page_preview: true }), muteHttpExceptions: true });
+    const j = JSON.parse(r.getContentText()); j.code = r.getResponseCode(); return j; };
   try {
-    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({ chat_id: chat, text: testo.slice(0, 4000), disable_web_page_preview: true }), muteHttpExceptions: true });
-    const j = JSON.parse(r.getContentText());
-    return j.ok ? true : (j.description || 'errore ' + r.getResponseCode());
+    let j = invia(chat);
+    // il gruppo è diventato "supergruppo" (succede cambiando alcune impostazioni del gruppo): Telegram gli dà un ID nuovo.
+    // Lo scrivo da solo nel foglio Avvisi (B8) e rimando il messaggio.
+    const nuovo = j.parameters && j.parameters.migrate_to_chat_id;
+    if (!j.ok && nuovo) {
+      try { avvisiSheet_(SpreadsheetApp.getActiveSpreadsheet()).getRange(8, 2).setNumberFormat('@').setValue(String(nuovo)).setNote('ID aggiornato da solo il ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm') + ': il gruppo Telegram è diventato supergruppo (prima: ' + chat + ')'); } catch (e) { Logger.log(e); }
+      j = invia(nuovo);
+    }
+    return j.ok ? true : telegramMotivo_(j.description || 'errore ' + j.code);
   } catch (e) { return String(e); }
+}
+// Il motivo dell'errore Telegram in parole semplici, con cosa fare
+function telegramMotivo_(d) {
+  if (/bot was kicked|not a member|bot is not a member/i.test(d)) return d + ' → il bot è stato tolto dal gruppo: aggiungilo di nuovo al gruppo';
+  if (/chat not found/i.test(d)) return d + ' → ID chat sbagliato o bot non nel gruppo: aggiungi il bot, scrivi /start nel gruppo e usa Telegram: trova ID chat';
+  if (/Unauthorized/i.test(d)) return d + ' → token del bot non più valido: ricopialo da @BotFather nella cella B7';
+  if (/blocked by the user/i.test(d)) return d + ' → il bot è bloccato nella chat: sbloccalo';
+  if (/not enough rights|have no rights/i.test(d)) return d + ' → il bot non può scrivere nel gruppo: dagli il permesso di inviare messaggi';
+  return d;
 }
 // Menu: trova l'ID della chat. Prima scrivi /start al bot (o nel gruppo dove l'hai aggiunto), poi esegui.
 function trovaChatTelegram() {
@@ -1460,7 +1487,7 @@ function provaAvvisi() {
     ['Anomalia critica', c.critica ? 'SI' : 'NO'], ['Fermo aperto oltre', c.ore ? c.ore + ' ore' : 'mai'],
     ['Guasto ripetuto', c.volte ? c.volte + ' volte in ' + c.giorni + ' giorni' : 'mai']]);
   const msg = ok ? 'Avviso di prova inviato (' + [c.to ? 'mail' : '', c.tgToken && c.tgChat ? 'Telegram' : ''].filter(Boolean).join(' + ') + '). Controlla il registro nel foglio Avvisi.'
-    : (c.to || (c.tgToken && c.tgChat) ? 'Invio non riuscito: apri Apps Script → Esecuzioni per vedere il motivo.' : 'Compila prima il foglio Avvisi: email (B2) e/o Telegram (B7, B8).');
+    : (c.to || (c.tgToken && c.tgChat) ? 'Invio non riuscito.' + (mail_.ultimoErrore ? '\n\nTelegram risponde: ' + mail_.ultimoErrore : ' Apri Apps Script → Esecuzioni per vedere il motivo.') : 'Compila prima il foglio Avvisi: email (B2) e/o Telegram (B7, B8).');
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
 }
 
@@ -2522,7 +2549,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '31/10/2026 12:10';
+const VERSIONE_SCRIPT = '02/11/2026 12:15';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
