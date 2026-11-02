@@ -557,4 +557,21 @@ console.log('\nTelefoni: approvazione dall\'app (coordinatori) e vecchio telefon
   err = ''; try { ctx.checkTelefono_('BIANCHI Luca', 'T-ALTRO', 'iOS iPhone'); } catch (e) { err = e.message; }
   ok(/bloccato/.test(err), 'bloccato dall\'app: resta fuori');
 }
+console.log('\nTelegram: gruppo diventato supergruppo, errori nel registro');
+{
+  const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ctx.avvisiSheet_(ss); sh.getRange(7, 2).setValue('TOKEN'); sh.getRange(8, 2).setValue(-5494383743);
+  const inviati = []; let modo = 'migra';
+  ctx.UrlFetchApp = { fetch: (u, o) => { const p = JSON.parse(o.payload); inviati.push(String(p.chat_id));
+    const j = modo === 'migra' && String(p.chat_id) === '-5494383743' ? { ok: false, error_code: 400, description: 'Bad Request: group chat was upgraded to a supergroup chat', parameters: { migrate_to_chat_id: -1003210987654 } }
+      : modo === 'kick' ? { ok: false, error_code: 403, description: 'Forbidden: bot was kicked from the group chat' } : { ok: true };
+    return { getContentText: () => JSON.stringify(j), getResponseCode: () => j.ok ? 200 : j.error_code }; } };
+  ok(ctx.mail_('Prova', 'avviso di prova', 'x') === true && inviati.join() === '-5494383743,-1003210987654' && String(sh.getRange(8, 2).getValue()) === '-1003210987654', 'supergruppo: ID nuovo scritto da solo in B8 e messaggio rimandato');
+  inviati.length = 0; ctx.mail_('Prova', 'avviso di prova', 'x');
+  ok(inviati.join() === '-1003210987654', 'dal messaggio dopo usa direttamente l\'ID nuovo');
+  modo = 'kick';
+  ok(ctx.mail_('Fermo lungo', 'FERMO APERTO', 'x') === false && /NON INVIATO/.test(sh.getRange(10, 2).getValue()) && /tolto dal gruppo/.test(sh.getRange(10, 3).getValue()), 'bot tolto dal gruppo: riga rossa nel registro con cosa fare');
+  const n = sh.rows.length; ctx.mail_('Fermo lungo', 'FERMO APERTO', 'x');
+  ok(sh.rows.length === n, 'errore ripetuto: non riempie il registro (una riga ogni 6 ore)');
+}
 fine('Script');
