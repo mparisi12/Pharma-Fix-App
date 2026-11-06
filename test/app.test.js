@@ -505,6 +505,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
     await tw.close();
   }
 
+  ok(await p.evaluate(() => { const e = S.equipment[0], vecchio = e.prec; e.prec = ['VECCHIO-01']; const r = parseQr('https://x/fermi/?eq=VECCHIO-01') === e && eqBy('vecchio-01') === e; e.prec = vecchio; return r; }), 'QR con il codice vecchio: apre la macchina con il codice ITEM nuovo');
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -574,4 +574,36 @@ console.log('\nTelegram: gruppo diventato supergruppo, errori nel registro');
   const n = sh.rows.length; ctx.mail_('Fermo lungo', 'FERMO APERTO', 'x');
   ok(sh.rows.length === n, 'errore ripetuto: non riempie il registro (una riga ogni 6 ore)');
 }
+console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecchi ancora validi');
+{
+  const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
+  const fr = code => { const r = new Array(ctx.HEAD.length).fill(''); r[ctx.C.ID - 1] = 'F' + Math.random(); r[ctx.C.EQ - 1] = code; return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), fr('ST3-04'), fr('ST3-02'), fr('st3-04')]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE'], ['ST3-04', '', 'Mag. astucci'], ['ST3', '', 'x'], ['TUTTE', '', 'y']]);
+  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(), ['S1', '', 'ST3-04'], ['S2', '', 'ST3-02, ST3-04'], ['S3', '', 'TUTTE']]);
+  sheets.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'ST3-04']]);
+  sheets.Compiti = new Sheet('Compiti', [['ID', 'Creato il', 'Da', 'A', 'Linea', 'Macchina (codice)'], ['C1', '', '', '', 'ST3', 'ST3-04']]);
+  const eq = sheets.Equipment;
+  ok(ctx.eqColonne_(eq) && eq.rows[0][5] === 'Nuovo codice (ITEM)' && !ctx.eqColonne_(eq), 'prima volta: aggiunge la colonna F "Nuovo codice (ITEM)"');
+  eq.rows[2][5] = '000097'; eq.rows[1][5] = '000097';
+  ok(ctx.codiciPiano_(ss).errori.some(e => /doppio/.test(e)), 'due macchine con lo stesso ITEM: si ferma');
+  eq.rows[1][5] = 'ST3'; ok(ctx.codiciPiano_(ss).errori.some(e => /nome di una linea/.test(e)), 'ITEM uguale al nome di una linea: si ferma');
+  eq.rows[1][5] = '12 34'; ok(ctx.codiciPiano_(ss).errori.some(e => /spazi/.test(e)), 'ITEM con spazi: si ferma');
+  eq.rows[1][5] = 'ST1MAR-06'; ok(ctx.codiciPiano_(ss).errori.some(e => /doppio/.test(e)), 'ITEM uguale al codice attuale di un\'altra macchina: si ferma');
+  eq.rows[1][5] = '';
+  const P = ctx.codiciPiano_(ss);
+  ok(!P.errori.length && P.cambi.length === 1 && P.cambi[0].da === 'ST3-04' && P.cambi[0].a === '000097', 'piano: ST3-04 → 000097');
+  const conti = ctx.codiciApplica_(ss, P.cambi);
+  ok(sheets.Fermi.rows[1][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[3][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[2][ctx.C.EQ - 1] === 'ST3-02' && conti.Fermi === 2, 'Fermi: storico spostato sul codice nuovo (anche scritto minuscolo), le altre macchine no');
+  ok(sheets.Guasti.rows[1][0] === '000097' && sheets.Guasti.rows[2][0] === 'ST3', 'Guasti: voci della macchina sul codice nuovo, riga di linea intatta');
+  ok(sheets.Soluzioni.rows[1][2] === '000097' && sheets.Soluzioni.rows[2][2] === 'ST3-02, 000097' && sheets.Soluzioni.rows[3][2] === 'TUTTE', 'Soluzioni: anche dentro un elenco di macchine');
+  ok(sheets.Anomalie.rows[1][2] === '000097' && sheets.Compiti.rows[1][5] === '000097', 'Anomalie e Compiti aggiornati');
+  ok(eq.rows[2][0] === '000097' && eq.rows[2][5] === '' && eq.rows[2][6] === 'ST3-04', 'Equipment: codice nuovo in A (zeri iniziali compresi), vecchio in G, F svuotata');
+  ok(ctx.eqAttuale_(ss, 'ST3-04') === '000097' && ctx.eqAttuale_(ss, 'st3-04') === '000097' && ctx.eqAttuale_(ss, 'ST3-02') === 'ST3-02', 'QR vecchio / fermo in coda: ST3-04 porta a 000097');
+  const app = ctx.equipment_(ss).find(x => x.code === '000097');
+  ok(app && app.prec && app.prec[0] === 'ST3-04', 'all\'app arriva anche il codice vecchio');
+  eq.rows[2][5] = 'IT-200'; ctx.codiciApplica_(ss, ctx.codiciPiano_(ss).cambi);
+  ok(eq.rows[2][6] === 'ST3-04, 000097' && ctx.eqAttuale_(ss, 'ST3-04') === 'IT-200' && sheets.Fermi.rows[1][ctx.C.EQ - 1] === 'IT-200', 'secondo cambio: tiene tutti i codici vecchi');
+  eq.rows[1][5] = 'ST3-04'; ok(ctx.codiciPiano_(ss).errori.some(e => /QR vecchi/.test(e)), 'non si può riusare il vecchio codice di un\'altra macchina');
+}
 fine('Script');
