@@ -480,7 +480,7 @@ const U = s => String(s || '').trim().toUpperCase();
 // Aree: FILLING (sterile, telefono non ammesso: fermo registrato all'uscita) e PACKAGING
 const isFill = eq => !!eq && /^(FILL|STERIL)/i.test(String(eq.area || '').trim());
 const areaLbl = a => /^(FILL|STERIL)/i.test(String(a || '').trim()) ? 'FILLING' : /^(PACK|SECOND)/i.test(String(a || '').trim()) ? 'PACKAGING' : U(a);
-const eqBy = code => S.equipment.find(e => U(e.code) === U(code));
+const eqBy = code => S.equipment.find(e => U(e.code) === U(code)) || S.equipment.find(e => (e.prec || []).some(x => U(x) === U(code))); // anche il codice vecchio (QR non ancora ristampati)
 const nice = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 const I = {
   qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>',
