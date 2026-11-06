@@ -1545,13 +1545,17 @@ function fermiTutti_() {
     altro: String(r[C.ALTRO - 1] || ''), lotto: r[C.LOTTO - 1], orari: r[C.ORARI - 1], eq: String(r[C.EQ - 1] || '').trim() }));
 }
 // Area (FILLING / PACKAGING) di un fermo: dal codice macchina, oppure da linea + nome macchina (fermi importati)
+// Se non la trova: codice vecchio (colonna G, dopo il cambio ITEM), maiuscole/minuscole, e infine la linea se ha macchine di un'area sola.
 function areaDi_() {
-  const aree = {};
+  const aree = {}, perLinea = {}, U = x => String(x == null ? '' : x).trim().toUpperCase();
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH_EQ).getDataRange().getValues().slice(1).forEach(r => {
-    const a = String(r[2]).trim().toUpperCase(); if (!r[0] || !a) return;
-    aree[String(r[0]).trim()] = a; aree[kpiChiave_(r[1], r[3])] = a;
+    const a = areaStd_(r[2]); if (!r[0] || !a) return;
+    aree[U(r[0])] = a; aree[kpiChiave_(r[1], r[3])] = a;
+    String(r[EQ_PREC - 1] || '').split(/[,;\s]+/).filter(Boolean).forEach(o => { if (!aree[U(o)]) aree[U(o)] = a; });
+    const l = U(r[1]); (perLinea[l] = perLinea[l] || {})[a] = 1;
   });
-  return f => aree[f.eq] || aree[kpiChiave_(f.linea, f.macc)] || '';
+  return f => aree[U(f.eq)] || aree[kpiChiave_(f.linea, f.macc)] ||
+    (l => l && Object.keys(l).length === 1 ? Object.keys(l)[0] : '')(perLinea[U(f.linea)]) || '';
 }
 const minDi_ = f => f.b ? (f.b - f.a) / 60000 : 0;
 function anomalieTutte_() {
@@ -2653,7 +2657,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '06/11/2026 09:30';
+const VERSIONE_SCRIPT = '06/11/2026 22:10';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
