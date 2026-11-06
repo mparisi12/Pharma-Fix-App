@@ -1993,7 +1993,10 @@ function codiciPiano_(ss) {
   }));
   return { sh: sh, cambi: cambi, errori: errori };
 }
-// Sostituisce i codici in tutti i fogli. Restituisce { foglio: celle cambiate }
+// Sostituisce i codici in tutti i fogli. Restituisce { foglio: celle cambiate } (+ _errori se un foglio non si è lasciato scrivere)
+// Ordine: prima Equipment e gli elenchi a tendina (Elenco_Dove), poi gli altri fogli: i menu a tendina "rigidi"
+// (es. Documenti → Dove) accettano solo codici già presenti in Equipment.
+// Si può rilanciare: se si era fermato a metà, rifà solo quello che manca.
 function codiciApplica_(ss, cambi) {
   const U = x => String(x).trim().toUpperCase(), mappa = {};
   cambi.forEach(c => mappa[U(c.da)] = c.a);
@@ -2005,13 +2008,7 @@ function codiciApplica_(ss, cambi) {
     const nuovo = t.split(/([,;]\s*)/).map(x => { const m = mappa[U(x)]; if (m !== undefined && x.trim()) { cambiato = true; return m; } return x; }).join('');
     return cambiato ? nuovo : null;
   };
-  const conti = {};
-  EQ_USI.forEach(([nome, col]) => {
-    const sh = ss.getSheetByName(nome); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < col) return;
-    const rg = sh.getRange(2, col, sh.getLastRow() - 1, 1), v = rg.getValues(); let n = 0;
-    const nv = v.map(([x]) => { const y = sost(x); if (y === null) return [x]; n++; return [y]; });
-    if (n) { rg.setNumberFormat('@').setValues(nv); conti[nome] = n; }
-  });
+  const conti = {}, errori = [];
   const eq = ss.getSheetByName(SH_EQ);
   cambi.forEach(c => {
     eq.getRange(c.riga, 1).setNumberFormat('@').setValue(c.a);
@@ -2021,8 +2018,22 @@ function codiciApplica_(ss, cambi) {
   conti[SH_EQ] = cambi.length;
   EQ_MEMO = null;
   try { docElenchi_(ss, true); } catch (e) { Logger.log(e); }
+  EQ_USI.forEach(([nome, col]) => {
+    const sh = ss.getSheetByName(nome); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < col) return;
+    const rg = sh.getRange(2, col, sh.getLastRow() - 1, 1), v = rg.getValues(); let n = 0;
+    const nv = v.map(([x]) => { const y = sost(x); if (y === null) return [x]; n++; return [y]; });
+    if (!n) return;
+    try { rg.setNumberFormat('@').setValues(nv); }
+    catch (e) { // menu a tendina che rifiuta il valore: lo tolgo, scrivo, lo rimetto
+      try { const dv = rg.getDataValidations(); rg.clearDataValidations(); rg.setValues(nv); rg.setDataValidations(dv); }
+      catch (e2) { errori.push(nome + ': ' + e2.message); return; }
+    }
+    conti[nome] = n;
+  });
+  try { docElenchi_(ss, true); } catch (e) { Logger.log(e); }
   try { fermiConvalida_(ss, true); } catch (e) { Logger.log(e); }
   bumpVer_();
+  if (errori.length) conti._errori = errori;
   return conti;
 }
 // Menu: cambia i codici scritti nella colonna F del foglio Equipment
@@ -2037,7 +2048,8 @@ function cambiaCodiciMacchina() {
   try { backupFoglio(true); } catch (e) { if (ui.alert('Backup non riuscito (' + e + '). Procedo lo stesso?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return; }
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   let conti; try { conti = codiciApplica_(ss, P.cambi); } finally { lock.releaseLock(); }
-  ui.alert('Fatto. Celle cambiate:\n\n' + Object.keys(conti).map(k => '• ' + k + ': ' + conti[k]).join('\n') +
+  const err = conti._errori; delete conti._errori;
+  ui.alert((err ? 'Fatto in parte. Non sono riuscito a scrivere in:\n• ' + err.join('\n• ') + '\n\nMandami questo messaggio. ' : 'Fatto. ') + 'Celle cambiate:\n\n' + Object.keys(conti).map(k => '• ' + k + ': ' + conti[k]).join('\n') +
     '\n\nI QR già attaccati continuano a funzionare (il codice vecchio è in colonna G). Ristampa le etichette con calma dalla scheda della macchina nell\'app.');
 }
 
@@ -2657,7 +2669,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '06/11/2026 22:10';
+const VERSIONE_SCRIPT = '07/11/2026 00:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
