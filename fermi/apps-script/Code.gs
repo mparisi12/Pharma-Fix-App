@@ -220,6 +220,7 @@ function onOpen() {
     .addItem('Completa fermi scritti a mano (da carta)', 'sistemaFermiCarta')
     .addItem('Aggiorna elenchi foglio Documenti', 'aggiornaElenchiDocumenti')
     .addItem('Aggiorna menu a tendina foglio Fermi', 'aggiornaTendineFermi')
+    .addItem('Cambia codici macchina (codice ITEM)', 'cambiaCodiciMacchina')
     .addItem('Voci guasto: applica unioni (colonna E)', 'applicaUnioniVoci')
     .addSeparator()
     .addItem('Attiva sveglia dello script', 'attivaSveglia')
@@ -1722,7 +1723,8 @@ function passaggioTurno(conMail, soloLinee) {
 
 /* Backup: copia .xlsx del foglio in "Pharma-Fix Backup" (Drive), tiene le ultime N */
 function backupSettimanale_() { if (repCfg_().backup) backupFoglio(); }
-function backupFoglio() {
+function backupFoglio(silenzioso) {
+  if (silenzioso !== true) silenzioso = false;
   const ss = SpreadsheetApp.getActiveSpreadsheet(), props = PropertiesService.getScriptProperties();
   let folder = null;
   try { folder = DriveApp.getFolderById(props.getProperty('BACKUP_ID')); } catch (e) {}
@@ -1733,7 +1735,7 @@ function backupFoglio() {
   folder.createFile(blob);
   const files = []; const it = folder.getFiles(); while (it.hasNext()) files.push(it.next());
   files.sort((x, y) => y.getDateCreated() - x.getDateCreated()).slice(repCfg_().tieni).forEach(f => f.setTrashed(true));
-  try { SpreadsheetApp.getUi().alert('Backup fatto nella cartella Drive "Pharma-Fix Backup" (' + Math.min(files.length, repCfg_().tieni) + ' copie conservate).'); } catch (e) { Logger.log('Backup fatto'); }
+  if (!silenzioso) try { SpreadsheetApp.getUi().alert('Backup fatto nella cartella Drive "Pharma-Fix Backup" (' + Math.min(files.length, repCfg_().tieni) + ' copie conservate).'); } catch (e) { Logger.log('Backup fatto'); }
 }
 
 /* ---------- Sveglia ----------
@@ -1796,6 +1798,7 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     checkKey_(p.key);
     lock.waitLock(20000);
+    if (p.code) try { p.code = eqAttuale_(SpreadsheetApp.getActiveSpreadsheet(), p.code); } catch (e) { Logger.log(e); } // QR o coda con il codice vecchio
     if (['open', 'close', 'cancel', 'soluzione', 'anomalia', 'anomaliaStato', 'approvaSol', 'correzione', 'compito', 'compitoStato', 'modifica', 'foto', 'telefono'].indexOf(p.action) >= 0) { checkTecnico_(p.manutentore); checkTelefono_(p.manutentore, p.dev, p.devName); }
     let res;
     if (p.action === 'open') res = openFermo_(p);
@@ -1930,7 +1933,108 @@ function equipment_(ss) {
   if (EQ_MEMO) return EQ_MEMO;
   const eqv = ss.getSheetByName(SH_EQ).getDataRange().getValues().slice(1);
   return EQ_MEMO = eqv.filter(r => r[0] && String(r[4]).toUpperCase() !== 'NO')
-    .map(r => ({ code: String(r[0]).trim(), linea: String(r[1]), area: String(r[2]), macchina: String(r[3]) }));
+    .map(r => Object.assign({ code: String(r[0]).trim(), linea: String(r[1]), area: String(r[2]), macchina: String(r[3]) },
+      String(r[EQ_PREC - 1] || '').trim() ? { prec: String(r[EQ_PREC - 1]).split(/[,;\s]+/).filter(Boolean) } : {}));
+}
+
+/* ---------- Cambio codici macchina (codice ITEM interno) ----------
+   Equipment: colonna F "Nuovo codice (ITEM)" da compilare, colonna G "Codici precedenti" scritta dallo script.
+   cambiaCodiciMacchina() (menu) fa un backup e sostituisce il codice in tutti i fogli che lo usano.
+   Il codice vecchio resta in G: i QR già attaccati e i fermi in coda sui telefoni finiscono sulla macchina giusta. */
+const EQ_NUOVO = 6, EQ_PREC = 7, EQ_NUOVO_H = ['Nuovo codice (ITEM)', 'Codici precedenti (scritto dallo script: non modificare)'];
+// dove sta il codice macchina: foglio → colonna (1 = A). Le colonne "Dove" accettano anche linea / TUTTE.
+const EQ_USI = [[SH_FERMI, C.EQ], [SH_GUASTI, 1], [SH_SOL, 3], [SH_DOC, 3], [SH_ANO, 3], ['Compiti', 6], ['Ricodifica', 4]];
+function eqColonne_(sh) {
+  if (String(sh.getRange(1, EQ_NUOVO).getValue()).trim() !== EQ_NUOVO_H[0]) {
+    sh.getRange(1, EQ_NUOVO, 1, 2).setValues([EQ_NUOVO_H]).setFontWeight('bold').setBackground('#fff3d6').setWrap(true);
+    sh.getRange(2, EQ_NUOVO, Math.max(sh.getMaxRows() - 1, 1), 2).setNumberFormat('@'); // testo: gli zeri iniziali restano
+    sh.getRange(1, EQ_NUOVO).setNote('Scrivi qui il codice ITEM nuovo solo per le macchine da cambiare, poi menu Pharma-Fix → Cambia codici macchina.');
+    sh.setColumnWidth(EQ_NUOVO, 150); sh.setColumnWidth(EQ_PREC, 190);
+    return true;
+  }
+  return false;
+}
+// codice vecchio → codice attuale (per QR vecchi e operazioni in coda sui telefoni)
+function eqAttuale_(ss, code) {
+  const c = String(code || '').trim(); if (!c) return c;
+  const sh = ss.getSheetByName(SH_EQ); if (!sh || sh.getLastColumn() < EQ_PREC) return c;
+  const v = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), EQ_PREC).getValues(), U = x => String(x).trim().toUpperCase();
+  if (v.some(r => U(r[0]) === U(c))) return c;
+  const r = v.find(r => String(r[EQ_PREC - 1] || '').split(/[,;\s]+/).some(a => a && U(a) === U(c)));
+  return r ? String(r[0]).trim() : c;
+}
+// Controlla e prepara il cambio: { cambi: [{riga, da, a}], errori: [] }
+function codiciPiano_(ss) {
+  const sh = ss.getSheetByName(SH_EQ), last = sh.getLastRow();
+  const v = last > 1 ? sh.getRange(2, 1, last - 1, EQ_PREC).getValues() : [], U = x => String(x).trim().toUpperCase();
+  const cambi = [], errori = [], finali = {};
+  const riservati = ['TUTTE', 'ALTRO', 'A SCELTA'].concat(v.map(r => U(r[1])).filter(Boolean));
+  v.forEach((r, i) => {
+    const da = String(r[0]).trim(), a = String(r[EQ_NUOVO - 1] == null ? '' : r[EQ_NUOVO - 1]).trim();
+    if (!da && !a) return;
+    if (a && !da) { errori.push('riga ' + (i + 2) + ': manca il codice attuale in colonna A'); return; }
+    const fin = a || da;
+    if (a && U(a) !== U(da)) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._\/-]*$/.test(a)) errori.push('riga ' + (i + 2) + ': «' + a + '» contiene spazi o caratteri non ammessi (solo lettere, numeri, - . _ /)');
+      else if (riservati.indexOf(U(a)) >= 0) errori.push('riga ' + (i + 2) + ': «' + a + '» è il nome di una linea o una parola riservata');
+      else cambi.push({ riga: i + 2, da: da, a: a, prec: String(r[EQ_PREC - 1] || '').trim() });
+    }
+    if (finali[U(fin)]) errori.push('codice «' + fin + '» doppio: righe ' + finali[U(fin)] + ' e ' + (i + 2));
+    else finali[U(fin)] = i + 2;
+  });
+  // un codice nuovo non può essere il vecchio codice di un'altra macchina (i QR vecchi andrebbero sulla macchina sbagliata)
+  v.forEach((r, i) => String(r[EQ_PREC - 1] || '').split(/[,;\s]+/).filter(Boolean).forEach(o => {
+    const c = cambi.find(x => U(x.a) === U(o) && x.riga !== i + 2);
+    if (c) errori.push('riga ' + c.riga + ': «' + c.a + '» era il codice di una macchina della riga ' + (i + 2) + ' (lo leggono ancora i QR vecchi)');
+  }));
+  return { sh: sh, cambi: cambi, errori: errori };
+}
+// Sostituisce i codici in tutti i fogli. Restituisce { foglio: celle cambiate }
+function codiciApplica_(ss, cambi) {
+  const U = x => String(x).trim().toUpperCase(), mappa = {};
+  cambi.forEach(c => mappa[U(c.da)] = c.a);
+  const sost = val => { // valore singolo o elenco separato da virgole
+    const t = String(val == null ? '' : val); if (!t.trim()) return null;
+    if (mappa[U(t)] !== undefined) return mappa[U(t)];
+    if (!/[,;]/.test(t)) return null;
+    let cambiato = false;
+    const nuovo = t.split(/([,;]\s*)/).map(x => { const m = mappa[U(x)]; if (m !== undefined && x.trim()) { cambiato = true; return m; } return x; }).join('');
+    return cambiato ? nuovo : null;
+  };
+  const conti = {};
+  EQ_USI.forEach(([nome, col]) => {
+    const sh = ss.getSheetByName(nome); if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < col) return;
+    const rg = sh.getRange(2, col, sh.getLastRow() - 1, 1), v = rg.getValues(); let n = 0;
+    const nv = v.map(([x]) => { const y = sost(x); if (y === null) return [x]; n++; return [y]; });
+    if (n) { rg.setNumberFormat('@').setValues(nv); conti[nome] = n; }
+  });
+  const eq = ss.getSheetByName(SH_EQ);
+  cambi.forEach(c => {
+    eq.getRange(c.riga, 1).setNumberFormat('@').setValue(c.a);
+    eq.getRange(c.riga, EQ_NUOVO).setValue('');
+    eq.getRange(c.riga, EQ_PREC).setNumberFormat('@').setValue(c.prec ? c.prec + ', ' + c.da : c.da);
+  });
+  conti[SH_EQ] = cambi.length;
+  EQ_MEMO = null;
+  try { docElenchi_(ss, true); } catch (e) { Logger.log(e); }
+  try { fermiConvalida_(ss, true); } catch (e) { Logger.log(e); }
+  bumpVer_();
+  return conti;
+}
+// Menu: cambia i codici scritti nella colonna F del foglio Equipment
+function cambiaCodiciMacchina() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), ui = SpreadsheetApp.getUi(), sh = ss.getSheetByName(SH_EQ);
+  if (eqColonne_(sh)) { ss.setActiveSheet(sh); return ui.alert('Nel foglio Equipment ho aggiunto la colonna F «Nuovo codice (ITEM)».\n\nScrivi il codice ITEM accanto alle macchine da cambiare (le altre lasciale vuote), poi rilancia questo comando.'); }
+  const P = codiciPiano_(ss);
+  if (P.errori.length) return ui.alert('Non cambio niente, prima sistema:\n\n• ' + P.errori.slice(0, 15).join('\n• ') + (P.errori.length > 15 ? '\n… e altri ' + (P.errori.length - 15) : ''));
+  if (!P.cambi.length) return ui.alert('Nessun codice da cambiare: scrivi i codici ITEM nella colonna F del foglio Equipment.');
+  const elenco = P.cambi.slice(0, 20).map(c => c.da + ' → ' + c.a).join('\n') + (P.cambi.length > 20 ? '\n… e altre ' + (P.cambi.length - 20) : '');
+  if (ui.alert('Cambio ' + P.cambi.length + (P.cambi.length === 1 ? ' codice' : ' codici') + ' in tutti i fogli (Fermi, Guasti, Soluzioni, Documenti, Anomalie, Compiti):\n\n' + elenco + '\n\nPrima faccio un backup. Procedo?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  try { backupFoglio(true); } catch (e) { if (ui.alert('Backup non riuscito (' + e + '). Procedo lo stesso?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return; }
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  let conti; try { conti = codiciApplica_(ss, P.cambi); } finally { lock.releaseLock(); }
+  ui.alert('Fatto. Celle cambiate:\n\n' + Object.keys(conti).map(k => '• ' + k + ': ' + conti[k]).join('\n') +
+    '\n\nI QR già attaccati continuano a funzionare (il codice vecchio è in colonna G). Ristampa le etichette con calma dalla scheda della macchina nell\'app.');
 }
 
 /* Riga del foglio Fermi copiata a mano (es. per aggiungere un 2° intervento): ha lo stesso "ID fermo" della riga da cui viene.
@@ -2549,7 +2653,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '02/11/2026 12:15';
+const VERSIONE_SCRIPT = '06/11/2026 09:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
