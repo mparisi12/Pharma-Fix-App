@@ -602,9 +602,28 @@ console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecc
   ok(ctx.eqAttuale_(ss, 'ST3-04') === '000097' && ctx.eqAttuale_(ss, 'st3-04') === '000097' && ctx.eqAttuale_(ss, 'ST3-02') === 'ST3-02', 'QR vecchio / fermo in coda: ST3-04 porta a 000097');
   const app = ctx.equipment_(ss).find(x => x.code === '000097');
   ok(app && app.prec && app.prec[0] === 'ST3-04', 'all\'app arriva anche il codice vecchio');
+  { // Documenti → Dove con menu a tendina rigido sui codici di Equipment (com'è nel foglio vero): prima si fermava a metà
+    sheets.Documenti = new Sheet('Documenti', [['ID', 'Titolo', 'Dove'], ['D1', '', 'ST3-02'], ['D2', '', 'TUTTE']]);
+    const D = sheets.Documenti, orig = D.getRange.bind(D);
+    D.getRange = (...a) => { const r = orig(...a); if (a[1] !== 3) return r; let dv = true; const sv = r.setValues.bind(r);
+      r.setValues = v => { const ok_ = new Set(sheets.Equipment.rows.slice(1).map(x => String(x[0]).toUpperCase()).concat(['TUTTE', 'ST3']));
+        if (dv && v.some(([x]) => x && !ok_.has(String(x).toUpperCase()))) throw new Error('viola le regole di convalida dei dati'); return sv(v); };
+      r.getDataValidations = () => []; r.clearDataValidations = () => { dv = false; return r; }; r.setDataValidations = () => r; return r; };
+    eq.rows[1][5] = 'IT-002';
+    const k = ctx.codiciApplica_(ss, ctx.codiciPiano_(ss).cambi);
+    ok(!k._errori && D.rows[1][2] === 'IT-002' && sheets.Fermi.rows[2][ctx.C.EQ - 1] === 'IT-002' && eq.rows[1][0] === 'IT-002', 'menu a tendina rigido in Documenti: Equipment aggiornato prima, nessun blocco a metà');
+  }
   eq.rows[2][5] = 'IT-200'; ctx.codiciApplica_(ss, ctx.codiciPiano_(ss).cambi);
   ok(eq.rows[2][6] === 'ST3-04, 000097' && ctx.eqAttuale_(ss, 'ST3-04') === 'IT-200' && sheets.Fermi.rows[1][ctx.C.EQ - 1] === 'IT-200', 'secondo cambio: tiene tutti i codici vecchi');
   eq.rows[1][5] = 'ST3-04'; ok(ctx.codiciPiano_(ss).errori.some(e => /QR vecchi/.test(e)), 'non si può riusare il vecchio codice di un\'altra macchina');
+  { // ripresa dopo un blocco a metà: Fermi già col codice nuovo, Equipment ancora vecchio con F compilata
+    const { ctx: c2, sheets: s2 } = nuovo(); const ss2 = c2.SpreadsheetApp.getActiveSpreadsheet();
+    const r = new Array(c2.HEAD.length).fill(''); r[c2.C.EQ - 1] = 'NUOVO-9';
+    s2.Fermi = new Sheet('Fermi', [c2.HEAD.slice(), r]); s2.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'ST3-04']]);
+    c2.eqColonne_(s2.Equipment); s2.Equipment.rows.find(x => x[0] === 'ST3-04')[5] = 'NUOVO-9';
+    const k2 = c2.codiciApplica_(ss2, c2.codiciPiano_(ss2).cambi);
+    ok(s2.Fermi.rows[1][c2.C.EQ - 1] === 'NUOVO-9' && s2.Anomalie.rows[1][2] === 'NUOVO-9' && s2.Equipment.rows.find(x => x[0] === 'NUOVO-9') && !k2.Fermi, 'rilancio dopo un blocco a metà: completa quello che manca');
+  }
 }
 console.log('\nArea del fermo nel passaggio turno: niente "area?" se la linea ha un\'area sola');
 {
