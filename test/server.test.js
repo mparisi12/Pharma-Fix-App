@@ -606,4 +606,14 @@ console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecc
   ok(eq.rows[2][6] === 'ST3-04, 000097' && ctx.eqAttuale_(ss, 'ST3-04') === 'IT-200' && sheets.Fermi.rows[1][ctx.C.EQ - 1] === 'IT-200', 'secondo cambio: tiene tutti i codici vecchi');
   eq.rows[1][5] = 'ST3-04'; ok(ctx.codiciPiano_(ss).errori.some(e => /QR vecchi/.test(e)), 'non si può riusare il vecchio codice di un\'altra macchina');
 }
+console.log('\nArea del fermo nel passaggio turno: niente "area?" se la linea ha un\'area sola');
+{
+  const { ctx, sheets } = nuovo();
+  sheets.Equipment.rows.push(['SPL1-01', 'SPL1', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['SPL1-02', 'SPL1', 'Packaging', 'CARTONATRICE', 'SI'], ['000123', 'SPL2', 'Packaging', 'ETICHETTATRICE', 'SI', '', 'SPL2-04']);
+  const ad = ctx.areaDi_(), A = f => ad(f);
+  ok(A({ eq: 'SPL9-77', linea: 'SPL1', macc: 'ASTUCCIATRICE 2' }) === 'PACKAGING', 'codice e nome non trovati, ma SPL1 è solo Packaging → Packaging');
+  ok(A({ eq: 'spl1-01', linea: '', macc: '' }) === 'PACKAGING', 'codice scritto minuscolo');
+  ok(A({ eq: 'SPL2-04', linea: '', macc: '' }) === 'PACKAGING', 'codice vecchio (prima del cambio ITEM)');
+  ok(A({ eq: 'X', linea: 'ST3', macc: 'BOH' }) === '', 'linea con Filling e Packaging e macchina sconosciuta: resta da capire');
+}
 fine('Script');
