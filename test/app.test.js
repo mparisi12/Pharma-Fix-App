@@ -518,7 +518,8 @@ let ver = 1, full = 0, same = 0; const posts = [];
     await tc.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url());
       if (r.request().method() === 'POST') return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
       if (/action=login/.test(u)) return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
-      if (/action=cerca/.test(u)) { qs.push(u); return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, fermi: /homing/i.test(u) ? [VECCHIO] : [] }) }); }
+      if (/action=cerca/.test(u)) { qs.push(u); const da = +(u.match(/[?&]da=(\d+)/) || [])[1] || 0, al = +(u.match(/[?&]al=(\d+)/) || [])[1] || 9e15;
+        return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, fermi: /homing/i.test(u) && VECCHIO.start >= da && VECCHIO.start <= al ? [VECCHIO] : [] }) }); }
       if (/action=telefoni/.test(u)) return r.fulfill({ contentType: 'application/json', body: '{"ok":true,"telefoni":[]}' });
       r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, fermi: FF, ver: 'TC' }) }); });
     const c = await tc.newPage(); c.on('pageerror', e => errori.push(e.message));
@@ -546,6 +547,16 @@ let ver = 1, full = 0, same = 0; const posts = [];
     await c.click('[data-k="gg"][data-v="0"]'); await c.fill('#cq', 'homing'); await c.waitForTimeout(900);
     ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C1,C2,OLD1' && qs.length === 1 && /q=homing/.test(qs[0]), '"Tutto": aggiunge i fermi più vecchi di 90 giorni chiesti al foglio');
     if (SP) await c.screenshot({ path: SP.replace('.png', '_cerca.png') });
+    await c.fill('#cq', ''); await c.click('[data-k="gg"][data-v="-1"]'); await c.waitForTimeout(200);
+    const iso = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    ok(await c.isVisible('#cdal') && await c.isVisible('#cal'), 'chip "📅 Date": compaiono i calendari Dal / Al');
+    await c.fill('#cal', iso(n - 30 * 864e5)); await c.fill('#cdal', iso(n - 45 * 864e5)); await c.waitForTimeout(400);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C3', 'date personalizzate: solo i fermi in quel periodo');
+    const q0 = qs.length; await c.fill('#cdal', iso(n - 250 * 864e5)); await c.fill('#cq', 'homing'); await c.waitForTimeout(900);
+    ok(qs.length > q0 && /da=\d+/.test(qs[qs.length - 1]) && /al=\d+/.test(qs[qs.length - 1]) && (await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'OLD1', 'periodo che va oltre 90 giorni: chiede al foglio con le date');
+    await c.fill('#cq', ''); await c.click('[data-k="gg"][data-v="30"]'); await c.waitForTimeout(200);
+    ok(!(await c.isVisible('#cdal')), 'altro periodo: il calendario sparisce');
+    await c.click('[data-k="gg"][data-v="0"]'); await c.fill('#cq', 'homing'); await c.waitForTimeout(900);
     await c.click('[data-cf="OLD1"]'); await c.waitForTimeout(300);
     ok(/homing vecchio/.test(await c.innerText('#sheet')), 'tocca un risultato: si apre la scheda del fermo');
     await c.click('#sheet [data-x]');

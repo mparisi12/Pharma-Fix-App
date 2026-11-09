@@ -187,6 +187,8 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .sbox{display:flex;align-items:center;gap:8px;border:2px solid var(--ink);border-radius:12px;padding:8px 10px;background:var(--surface);margin:10px 0 6px}
 .sbox input{border:0;outline:0;font:500 17px var(--body);flex:1;min-width:0;background:transparent;color:var(--ink)}
 .sbox input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.cdate{display:flex;gap:8px;margin-top:8px}.cdate label{flex:1;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.cdate input{font:500 15px var(--body);padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);min-width:0}
 .sbox .clr{border:0;background:none;font-size:18px;color:var(--muted);padding:4px 6px;cursor:pointer}
 .cfl{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 4px}
 .csc{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding-bottom:3px;scrollbar-width:none}.csc::-webkit-scrollbar{display:none}
@@ -1096,21 +1098,29 @@ const LINEA_GG = [[1, 'Oggi'], [7, '7 giorni'], [30, '30 giorni']];
    Ultimi 90 giorni: cerca nei dati già sul telefono (subito, anche senza rete).
    «Tutto»: in più chiede al foglio i fermi più vecchi (max 200). */
 const normT = x => String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-const CERCA_GG = [[1, 'Oggi'], [7, '7 gg'], [30, '30 gg'], [90, '90 gg'], [0, 'Tutto']];
+const CERCA_GG = [[1, 'Oggi'], [7, '7 gg'], [30, '30 gg'], [90, '90 gg'], [0, 'Tutto'], [-1, '📅 Date']];
 const CERCA_INT = [['REG', 'REGOLAZIONE'], ['SOS', 'SOSTITUZIONE'], ['RIP', 'RIPRISTINO'], ['PUL', 'PULIZIA']];
-S.cerca = { q: '', gg: 30, lin: '', area: '', int: '', foto: false, tec: '', flag: '', more: 50 };
+S.cerca = { q: '', gg: 30, dal: '', al: '', lin: '', area: '', int: '', foto: false, tec: '', flag: '', more: 50 };
+const isoG = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+function cercaPeriodo() { // [da, a] in millisecondi; a = null se fino a oggi
+  const c = S.cerca, now = Date.now();
+  if (c.gg === -1) { const d = c.dal ? new Date(c.dal + 'T00:00:00').getTime() : 0, a = c.al ? new Date(c.al + 'T23:59:59').getTime() : null; return [d, a]; }
+  return [c.gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : c.gg ? now - c.gg * 864e5 : 0, null];
+}
+const cercaVecchiChiave = () => { const c = S.cerca, [d, a] = cercaPeriodo(); return normT(c.q) + '|' + (c.gg === -1 ? d + '-' + (a || '') : ''); };
+const cercaServeVecchi = () => { const c = S.cerca, [d] = cercaPeriodo(); return (c.gg === 0 && normT(c.q).length >= 2) || (c.gg === -1 && d && d < Date.now() - 90 * 864e5); };
 let CERCA_VECCHI = { q: null, fermi: [], troppi: false, stato: '' }, CERCA_T = null;
 function cercaTesto(f) {
   const e = eqBy(f.code);
   return normT([f.code, (e && e.prec || []).join(' '), f.linea, f.macchina, f.lotto, f.cat, f.int, f.guasto, f.altro, f.pezzo, f.id, f.causa, isCoord() ? f.man : ''].join(' | '));
 }
 function cercaRisultati() {
-  const c = S.cerca, coord = isCoord(), now = Date.now(), parole = normT(c.q).split(' ').filter(w => w.length >= 2);
-  const da = c.gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : c.gg ? now - c.gg * 864e5 : 0;
+  const c = S.cerca, coord = isCoord(), parole = normT(c.q).split(' ').filter(w => w.length >= 2);
+  const [da, fino] = cercaPeriodo();
   const riv = coord && c.flag === 'riv' ? new Set(daRivedere().map(x => x.f.id)) : null;
-  const visti = new Set(), base = allFermi().concat(c.gg === 0 && CERCA_VECCHI.q === normT(c.q) ? CERCA_VECCHI.fermi : []);
+  const visti = new Set(), base = allFermi().concat(cercaServeVecchi() && CERCA_VECCHI.q === cercaVecchiChiave() ? CERCA_VECCHI.fermi : []);
   return base.filter(f => {
-    if (!f.id || visti.has(f.id) || f.stato === 'ANNULLATO' || !f.start || f.start < da) return false; visti.add(f.id);
+    if (!f.id || visti.has(f.id) || f.stato === 'ANNULLATO' || !f.start || f.start < da || (fino && f.start > fino)) return false; visti.add(f.id);
     if (c.lin && U(f.linea) !== U(c.lin)) return false;
     if (c.area) { const e = eqBy(f.code); if ((e && isFill(e) ? 'F' : 'P') !== c.area) return false; }
     if (c.int && U(f.int) !== c.int) return false;
@@ -1138,7 +1148,7 @@ function cercaLista() {
   const c = S.cerca, coord = isCoord(), l = cercaRisultati(), min = l.reduce((t, f) => t + (f.end ? (f.end - f.start) / 60000 : 0), 0);
   const nF = new Set(l.map(f => f.gruppo || f.id)).size, chiusi = l.filter(f => f.end).length;
   const riv = coord ? new Set(daRivedere().map(x => x.f.id)) : new Set();
-  const vecchi = c.gg === 0 && normT(c.q).length >= 2 ? (CERCA_VECCHI.stato === 'carico' ? '<div class="hint center">Cerco anche nei fermi più vecchi di 90 giorni…</div>'
+  const vecchi = cercaServeVecchi() ? (CERCA_VECCHI.stato === 'carico' ? '<div class="hint center">Cerco anche nei fermi più vecchi di 90 giorni…</div>'
     : CERCA_VECCHI.stato === 'errore' ? '<div class="hint center">Fermi più vecchi di 90 giorni: serve la connessione.</div>'
     : CERCA_VECCHI.troppi ? '<div class="hint center">Più di 200 fermi vecchi: aggiungi una parola per restringere.</div>' : '') : c.gg === 0 ? '<div class="hint center">Per i fermi più vecchi di 90 giorni scrivi almeno una parola.</div>' : '';
   const card = f => { const min = f.end ? (f.end - f.start) / 60000 : 0, d = new Date(f.start);
@@ -1159,11 +1169,11 @@ function cercaLista() {
   const m = $('#cmore'); if (m) m.onclick = () => { c.more += 50; cercaLista(); };
 }
 async function cercaVecchi() { // «Tutto»: chiede al foglio i fermi oltre 90 giorni
-  const c = S.cerca, q = normT(c.q);
-  if (c.gg !== 0 || q.length < 2 || CERCA_VECCHI.q === q || MOCK) return;
+  const c = S.cerca, q = cercaVecchiChiave(), [da, fino] = cercaPeriodo();
+  if (!cercaServeVecchi() || CERCA_VECCHI.q === q || MOCK) return;
   CERCA_VECCHI = { q, fermi: [], troppi: false, stato: 'carico' }; cercaLista();
   try {
-    const r = await fetch(CFG.API_URL + '?action=cerca&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME) + '&q=' + encodeURIComponent(c.q));
+    const r = await fetch(CFG.API_URL + '?action=cerca&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME) + '&q=' + encodeURIComponent(c.q) + (c.gg === -1 ? '&da=' + da + (fino ? '&al=' + fino : '') : ''));
     const j = await r.json(); if (CERCA_VECCHI.q !== q) return;
     CERCA_VECCHI = j.ok ? { q, fermi: j.fermi || [], troppi: !!j.troppi, stato: '' } : { q, fermi: [], troppi: false, stato: 'errore' };
   } catch { if (CERCA_VECCHI.q === q) CERCA_VECCHI.stato = 'errore'; }
@@ -1178,6 +1188,7 @@ function renderCerca() {
     ${topline('Cerca fermi', 'macchina, codice, guasto, descrizione, lotto, pezzo', 'home')}
     <div class="sbox">🔍<input type="search" id="cq" placeholder="Es. homing, 028294, mag. astucci…" value="${esc(c.q)}" enterkeyhint="search" autocomplete="off"><button class="clr" id="cclr" aria-label="Cancella">✕</button></div>
     <div class="cfl">Periodo</div><div class="csc">${CERCA_GG.map(([v, t]) => ch('gg', v, t)).join('')}</div>
+    ${c.gg === -1 ? `<div class="cdate"><label>Dal<input type="date" id="cdal" value="${esc(c.dal)}" max="${isoG(Date.now())}"></label><label>Al<input type="date" id="cal" value="${esc(c.al)}" max="${isoG(Date.now())}"></label></div>` : ''}
     <div class="cfl">Linea · area</div><div class="csc">${ch('lin', '', 'Tutte')}${linee.map(l => ch('lin', l, l)).join('')}<span style="width:8px;flex:none"></span>${ch('area', '', 'Fill + Pack')}${ch('area', 'F', 'Filling')}${ch('area', 'P', 'Packaging')}</div>
     <div class="cfl">Intervento</div><div class="csc">${ch('int', '', 'Tutti')}${CERCA_INT.map(([t, v]) => ch('int', v, t)).join('')}<button class="chip" data-foto aria-pressed="${c.foto}">Con foto</button></div>
     ${coord ? `<div class="cfl">Solo coordinatori</div><div class="csc">${ch('flag', '', 'Tutti')}${ch('flag', 'sc', 'Senza categoria')}${ch('flag', 'riv', 'Da rivedere')}${ch('flag', 'dop', 'Registrati dopo')}</div>
@@ -1187,7 +1198,13 @@ function renderCerca() {
   inp.oninput = () => { c.q = inp.value; c.more = 50; clearTimeout(CERCA_T); CERCA_T = setTimeout(() => { cercaLista(); cercaVecchi(); }, 200); };
   inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); };
   $('#cclr').onclick = () => { c.q = ''; inp.value = ''; cercaLista(); inp.focus(); };
+  const dd = (id, k) => { const el = $(id); if (el) el.onchange = () => { c[k] = el.value; c.more = 50;
+    if (c.dal && c.al && c.dal > c.al) { const x = c.dal; c.dal = c.al; c.al = x; $('#cdal').value = c.dal; $('#cal').value = c.al; } // date invertite: le giro
+    cercaLista(); cercaVecchi(); }; };
+  dd('#cdal', 'dal'); dd('#cal', 'al');
   $$('#view [data-k]').forEach(b => b.onclick = () => { const k = b.dataset.k, v = b.dataset.v; c[k] = k === 'gg' ? +v : v; c.more = 50;
+    if (k === 'gg' && +v === -1) { if (!c.dal) { c.dal = isoG(Date.now() - 7 * 864e5); c.al = isoG(Date.now()); } return renderCerca(); }
+    if (k === 'gg' && $('#cdal')) return renderCerca(); // tolgo il calendario
     $$(`#view [data-k="${k}"]`).forEach(x => x.setAttribute('aria-pressed', x === b)); cercaLista(); cercaVecchi(); });
   const fb = $('#view [data-foto]'); fb.onclick = () => { c.foto = !c.foto; fb.setAttribute('aria-pressed', c.foto); cercaLista(); };
   cercaLista(); cercaVecchi();

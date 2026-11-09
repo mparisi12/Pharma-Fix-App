@@ -649,6 +649,8 @@ console.log('\nCerca fermi: archivio oltre 90 giorni, nome del tecnico solo per 
   ok(get('ROSSI Mario', 'T-R', 'homing asse').fermi.length === 1 && get('ROSSI Mario', 'T-R', 'homing fibra').fermi.length === 0, 'tutte le parole devono esserci');
   ok(get('ROSSI Mario', 'T-R', 'bianchi').fermi.length === 0 && get('VERDI Anna', 'T-V', 'bianchi').fermi.length === 1, 'cercare per nome del tecnico: solo i coordinatori');
   ok(/2 lettere/.test(get('ROSSI Mario', 'T-R', 'h').error || ''), 'parola troppo corta: messaggio');
+  const gd = (da, al) => JSON.parse(ctx.doGet({ parameter: { key: 'k', action: 'cerca', man: 'ROSSI Mario', dev: 'T-R', q: '', da: String(da), al: String(al) } }).t);
+  ok((r => r.ok && r.fermi.map(f => f.id).join() === 'F2')(gd(Date.now() - 170 * 864e5, Date.now() - 120 * 864e5)), 'periodo col calendario, senza parole: solo i fermi vecchi di quelle date');
   ok(/telefono|Telefono/.test(get('ROSSI Mario', 'T-ALTRO', 'homing').error || ''), 'telefono non approvato: niente ricerca');
 }
 fine('Script');
