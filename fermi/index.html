@@ -182,6 +182,19 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .search svg{width:18px;height:18px;flex:none;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{min-height:40px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:14px;text-align:left}
+.sbtn{display:flex;align-items:center;gap:10px;width:100%;margin-top:6px;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.sbtn span{font:700 19px var(--display);letter-spacing:.04em;text-transform:uppercase}.sbtn small{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+.sbox{display:flex;align-items:center;gap:8px;border:2px solid var(--ink);border-radius:12px;padding:8px 10px;background:var(--surface);margin:10px 0 6px}
+.sbox input{border:0;outline:0;font:500 17px var(--body);flex:1;min-width:0;background:transparent;color:var(--ink)}
+.sbox input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.sbox .clr{border:0;background:none;font-size:18px;color:var(--muted);padding:4px 6px;cursor:pointer}
+.cfl{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 4px}
+.csc{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding-bottom:3px;scrollbar-width:none}.csc::-webkit-scrollbar{display:none}
+.csc .chip{min-height:36px;font-size:13px;padding:5px 11px;flex:none}
+.ctot{display:flex;gap:6px;margin:12px 0 4px}.ctot div{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 8px;text-align:center}
+.ctot b{display:block;font:700 22px var(--display)}.ctot span{font-size:11px;color:var(--muted)}
+.cres mark{background:var(--amber-soft);color:inherit;border-radius:3px;padding:0 2px}
+.cres .ctag{display:inline-block;font:600 10.5px var(--body);padding:1px 6px;border-radius:5px;margin-left:4px;background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber-ink);vertical-align:2px}
 .chip[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
 .chips.big .chip{font:700 18px var(--display);letter-spacing:.04em;min-width:76px;text-align:center;min-height:44px}
 .filters{margin-top:10px}
@@ -967,7 +980,7 @@ function render() {
   const n = S.view.name;
   $$('nav.tabs [data-nav]').forEach(b => b.toggleAttribute('aria-current', b.dataset.nav === (n === 'equip' ? '' : n === 'anoform' ? 'ano' : n)));
   $$('nav.tabs [data-nav]').forEach(b => { if (b.hasAttribute('aria-current')) b.setAttribute('aria-current', 'page'); });
-  ({ home: renderHome, equip: renderEquip, linea: renderLinea, sol: renderSol, doc: renderDoc, ano: renderAno, anoform: renderAnoForm }[n] || renderHome)();
+  ({ home: renderHome, equip: renderEquip, linea: renderLinea, cerca: renderCerca, sol: renderSol, doc: renderDoc, ano: renderAno, anoform: renderAnoForm }[n] || renderHome)();
   setTimeout(avvisoCompiti, 0);
 }
 /* Avviso al centro dello schermo: compiti nuovi per me (o per il mio turno) che non ho ancora visto.
@@ -1030,6 +1043,7 @@ function renderHome() {
     ${nApp ? `<button class="banner appban" data-go="sol">${I.sol}<span><b>${nApp} ${nApp === 1 ? 'soluzione' : 'soluzioni'} da approvare</b> · tocca per vederle</span></button>` : ''}
     <button class="bigbtn hero home" id="scan">${I.qr.replace('<svg', '<svg width="54" height="54"')}<span class="bt">Apri fermo macchina</span><span class="bs">scansiona il QR della macchina</span></button>
     <div class="center"><button class="linkbtn" id="manual">Problemi con il QR? Scegli la macchina a mano</button></div>
+    <button class="sbtn" id="cercabtn"><span>🔍 Cerca fermi</span><small>macchina, guasto, lotto, parola…</small></button>
     ${coord ? `<h2>Fermi aperti · ${open.length}</h2>
     <div class="list">${open.length ? open.map(openCard).join('') : '<div class="empty">Nessun fermo in corso.</div>'}</div>`
     : `<h2>I tuoi fermi aperti · ${miei.length}</h2>
@@ -1041,6 +1055,7 @@ function renderHome() {
     ${today.length ? `<div class="chips lchips2">${[...new Set(today.map(f => f.linea))].sort().map(l => `<button class="chip" data-linea="${esc(l)}">${esc(l)} · ${today.filter(f => f.linea === l).length}<span class="cnt">›</span></button>`).join('')}</div>` : ''}
     <div class="list">${today.length ? today.map(histRow).join('') : '<div class="empty">Nessun fermo chiuso oggi.</div>'}</div>`;
   $('#scan').onclick = openScanner;
+  $('#cercabtn').onclick = () => go({ name: 'cerca' });
   const rb = $('#revban'); if (rb) rb.onclick = shRevisione;
   const tb = $('#telban'); if (tb) tb.onclick = shTelefoni;
   const cb2 = $('#corrban'); if (cb2) cb2.onclick = shCorrNuove;
@@ -1077,6 +1092,107 @@ function bindCommon() {
 /* ================= Fermi per linea ================= */
 // Riepilogo della linea: Filling e Packaging sempre separati (mai sommati), per macchina e ultimi interventi
 const LINEA_GG = [[1, 'Oggi'], [7, '7 giorni'], [30, '30 giorni']];
+/* ================= Cerca fermi (tutti; filtri per persona solo coordinatori) =================
+   Ultimi 90 giorni: cerca nei dati già sul telefono (subito, anche senza rete).
+   «Tutto»: in più chiede al foglio i fermi più vecchi (max 200). */
+const normT = x => String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+const CERCA_GG = [[1, 'Oggi'], [7, '7 gg'], [30, '30 gg'], [90, '90 gg'], [0, 'Tutto']];
+const CERCA_INT = [['REG', 'REGOLAZIONE'], ['SOS', 'SOSTITUZIONE'], ['RIP', 'RIPRISTINO'], ['PUL', 'PULIZIA']];
+S.cerca = { q: '', gg: 30, lin: '', area: '', int: '', foto: false, tec: '', flag: '', more: 50 };
+let CERCA_VECCHI = { q: null, fermi: [], troppi: false, stato: '' }, CERCA_T = null;
+function cercaTesto(f) {
+  const e = eqBy(f.code);
+  return normT([f.code, (e && e.prec || []).join(' '), f.linea, f.macchina, f.lotto, f.cat, f.int, f.guasto, f.altro, f.pezzo, f.id, f.causa, isCoord() ? f.man : ''].join(' | '));
+}
+function cercaRisultati() {
+  const c = S.cerca, coord = isCoord(), now = Date.now(), parole = normT(c.q).split(' ').filter(w => w.length >= 2);
+  const da = c.gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : c.gg ? now - c.gg * 864e5 : 0;
+  const riv = coord && c.flag === 'riv' ? new Set(daRivedere().map(x => x.f.id)) : null;
+  const visti = new Set(), base = allFermi().concat(c.gg === 0 && CERCA_VECCHI.q === normT(c.q) ? CERCA_VECCHI.fermi : []);
+  return base.filter(f => {
+    if (!f.id || visti.has(f.id) || f.stato === 'ANNULLATO' || !f.start || f.start < da) return false; visti.add(f.id);
+    if (c.lin && U(f.linea) !== U(c.lin)) return false;
+    if (c.area) { const e = eqBy(f.code); if ((e && isFill(e) ? 'F' : 'P') !== c.area) return false; }
+    if (c.int && U(f.int) !== c.int) return false;
+    if (c.foto && !f.fotoC && !(f.fotoX || []).length) return false;
+    if (coord && c.tec && U(f.man) !== U(c.tec)) return false;
+    if (coord && c.flag === 'sc' && f.cat && f.guasto && f.int) return false;
+    if (coord && c.flag === 'dop' && f.orari !== 'DICHIARATI') return false;
+    if (riv && !riv.has(f.id)) return false;
+    if (parole.length) { const t = cercaTesto(f); if (!parole.every(w => t.includes(w))) return false; }
+    return true;
+  }).sort((a, b) => b.start - a.start);
+}
+function cercaHl(txt) { // evidenzia le parole cercate (anche senza accenti)
+  const parole = normT(S.cerca.q).split(' ').filter(w => w.length >= 2); let t = String(txt == null ? '' : txt);
+  if (!parole.length || !t) return esc(t);
+  const n = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (n.length !== t.length) return esc(t);
+  const on = new Array(t.length).fill(false);
+  parole.forEach(w => { let i = n.indexOf(w); while (i >= 0) { for (let k = i; k < i + w.length; k++) on[k] = true; i = n.indexOf(w, i + 1); } });
+  let out = '', aperto = false;
+  for (let i = 0; i < t.length; i++) { if (on[i] !== aperto) { out += on[i] ? '<mark>' : '</mark>'; aperto = on[i]; } out += esc(t[i]); }
+  return out + (aperto ? '</mark>' : '');
+}
+function cercaLista() {
+  const c = S.cerca, coord = isCoord(), l = cercaRisultati(), min = l.reduce((t, f) => t + (f.end ? (f.end - f.start) / 60000 : 0), 0);
+  const nF = new Set(l.map(f => f.gruppo || f.id)).size, chiusi = l.filter(f => f.end).length;
+  const riv = coord ? new Set(daRivedere().map(x => x.f.id)) : new Set();
+  const vecchi = c.gg === 0 && normT(c.q).length >= 2 ? (CERCA_VECCHI.stato === 'carico' ? '<div class="hint center">Cerco anche nei fermi più vecchi di 90 giorni…</div>'
+    : CERCA_VECCHI.stato === 'errore' ? '<div class="hint center">Fermi più vecchi di 90 giorni: serve la connessione.</div>'
+    : CERCA_VECCHI.troppi ? '<div class="hint center">Più di 200 fermi vecchi: aggiungi una parola per restringere.</div>' : '') : c.gg === 0 ? '<div class="hint center">Per i fermi più vecchi di 90 giorni scrivi almeno una parola.</div>' : '';
+  const card = f => { const min = f.end ? (f.end - f.start) / 60000 : 0, d = new Date(f.start);
+    return `<button class="icard cres" data-cf="${esc(f.id)}">
+      <div class="r1"><span class="ore">${GIORNI[d.getDay()].slice(0, 3).toLowerCase()} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''} · ${hhmm(f.start)} · ${turnoOf(f.start)}</span>${f.stato === 'APERTO' ? '<span class="tag d">APERTO</span>' : ''}<span class="dur${min >= 60 ? ' long' : ''}">${f.end ? fmtDur(min) : ''}</span></div>
+      <div class="mac">${esc(f.linea || '')} · ${cercaHl(nice(f.macchina))}${riv.has(f.id) ? '<span class="ctag">da rivedere</span>' : ''}</div>
+      <div class="t1">${f.int ? esc(String(f.int).slice(0, 3).toUpperCase()) + ' · ' : ''}${cercaHl(f.guasto || '—')}</div>
+      ${f.altro ? `<div class="ds">${cercaHl(f.altro)}</div>` : ''}
+      <div class="ft"><span>${[esc(f.man || ''), f.lotto && f.lotto !== 'undefined' ? 'lotto ' + cercaHl(f.lotto) : '', f.pezzo ? 'pezzo ' + cercaHl(f.pezzo) : '', f.code ? cercaHl(f.code) : ''].filter(Boolean).join(' · ')}</span>${f.fotoC || (f.fotoX || []).length ? I.cam.replace('<svg', '<svg class="ph"') : ''}</div>
+    </button>`; };
+  $('#cres').innerHTML = `
+    <div class="ctot"><div><b>${chiusi}</b><span>${chiusi === 1 ? 'intervento' : 'interventi'}</span></div><div><b>${fmtDur(min)}</b><span>totale</span></div>
+      ${coord ? `<div><b>${nF}</b><span>${nF === 1 ? 'fermo' : 'fermi'}</span></div>` : `<div><b>${chiusi ? fmtDur(min / chiusi) : '—'}</b><span>medio</span></div>`}</div>
+    ${vecchi}
+    ${l.length ? `<div class="list">${l.slice(0, c.more).map(card).join('')}</div>` : '<div class="empty">Nessun fermo trovato. Prova con meno parole o un periodo più lungo.</div>'}
+    ${l.length > c.more ? `<button class="morebtn" id="cmore">Mostra altri · ${Math.min(50, l.length - c.more)} di ${l.length - c.more}</button>` : ''}`;
+  $$('[data-cf]').forEach(b => b.onclick = () => { const f = l.find(x => x.id === b.dataset.cf); if (f) intSheet(f, eqBy(f.code) || { code: f.code || '', macchina: f.macchina || '' }); });
+  const m = $('#cmore'); if (m) m.onclick = () => { c.more += 50; cercaLista(); };
+}
+async function cercaVecchi() { // «Tutto»: chiede al foglio i fermi oltre 90 giorni
+  const c = S.cerca, q = normT(c.q);
+  if (c.gg !== 0 || q.length < 2 || CERCA_VECCHI.q === q || MOCK) return;
+  CERCA_VECCHI = { q, fermi: [], troppi: false, stato: 'carico' }; cercaLista();
+  try {
+    const r = await fetch(CFG.API_URL + '?action=cerca&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME) + '&q=' + encodeURIComponent(c.q));
+    const j = await r.json(); if (CERCA_VECCHI.q !== q) return;
+    CERCA_VECCHI = j.ok ? { q, fermi: j.fermi || [], troppi: !!j.troppi, stato: '' } : { q, fermi: [], troppi: false, stato: 'errore' };
+  } catch { if (CERCA_VECCHI.q === q) CERCA_VECCHI.stato = 'errore'; }
+  if (S.view.name === 'cerca') cercaLista();
+}
+function renderCerca() {
+  const c = S.cerca, coord = isCoord();
+  const linee = [...new Set(S.equipment.map(e => e.linea).filter(Boolean))];
+  const tec = coord ? [...new Set(allFermi().map(f => String(f.man || '').trim()).filter(Boolean))].sort() : [];
+  const ch = (k, v, t) => `<button class="chip" data-k="${k}" data-v="${esc(v)}" aria-pressed="${String(c[k]) === String(v)}">${esc(t)}</button>`;
+  $('#view').innerHTML = `
+    ${topline('Cerca fermi', 'macchina, codice, guasto, descrizione, lotto, pezzo', 'home')}
+    <div class="sbox">🔍<input type="search" id="cq" placeholder="Es. homing, 028294, mag. astucci…" value="${esc(c.q)}" enterkeyhint="search" autocomplete="off"><button class="clr" id="cclr" aria-label="Cancella">✕</button></div>
+    <div class="cfl">Periodo</div><div class="csc">${CERCA_GG.map(([v, t]) => ch('gg', v, t)).join('')}</div>
+    <div class="cfl">Linea · area</div><div class="csc">${ch('lin', '', 'Tutte')}${linee.map(l => ch('lin', l, l)).join('')}<span style="width:8px;flex:none"></span>${ch('area', '', 'Fill + Pack')}${ch('area', 'F', 'Filling')}${ch('area', 'P', 'Packaging')}</div>
+    <div class="cfl">Intervento</div><div class="csc">${ch('int', '', 'Tutti')}${CERCA_INT.map(([t, v]) => ch('int', v, t)).join('')}<button class="chip" data-foto aria-pressed="${c.foto}">Con foto</button></div>
+    ${coord ? `<div class="cfl">Solo coordinatori</div><div class="csc">${ch('flag', '', 'Tutti')}${ch('flag', 'sc', 'Senza categoria')}${ch('flag', 'riv', 'Da rivedere')}${ch('flag', 'dop', 'Registrati dopo')}</div>
+      <div class="csc" style="margin-top:6px">${ch('tec', '', 'Ogni tecnico')}${tec.map(t => ch('tec', t, t)).join('')}</div>` : ''}
+    <div id="cres"></div>`;
+  const inp = $('#cq');
+  inp.oninput = () => { c.q = inp.value; c.more = 50; clearTimeout(CERCA_T); CERCA_T = setTimeout(() => { cercaLista(); cercaVecchi(); }, 200); };
+  inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); };
+  $('#cclr').onclick = () => { c.q = ''; inp.value = ''; cercaLista(); inp.focus(); };
+  $$('#view [data-k]').forEach(b => b.onclick = () => { const k = b.dataset.k, v = b.dataset.v; c[k] = k === 'gg' ? +v : v; c.more = 50;
+    $$(`#view [data-k="${k}"]`).forEach(x => x.setAttribute('aria-pressed', x === b)); cercaLista(); cercaVecchi(); });
+  const fb = $('#view [data-foto]'); fb.onclick = () => { c.foto = !c.foto; fb.setAttribute('aria-pressed', c.foto); cercaLista(); };
+  cercaLista(); cercaVecchi();
+  bindCommon();
+}
 function renderLinea() {
   const lin = S.view.code || '', gg = S.view.gg || 7, now = Date.now();
   const da = gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : now - gg * 864e5;
@@ -2373,7 +2489,7 @@ async function checkUpdate() {
   if (c) { S.equipment = c.equipment || S.equipment; S.liste = c.liste || S.liste; S.guasti = c.guasti || {}; S.vociCat = c.vociCat || {}; S.vociDesc = c.vociDesc || {}; S.intDesc = c.intDesc || {}; S.fermi = c.fermi || [];
     S.soluzioni = c.soluzioni || []; S.solScartate = c.solScartate || []; S.documenti = c.documenti || []; S.anomalie = c.anomalie || []; S.compiti = c.compiti || []; S.vestizioni = c.vestizioni || []; S.sterileNo = c.sterileNo || []; S.convalide = c.convalide || { list: [], ignote: [] }; S.turni = c.turni || {}; S.programma = c.programma || {}; S.continuo = c.continuo || []; S.avviso = c.avviso || null; }
   const url = new URL(location.href), eq = url.searchParams.get('eq'), h = url.hash.slice(1);
-  if (['sol', 'doc', 'ano', 'anoform', 'linea'].includes(h)) S.view = { name: h, code: eq || undefined };
+  if (['sol', 'doc', 'ano', 'anoform', 'linea', 'cerca'].includes(h)) S.view = { name: h, code: eq || undefined };
   else if (eq) S.view = { name: 'equip', code: eq };
   render(); bannerIos();
   // aperta dal QR con la fotocamera del telefono (…/?eq=CODICE): dopo l'accesso si va dritti al fermo
