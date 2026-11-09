@@ -1800,7 +1800,7 @@ function doGet(e) {
     }
     if (action === 'cerca') { // ricerca nell'archivio vecchio (oltre 90 giorni), per tutti i tecnici
       checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
-      return json_(Object.assign({ ok: true }, cercaFermi_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter.q, isCoordinatore_(e.parameter.man))));
+      return json_(Object.assign({ ok: true }, cercaFermi_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter.q, isCoordinatore_(e.parameter.man), e.parameter.da, e.parameter.al)));
     }
     if (action === 'telefoni') { // telefoni in attesa: solo coordinatori, dal loro telefono
       checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
@@ -1960,13 +1960,14 @@ function fermiApp_(ss, sh, tieni, max) {
 // Cerca fermi più vecchi di 90 giorni (quelli recenti l'app li ha già e li cerca da sola).
 // Tutte le parole devono comparire. Il nome del tecnico conta solo per i coordinatori.
 const norm_ = x => String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-function cercaFermi_(ss, q, coord) {
+function cercaFermi_(ss, q, coord, da, al) {
   const parole = norm_(q).split(' ').filter(w => w.length >= 2).slice(0, 6);
-  if (!parole.length) throw new Error('Scrivi almeno 2 lettere');
+  da = Number(da) || 0; al = Number(al) || 0; // periodo scelto con il calendario (millisecondi)
+  if (!parole.length && !da) throw new Error('Scrivi almeno 2 lettere');
   const from = Date.now() - 90 * 864e5, eqs = equipment_(ss);
   const prec = {}; eqs.forEach(e => (e.prec || []).forEach(o => prec[norm_(o)] = e.code));
   const testo = r => norm_([r[C.EQ - 1], r[C.LINEA - 1], r[C.MACC - 1], r[C.LOTTO - 1], r[C.CAT - 1], r[C.INT - 1], r[C.GUASTO - 1], r[C.ALTRO - 1], r[C.PEZZO - 1], r[C.ID - 1], coord ? r[C.MAN - 1] : ''].join(' | '));
-  const lista = fermiApp_(ss, ss.getSheetByName(SH_FERMI), (r, start) => start < from && r[C.STATO - 1] !== 'APERTO' && (t => parole.every(w => t.indexOf(w) >= 0))(testo(r)), 200);
+  const lista = fermiApp_(ss, ss.getSheetByName(SH_FERMI), (r, start) => start < from && (!da || start >= da) && (!al || start <= al) && r[C.STATO - 1] !== 'APERTO' && (t => parole.every(w => t.indexOf(w) >= 0))(testo(r)), 200);
   return { fermi: lista, troppi: lista.length >= 200 };
 }
 
@@ -2709,7 +2710,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '09/11/2026 10:30';
+const VERSIONE_SCRIPT = '09/11/2026 11:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
