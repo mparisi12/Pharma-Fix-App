@@ -1100,7 +1100,7 @@ const LINEA_GG = [[1, 'Oggi'], [7, '7 giorni'], [30, '30 giorni']];
 const normT = x => String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 const CERCA_GG = [[1, 'Oggi'], [7, '7 gg'], [30, '30 gg'], [90, '90 gg'], [0, 'Tutto'], [-1, '📅 Date']];
 const CERCA_INT = [['REG', 'REGOLAZIONE'], ['SOS', 'SOSTITUZIONE'], ['RIP', 'RIPRISTINO'], ['PUL', 'PULIZIA']];
-S.cerca = { q: '', gg: 30, dal: '', al: '', lin: '', area: '', int: '', foto: false, tec: '', flag: '', more: 50 };
+S.cerca = { q: '', gg: -1, dal: '', al: '', lin: '', area: '', int: '', foto: false, tec: '', flag: '', more: 50 };
 const isoG = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
 function cercaPeriodo() { // [da, a] in millisecondi; a = null se fino a oggi
   const c = S.cerca, now = Date.now();
@@ -1108,7 +1108,7 @@ function cercaPeriodo() { // [da, a] in millisecondi; a = null se fino a oggi
   return [c.gg === 1 ? new Date(giornoProd(now)).setHours(6, 0, 0, 0) : c.gg ? now - c.gg * 864e5 : 0, null];
 }
 const cercaVecchiChiave = () => { const c = S.cerca, [d, a] = cercaPeriodo(); return normT(c.q) + '|' + (c.gg === -1 ? d + '-' + (a || '') : ''); };
-const cercaServeVecchi = () => { const c = S.cerca, [d] = cercaPeriodo(); return (c.gg === 0 && normT(c.q).length >= 2) || (c.gg === -1 && d && d < Date.now() - 90 * 864e5); };
+const cercaServeVecchi = () => { const [d] = cercaPeriodo(); return d ? d < Date.now() - 90 * 864e5 : normT(S.cerca.q).length >= 2; }; // «Dal» vuoto = da sempre
 let CERCA_VECCHI = { q: null, fermi: [], troppi: false, stato: '' }, CERCA_T = null;
 function cercaTesto(f) {
   const e = eqBy(f.code);
@@ -1150,7 +1150,7 @@ function cercaLista() {
   const riv = coord ? new Set(daRivedere().map(x => x.f.id)) : new Set();
   const vecchi = cercaServeVecchi() ? (CERCA_VECCHI.stato === 'carico' ? '<div class="hint center">Cerco anche nei fermi più vecchi di 90 giorni…</div>'
     : CERCA_VECCHI.stato === 'errore' ? '<div class="hint center">Fermi più vecchi di 90 giorni: serve la connessione.</div>'
-    : CERCA_VECCHI.troppi ? '<div class="hint center">Più di 200 fermi vecchi: aggiungi una parola per restringere.</div>' : '') : c.gg === 0 ? '<div class="hint center">Per i fermi più vecchi di 90 giorni scrivi almeno una parola.</div>' : '';
+    : CERCA_VECCHI.troppi ? '<div class="hint center">Più di 200 fermi vecchi: aggiungi una parola per restringere.</div>' : '') : !cercaPeriodo()[0] ? '<div class="hint center">Senza «Dal», per i fermi più vecchi di 90 giorni scrivi almeno una parola.</div>' : '';
   const card = f => { const min = f.end ? (f.end - f.start) / 60000 : 0, d = new Date(f.start);
     return `<button class="icard cres" data-cf="${esc(f.id)}">
       <div class="r1"><span class="ore">${GIORNI[d.getDay()].slice(0, 3).toLowerCase()} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''} · ${hhmm(f.start)} · ${turnoOf(f.start)}</span>${f.stato === 'APERTO' ? '<span class="tag d">APERTO</span>' : ''}<span class="dur${min >= 60 ? ' long' : ''}">${f.end ? fmtDur(min) : ''}</span></div>
@@ -1181,14 +1181,15 @@ async function cercaVecchi() { // «Tutto»: chiede al foglio i fermi oltre 90 g
 }
 function renderCerca() {
   const c = S.cerca, coord = isCoord();
+  if (!c.dal && !c.al && !c.datePrese) { c.dal = isoG(Date.now() - 30 * 864e5); c.al = isoG(Date.now()); c.datePrese = true; } // all'inizio: ultimi 30 giorni
   const linee = [...new Set(S.equipment.map(e => e.linea).filter(Boolean))];
   const tec = coord ? [...new Set(allFermi().map(f => String(f.man || '').trim()).filter(Boolean))].sort() : [];
   const ch = (k, v, t) => `<button class="chip" data-k="${k}" data-v="${esc(v)}" aria-pressed="${String(c[k]) === String(v)}">${esc(t)}</button>`;
   $('#view').innerHTML = `
     ${topline('Cerca fermi', 'macchina, codice, guasto, descrizione, lotto, pezzo', 'home')}
     <div class="sbox">🔍<input type="search" id="cq" placeholder="Es. homing, 028294, mag. astucci…" value="${esc(c.q)}" enterkeyhint="search" autocomplete="off"><button class="clr" id="cclr" aria-label="Cancella">✕</button></div>
-    <div class="cfl">Periodo</div><div class="csc">${CERCA_GG.map(([v, t]) => ch('gg', v, t)).join('')}</div>
-    ${c.gg === -1 ? `<div class="cdate"><label>Dal<input type="date" id="cdal" value="${esc(c.dal)}" max="${isoG(Date.now())}"></label><label>Al<input type="date" id="cal" value="${esc(c.al)}" max="${isoG(Date.now())}"></label></div>` : ''}
+    <div class="cfl">Periodo</div>
+    <div class="cdate" style="margin-top:0"><label>Dal<input type="date" id="cdal" value="${esc(c.dal)}" max="${isoG(Date.now())}"></label><label>Al<input type="date" id="cal" value="${esc(c.al)}" max="${isoG(Date.now())}"></label></div>
     <div class="cfl">Linea · area</div><div class="csc">${ch('lin', '', 'Tutte')}${linee.map(l => ch('lin', l, l)).join('')}<span style="width:8px;flex:none"></span>${ch('area', '', 'Fill + Pack')}${ch('area', 'F', 'Filling')}${ch('area', 'P', 'Packaging')}</div>
     <div class="cfl">Intervento</div><div class="csc">${ch('int', '', 'Tutti')}${CERCA_INT.map(([t, v]) => ch('int', v, t)).join('')}<button class="chip" data-foto aria-pressed="${c.foto}">Con foto</button></div>
     ${coord ? `<div class="cfl">Solo coordinatori</div><div class="csc">${ch('flag', '', 'Tutti')}${ch('flag', 'sc', 'Senza categoria')}${ch('flag', 'riv', 'Da rivedere')}${ch('flag', 'dop', 'Registrati dopo')}</div>
@@ -1203,8 +1204,6 @@ function renderCerca() {
     cercaLista(); cercaVecchi(); }; };
   dd('#cdal', 'dal'); dd('#cal', 'al');
   $$('#view [data-k]').forEach(b => b.onclick = () => { const k = b.dataset.k, v = b.dataset.v; c[k] = k === 'gg' ? +v : v; c.more = 50;
-    if (k === 'gg' && +v === -1) { if (!c.dal) { c.dal = isoG(Date.now() - 7 * 864e5); c.al = isoG(Date.now()); } return renderCerca(); }
-    if (k === 'gg' && $('#cdal')) return renderCerca(); // tolgo il calendario
     $$(`#view [data-k="${k}"]`).forEach(x => x.setAttribute('aria-pressed', x === b)); cercaLista(); cercaVecchi(); });
   const fb = $('#view [data-foto]'); fb.onclick = () => { c.foto = !c.foto; fb.setAttribute('aria-pressed', c.foto); cercaLista(); };
   cercaLista(); cercaVecchi();
