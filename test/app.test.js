@@ -506,6 +506,59 @@ let ver = 1, full = 0, same = 0; const posts = [];
   }
 
   ok(await p.evaluate(() => { const e = S.equipment[0], vecchio = e.prec; e.prec = ['VECCHIO-01']; const r = parseQr('https://x/fermi/?eq=VECCHIO-01') === e && eqBy('vecchio-01') === e; e.prec = vecchio; return r; }), 'QR con il codice vecchio: apre la macchina con il codice ITEM nuovo');
+  console.log('\nCerca fermi: per tutti, filtri per persona solo ai coordinatori, archivio vecchio dal foglio');
+  {
+    const n = Date.now(), qs = [];
+    const FF = [{ id: 'C1', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: n - 2 * 864e5, end: n - 2 * 864e5 + 14 * 60000, stato: 'CHIUSO', int: 'RIPRISTINO', cat: 'AUTOMATION', guasto: 'H7, SBLOCCO HOMING', altro: 'reset asse 3', man: 'BIANCHI Luca', lotto: '028294' },
+      { id: 'C2', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: n - 3 * 864e5, end: n - 3 * 864e5 + 30 * 60000, stato: 'CHIUSO', int: 'REGOLAZIONE', cat: 'MECCANICO', guasto: 'MAG. ASTUCCI', altro: 'Homing manuale del magazzino', man: 'ROSSI Mario', lotto: '028300', fotoC: 'https://x/f.jpg' },
+      { id: 'C3', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: n - 40 * 864e5, end: n - 40 * 864e5 + 20 * 60000, stato: 'CHIUSO', int: 'SOSTITUZIONE', cat: 'MECCANICO', guasto: 'CHIUSURE AST', altro: 'cambiata molla', man: 'ROSSI Mario', lotto: '027000' }];
+    const VECCHIO = { id: 'OLD1', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: n - 200 * 864e5, end: n - 200 * 864e5 + 600000, stato: 'CHIUSO', int: 'RIPRISTINO', guasto: 'H7, SBLOCCO HOMING', altro: 'homing vecchio', man: 'BIANCHI Luca', lotto: '011111' };
+    const tc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await tc.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
+    await tc.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url());
+      if (r.request().method() === 'POST') return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+      if (/action=login/.test(u)) return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+      if (/action=cerca/.test(u)) { qs.push(u); return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, fermi: /homing/i.test(u) ? [VECCHIO] : [] }) }); }
+      if (/action=telefoni/.test(u)) return r.fulfill({ contentType: 'application/json', body: '{"ok":true,"telefoni":[]}' });
+      r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, fermi: FF, ver: 'TC' }) }); });
+    const c = await tc.newPage(); c.on('pageerror', e => errori.push(e.message));
+    await c.goto(`http://localhost:${PORT}/fermi/`); await c.waitForTimeout(500);
+    await c.fill('#lpin', 'prova'); await c.fill('#lnome', 'Mario'); await c.fill('#lcogn', 'Rossi'); await c.click('#lgo'); await c.waitForTimeout(1200);
+    ok(await c.isVisible('#cercabtn'), 'home: pulsante Cerca fermi anche per i tecnici');
+    await c.click('#cercabtn'); await c.waitForTimeout(300);
+    ok(await c.$$eval('#cres [data-cf]', l => l.length) === 2, 'periodo 30 giorni: i 2 fermi recenti (quello di 40 giorni fa no)');
+    await c.fill('#cq', 'homing'); await c.waitForTimeout(500);
+    const ids = await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf));
+    ok(ids.join() === 'C1,C2' && await c.$$eval('#cres mark', l => l.length) >= 2, '"homing": trova nella voce e nella descrizione, parole evidenziate');
+    await c.fill('#cq', 'HÓMING asse'); await c.waitForTimeout(500);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C1', 'più parole e accenti/maiuscole: tutte devono esserci');
+    await c.fill('#cq', '028300'); await c.waitForTimeout(500);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C2', 'cerca per lotto');
+    await c.fill('#cq', 'bianchi'); await c.waitForTimeout(500);
+    ok(await c.$$eval('#cres [data-cf]', l => l.length) === 0, 'tecnico: non cerca per nome di un collega');
+    ok(!(await c.isVisible('text=Solo coordinatori')) && !(await c.isVisible('[data-k="tec"]')), 'tecnico: niente filtri per persona né "Da rivedere"');
+    await c.fill('#cq', ''); await c.click('[data-k="int"][data-v="REGOLAZIONE"]'); await c.waitForTimeout(200);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C2', 'filtro tipo intervento');
+    await c.click('[data-k="int"][data-v=""]'); await c.click('[data-foto]'); await c.waitForTimeout(200);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C2', 'filtro "Con foto"'); await c.click('[data-foto]');
+    await c.click('[data-k="area"][data-v="F"]'); await c.waitForTimeout(200);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C1', 'filtro Filling'); await c.click('[data-k="area"][data-v=""]');
+    await c.click('[data-k="gg"][data-v="0"]'); await c.fill('#cq', 'homing'); await c.waitForTimeout(900);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C1,C2,OLD1' && qs.length === 1 && /q=homing/.test(qs[0]), '"Tutto": aggiunge i fermi più vecchi di 90 giorni chiesti al foglio');
+    if (SP) await c.screenshot({ path: SP.replace('.png', '_cerca.png') });
+    await c.click('[data-cf="OLD1"]'); await c.waitForTimeout(300);
+    ok(/homing vecchio/.test(await c.innerText('#sheet')), 'tocca un risultato: si apre la scheda del fermo');
+    await c.click('#sheet [data-x]');
+    // coordinatore
+    await c.evaluate(() => { salvaSess(null); showLogin(); }); await c.fill('#lnome', 'Anna'); await c.fill('#lcogn', 'Verdi'); await c.click('#lgo'); await c.waitForTimeout(1200);
+    await c.evaluate(() => go({ name: 'home' })); await c.click('#cercabtn'); await c.waitForTimeout(300); await c.fill('#cq', 'bianchi'); await c.waitForTimeout(500);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).includes('C1') && await c.isVisible('[data-k="tec"][data-v="ROSSI Mario"]') && await c.isVisible('[data-k="flag"][data-v="riv"]'), 'coordinatore: cerca per tecnico e ha i filtri in più');
+    await c.fill('#cq', ''); await c.click('[data-k="gg"][data-v="30"]'); await c.click('[data-k="tec"][data-v="ROSSI Mario"]'); await c.waitForTimeout(200);
+    ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C2', 'coordinatore: filtro per tecnico');
+    if (SP) await c.screenshot({ path: SP.replace('.png', '_cercacoord.png') });
+    await tc.close();
+  }
+
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
   await b.close(); srv.close(); fine('App');
 })().catch(e => { console.error(e); process.exit(1); });
