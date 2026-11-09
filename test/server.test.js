@@ -444,15 +444,16 @@ console.log('\nVoci guasto: tendina per macchina nel foglio Fermi e unione dei d
   sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H, ['s1', '', 'ST3-04', 'ST3', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'p', 's']]);
   sheets['Elenchi_Fermi'] = new Sheet('Elenchi_Fermi', [['M', 'T'], ['', 'SENSORE']]);
   ctx.fermiGuastoDV_(ss, sheets.Fermi, 2, 4);
-  const dv = sheets.Fermi.dvr, l = r => (dv[r + ',' + C.GUASTO].requireValueInList || [[]])[0];
+  const dv = sheets.Fermi.dvr, l = r => { const d = dv[r + ',' + C.GUASTO]; return d.requireValueInList ? d.requireValueInList[0] : d.requireValueInRange[0].getValues().map(x => x[0]); };
   ok(l(2).join('|') === 'MAG. ASTUCCI|Magazzino astucci|CAM. OMRON|GUIDE|SENSORE|ALTRO', 'riga ST3-04: solo le voci dell\'astucciatrice + linea ST3 + TUTTE, ALTRO in fondo');
   ok(l(3).indexOf('H7 GUANTONE, Sblocco Homing') >= 0 && l(3).indexOf('MAG. ASTUCCI') < 0, 'riga scritta a mano senza codice: macchina trovata da linea + nome (riempitrice ST3)');
   ok(!!dv['4,' + C.GUASTO].requireValueInRange, 'macchina sconosciuta: tutte le voci');
+  ok(l(3)[0] === 'H7, Sblocco Homing' && !!dv['3,' + C.GUASTO].requireValueInRange && sheets.Elenchi_Fermi.rows[0].slice(4).filter(Boolean).length === 2, 'voci con la virgola restano intere: elenco in una colonna di Elenchi_Fermi, non scritto nella regola (niente triangolo rosso)');
   ok(dv['2,' + C.GUASTO] === dv['5,' + C.GUASTO], 'stessa macchina: stessa regola (una sola per codice)');
   // onEdit: cambia la macchina di una riga → nuova tendina
   sheets.Fermi.rows[3][C.EQ - 1] = 'ST3-02'; sheets.Fermi.dvr = {};
   ctx.onEdit({ range: { getSheet: () => sheets.Fermi, getRow: () => 4, getColumn: () => C.EQ, getLastColumn: () => C.EQ, getNumRows: () => 1, getA1Notation: () => 'T4' }, source: ss });
-  ok(sheets.Fermi.dvr && (sheets.Fermi.dvr['4,' + C.GUASTO].requireValueInList || [[]])[0].indexOf('H7, Sblocco Homing') === 0, 'modifica a mano del codice macchina: la tendina Tipo guasto si aggiorna');
+  ok(sheets.Fermi.dvr && (d => d.requireValueInRange[0].getValues().map(x => x[0]))(sheets.Fermi.dvr['4,' + C.GUASTO]).indexOf('H7, Sblocco Homing') === 0, 'modifica a mano del codice macchina: la tendina Tipo guasto si aggiorna');
   // Unione: Magazzino astucci → MAG. ASTUCCI, H7 GUANTONE → H7, catena CAM. OMRON → CAMERA → CAMERA OMRON (rinomina)
   sheets['Voci guasto'] = new Sheet('Voci guasto', [['Voce (come nel foglio Guasti)', 'Categoria', 'Da dove viene', 'Quando si usa', 'Unisci in (voce che resta)'],
     ['MAG. ASTUCCI', 'MECCANICO'], ['Magazzino astucci', 'MECCANICO', '', '', 'MAG. ASTUCCI'], ['H7, Sblocco Homing', 'AUTOMATION'], ['H7 GUANTONE, Sblocco Homing', 'AUTOMATION', '', '', 'H7, Sblocco Homing'], ['CAM. OMRON', 'AUTOMATION', '', '', 'CAMERA OMRON'], ['H7, Sblocco Homing', 'AUTOMATION']]);
