@@ -636,4 +636,19 @@ console.log('\nArea del fermo nel passaggio turno: niente "area?" se la linea ha
   ok(A({ eq: 'SPL2-04', linea: '', macc: '' }) === 'PACKAGING', 'codice vecchio (prima del cambio ITEM)');
   ok(A({ eq: 'X', linea: 'ST3', macc: 'BOH' }) === '', 'linea con Filling e Packaging e macchina sconosciuta: resta da capire');
 }
+console.log('\nCerca fermi: archivio oltre 90 giorni, nome del tecnico solo per i coordinatori');
+{
+  const { ctx, sheets } = nuovo(); ctx.checkKey_ = () => {}; const C = ctx.C, D = ctx.DD;
+  sheets.Telefoni = new Sheet('Telefoni', [ctx.TEL_H.slice(), ['ROSSI Mario', 'T-R', 'x', new D(), new D(), 'OK'], ['VERDI Anna', 'T-V', 'x', new D(), new D(), 'OK']]);
+  const riga = (id, gg, guasto, altro, man) => { const r = new Array(ctx.HEAD.length).fill(''); const t = Date.now() - gg * 864e5;
+    r[C.ID - 1] = id; r[C.INIZIO - 1] = new D(t); r[C.FINE - 1] = new D(t + 600000); r[C.STATO - 1] = 'CHIUSO'; r[C.GUASTO - 1] = guasto; r[C.ALTRO - 1] = altro; r[C.MAN - 1] = man; r[C.LINEA - 1] = 'ST3'; r[C.MACC - 1] = 'RIEMPITRICE'; r[C.EQ - 1] = 'ST3-02'; return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('F1', 200, 'H7, SBLOCCO HOMING', 'Homing fallito asse 3', 'ROSSI Mario'), riga('F2', 150, 'SENSORE', 'regolata fibra', 'BIANCHI Luca'), riga('F3', 10, 'H7, SBLOCCO HOMING', 'recente', 'ROSSI Mario')]);
+  const get = (man, dev, q) => JSON.parse(ctx.doGet({ parameter: { key: 'k', action: 'cerca', man, dev, q } }).t);
+  const a = get('ROSSI Mario', 'T-R', 'homing');
+  ok(a.ok && a.fermi.length === 1 && a.fermi[0].id === 'F1' && a.fermi[0].guasto === 'H7, SBLOCCO HOMING', 'tecnico: trova il fermo vecchio (quelli recenti li cerca il telefono)');
+  ok(get('ROSSI Mario', 'T-R', 'homing asse').fermi.length === 1 && get('ROSSI Mario', 'T-R', 'homing fibra').fermi.length === 0, 'tutte le parole devono esserci');
+  ok(get('ROSSI Mario', 'T-R', 'bianchi').fermi.length === 0 && get('VERDI Anna', 'T-V', 'bianchi').fermi.length === 1, 'cercare per nome del tecnico: solo i coordinatori');
+  ok(/2 lettere/.test(get('ROSSI Mario', 'T-R', 'h').error || ''), 'parola troppo corta: messaggio');
+  ok(/telefono|Telefono/.test(get('ROSSI Mario', 'T-ALTRO', 'homing').error || ''), 'telefono non approvato: niente ricerca');
+}
 fine('Script');
