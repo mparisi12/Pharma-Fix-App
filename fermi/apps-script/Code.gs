@@ -910,7 +910,7 @@ function fermiConvalida_(ss, forza) {
   const righe = Math.max(sh.getMaxRows(), sh.getLastRow() + 500);
   const props = PropertiesService.getScriptProperties();
   const tec = tecniciTutti_(ss).sort(); // Manutentori + Coordinatori
-  const firma = 'v4|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + hash_(JSON.stringify(g)) + '#' + tec.join('|');
+  const firma = 'v5|' + Math.ceil(righe / 500) + '|' + testa.join('/') + '|' + macc.join('|') + '#' + hash_(JSON.stringify(g)) + '#' + tec.join('|');
   if (!forza && props.getProperty('FERMI_DV') === firma && ss.getSheetByName(SH_EL_FERMI)) return false;
   if (sh.getMaxRows() < righe) sh.insertRowsAfter(sh.getMaxRows(), righe - sh.getMaxRows());
   let el = ss.getSheetByName(SH_EL_FERMI);
@@ -947,6 +947,8 @@ function fermiGuastoDV_(ss, sh, r0, n) {
   if (!sh || n < 1) return;
   const g = guasti_(ss), eqs = equipment_(ss), el = ss.getSheetByName(SH_EL_FERMI), tutte = el ? el.getRange(2, 2, Math.max(el.getLastRow() - 1, 1), 1) : null;
   const U = x => String(x || '').trim().toUpperCase(), regole = {};
+  const colDi = {}; // codice macchina → colonna in Elenchi_Fermi
+  if (el && el.getLastColumn() >= EL_VOCI_COL) el.getRange(1, EL_VOCI_COL, 1, el.getLastColumn() - EL_VOCI_COL + 1).getValues()[0].forEach((h, i) => { if (String(h).trim()) colDi[U(h)] = EL_VOCI_COL + i; });
   const tutteDV = tutte ? SpreadsheetApp.newDataValidation().requireValueInRange(tutte, true).setAllowInvalid(true).setHelpText('Macchina non riconosciuta: tutte le voci del foglio Guasti.').build() : null;
   const v = sh.getRange(r0, 1, n, C.EQ).getValues();
   const out = v.map(r => {
@@ -954,11 +956,28 @@ function fermiGuastoDV_(ss, sh, r0, n) {
     const eq = eqs.find(e => code && U(e.code) === code) || eqs.find(e => lin && mac && U(e.linea) === lin && U(e.macchina) === mac);
     if (!eq) return [tutteDV];
     const k = U(eq.code);
-    if (!regole[k]) { const l = vociMacchina_(g, eq);
-      regole[k] = SpreadsheetApp.newDataValidation().requireValueInList(l, true).setAllowInvalid(true).setHelpText('Voci guasto di ' + eq.code + ' (' + eq.macchina + '): foglio Guasti.').build(); }
+    if (!regole[k]) { const l = vociMacchina_(g, eq), aiuto = 'Voci guasto di ' + eq.code + ' (' + eq.macchina + '): foglio Guasti.';
+      // Elenco in una colonna del foglio nascosto Elenchi_Fermi (dalla E in poi, una per macchina) e non scritto nella regola:
+      // le voci con virgole o virgolette ("H7, SBLOCCO HOMING") in un elenco scritto si spezzano e danno il triangolo rosso.
+      const rng = el && l.length ? colonnaVoci_(el, colDi, eq.code, l) : null;
+      regole[k] = (rng ? SpreadsheetApp.newDataValidation().requireValueInRange(rng, true) : SpreadsheetApp.newDataValidation().requireValueInList(l.length ? l : ['ALTRO'], true))
+        .setAllowInvalid(true).setHelpText(aiuto).build(); }
     return [regole[k]];
   });
   sh.getRange(r0, C.GUASTO, n, 1).setDataValidations(out);
+}
+const EL_VOCI_COL = 5;
+// Scrive le voci della macchina nella sua colonna di Elenchi_Fermi (riga 1 = codice) e restituisce l'intervallo
+function colonnaVoci_(el, colDi, code, voci) {
+  const k = String(code).trim().toUpperCase();
+  let c = colDi[k];
+  if (!c) { c = Math.max(EL_VOCI_COL, el.getLastColumn() + 1); colDi[k] = c; }
+  if (el.getMaxColumns() < c) el.insertColumnsAfter(el.getMaxColumns(), c - el.getMaxColumns());
+  if (el.getMaxRows() < voci.length + 1) el.insertRowsAfter(el.getMaxRows(), voci.length + 1 - el.getMaxRows());
+  el.getRange(1, c).setNumberFormat('@').setValue(String(code).trim());
+  if (el.getLastRow() > 1) el.getRange(2, c, el.getLastRow() - 1, 1).clearContent();
+  el.getRange(2, c, voci.length, 1).setNumberFormat('@').setValues(voci.map(x => [x]));
+  return el.getRange(2, c, voci.length, 1);
 }
 // Menu: rimette subito i menu a tendina del foglio Fermi
 function aggiornaTendineFermi() {
@@ -2669,7 +2688,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '07/11/2026 00:30';
+const VERSIONE_SCRIPT = '09/11/2026 09:45';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
