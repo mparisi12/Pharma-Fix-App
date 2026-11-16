@@ -19,9 +19,13 @@ const D = { equipment: [['ST3-01', 'Filling', 'RIORDINATORE'], ['ST3-02', 'Filli
   sterileNo: ['VERDI Anna'] };
 let ver = 1, full = 0, same = 0; const posts = [];
 
+// Nei test dei fermi il lotto di chiusura (sempre a mano nell'app) viene scritto qui al momento di salvare,
+// come farebbe il tecnico. window.__lottoManuale = true per provare il campo vuoto.
+const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.target.closest && e.target.closest('#go, #giro'), l = document.getElementById('clotto');
+  if (g && l && !l.value && !window.__lottoManuale) l.value = '601095'; }, true);
 (async () => {
   await new Promise(r => srv.listen(PORT, r));
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' }); const p = await ctx.newPage();
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' }); await ctx.addInitScript(LOTTO_AUTO); const p = await ctx.newPage();
   const errori = []; p.on('pageerror', e => errori.push(e.message));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
   await ctx.route(/script\.google\.com/, r => {
@@ -318,7 +322,7 @@ let ver = 1, full = 0, same = 0; const posts = [];
   const D2 = { ...D, guasti: { TUTTE: ['SENSORE', 'GUIDE', 'ALTRO'] }, vociCat: { SENSORE: 'ELETTRICO', GUIDE: 'MECCANICO' },
     fermi: [{ id: 'GA', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 30 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }] };
   const P2 = []; let v2 = 1;
-  const gc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const gc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' }); await gc.addInitScript(LOTTO_AUTO);
   await gc.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
   await gc.route(/script\.google\.com/, r => {
     if (r.request().method() === 'POST') { // come il foglio vero: apre e chiude le righe, con Fermo n. e Intervento n.
@@ -566,6 +570,24 @@ let ver = 1, full = 0, same = 0; const posts = [];
     ok((await c.$$eval('#cres [data-cf]', l => l.map(x => x.dataset.cf))).join() === 'C2', 'coordinatore: filtro per tecnico');
     if (SP) await c.screenshot({ path: SP.replace('.png', '_cercacoord.png') });
     await tc.close();
+  }
+
+  console.log('\nLotto in chiusura: sempre a mano');
+  {
+    const r = await p.evaluate(async () => {
+      window.__lottoManuale = true; const n0 = OUTBOX.length;
+      closeSh(); closeSheet({ id: 'LM1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
+      await new Promise(x => setTimeout(x, 200));
+      const vuoto = document.querySelector('#clotto').value;
+      document.querySelector('#gua [data-v="SENSORE"]').click(); document.querySelector('#int [data-v="REGOLAZIONE"]').click();
+      document.querySelector('#altro').value = 'regolato sensore'; document.querySelector('#altro').dispatchEvent(new Event('input'));
+      document.querySelector('#go').click(); await new Promise(x => setTimeout(x, 200));
+      const err = document.querySelector('#err').hidden ? '' : document.querySelector('#err').textContent, inviato = OUTBOX.length > n0;
+      closeSh(); window.__lottoManuale = false;
+      return { vuoto, err, inviato };
+    });
+    ok(r.vuoto === '', 'pagina di chiusura: campo lotto vuoto, anche se il fermo è stato aperto con un lotto');
+    ok(/Scrivi il numero di lotto/.test(r.err) && !r.inviato, 'senza lotto non chiude: chiede di scriverlo');
   }
 
   ok(!errori.length, 'nessun errore JavaScript nella pagina' + (errori.length ? ': ' + errori.join(' | ') : ''));
