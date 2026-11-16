@@ -22,7 +22,8 @@ let ver = 1, full = 0, same = 0; const posts = [];
 // Nei test dei fermi il lotto di chiusura (sempre a mano nell'app) viene scritto qui al momento di salvare,
 // come farebbe il tecnico. window.__lottoManuale = true per provare il campo vuoto.
 const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.target.closest && e.target.closest('#go, #giro'), l = document.getElementById('clotto');
-  if (g && l && !l.value && !window.__lottoManuale) l.value = '601095'; }, true);
+  if (g && l && !l.value && !window.__lottoManuale) l.value = '601095';
+  const lo = document.getElementById('lotto'); if (g && lo && !lo.value && !window.__lottoManuale) lo.value = '601095'; }, true);
 (async () => {
   await new Promise(r => srv.listen(PORT, r));
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' }); await ctx.addInitScript(LOTTO_AUTO); const p = await ctx.newPage();
@@ -64,12 +65,12 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   await p.fill('#lotto', '601095'); await p.click('#sheet #go'); await attesa(2500);
   ok(posts.some(o => o.action === 'open' && o.code === 'ST3-04' && o.lotto === '601095'), 'fermo inviato al foglio');
   ok(full > f0, 'dopo l\'invio i dati nuovi si riscaricano');
-  // lotto corretto a mano: al fermo successivo sulla stessa linea viene riproposto, anche se c'è il programma
+  // apri fermo: lotto sempre a mano, nessuna proposta (né l'ultimo usato né il programma)
   const lt = await p.evaluate(() => { const eq = eqBy('ST3-05') || { code: 'ST3-05', linea: 'ST3', macchina: 'BILANCIA', area: 'Packaging' }; const old = S.programma;
     S.programma = { ST3: { [dKey(giornoProd())]: '601090' } }; closeSh(); openSheet(eq);
-    const r = { v: document.querySelector('#lotto').value, sel: (document.querySelector('#lch [aria-pressed="true"]') || {}).textContent || '', hint: document.querySelector('#sheet .hint').textContent };
+    const r = { v: document.querySelector('#lotto').value, chips: document.querySelectorAll('#sheet #lch [data-v]').length };
     closeSh(); S.programma = old; return r; });
-  ok(lt.v === '601095' && /Ultimo usato · 601095/.test(lt.sel) && /Ultimo lotto usato su ST3/.test(lt.hint), 'apri fermo: riproposto l\'ultimo lotto scritto a mano (601095), non il primo del programma (601090)');
+  ok(lt.v === '' && lt.chips === 0, 'apri fermo: campo lotto vuoto, nessun lotto proposto (né l\'ultimo usato 601095 né il programma 601090)');
 
   console.log('\nDocumenti');
   await p.evaluate(() => go({ name: 'doc', code: 'ST3-04', tab: 'sch' })); await attesa(300);
