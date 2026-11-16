@@ -2350,7 +2350,7 @@ function closeSheet(f, opt = {}) {
           <label class="propsol okrow"><input type="checkbox" id="pok"><div><b>Ha risolto</b><span>la macchina è ripartita e il difetto non si è ripresentato</span></div></label>
           <div class="hint" style="margin:6px 0 0">Esempio approvato: <i>«Lame inserimento prospetti disallineate creano incastri → allentare le viti di serraggio e riallineare la lama»</i></div>
         </div></div>
-      <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '')}" placeholder="Numero lotto in produzione"></div>
+      <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="" placeholder="Scrivi il lotto: controllalo in linea"><div class="hint">Sempre a mano: l'app non lo propone, così non resta un lotto sbagliato.</div></div>
     </div>
     <div class="group"><label class="propsol"><input type="checkbox" id="multi"><div><b>Ho fatto più di un intervento</b><span>${GIRO ? 'te ne sei accorto solo ora? ' : ''}registri questo come intervento ${N} con l'ora in cui l'hai finito, poi compili il successivo</span></div></label>
       ${ORE ? '' : `<div id="mwrap" hidden style="margin-top:10px"><label class="label" for="mfin">Fine dell'intervento ${N}</label><input class="field lottobig" type="time" id="mfin"><div class="hint">Orario scritto a mano: segnato come <b>dichiarato</b>. L'intervento ${N + 1} parte da qui.</div></div>`}</div>
@@ -2404,7 +2404,7 @@ function closeSheet(f, opt = {}) {
     if (!msg && altro.length < 4) { msg = 'Scrivi una descrizione breve: cosa hai trovato e cosa hai fatto.'; $('#altro').focus(); }
     const psol = $('#psol').checked, pprob = $('#pprob').value.trim(), pcau = $('#pcau').value.trim(), pcome = $('#pcome').value.trim();
     if (!msg && psol) { const m = solControllo({ sintomo: pprob, causa: pcau, come: pcome, ok: $('#pok').checked, int: C.int }); if (m) { msg = m.msg; const el = $('#' + m.campo); if (el) el.focus(); } }
-    if (!msg && !LOTTO_OK($('#clotto').value)) msg = LOTTO_MSG;
+    if (!msg && !LOTTO_OK($('#clotto').value)) { msg = $('#clotto').value.trim() ? LOTTO_MSG : 'Scrivi il numero di lotto (controllalo in linea): per chiudere è obbligatorio.'; $('#clotto').focus(); }
     if (!msg && sost() && !$('#pezzo').value.trim()) { msg = 'Hai scelto SOSTITUZIONE: scrivi il codice del pezzo sostituito.'; $('#pezzo').focus(); }
     const now = Date.now();
     let ini = f.start, fin = now;
