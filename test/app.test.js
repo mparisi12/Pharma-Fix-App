@@ -573,6 +573,41 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
     await tc.close();
   }
 
+  console.log('\nOrari scritti a mano: hh:mm, tastierino, controllo mentre scrivi, barra con cosa manca');
+  {
+    await p.evaluate(() => { window.__lottoManuale = true; closeSh(); const t = Date.now();
+      closeSheet({ id: 'OR1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: t - 18 * 60000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man }); });
+    await p.waitForTimeout(200);
+    const pad = n => String(n).padStart(2, '0'), hm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
+    ok(/Manca:/.test(await p.innerText('#cmanca')) && /guasto/.test(await p.innerText('#cmanca')) && await p.$eval('#go', b => b.classList.contains('dim')), 'barra in basso: "Manca" con guasto, intervento, descrizione, lotto; pulsante attenuato');
+    await p.click('#cwhen [data-v="ora"]'); await p.waitForTimeout(100);
+    const at = await p.$eval('#cfin', e => ({ type: e.type, mode: e.inputMode, ph: e.placeholder }));
+    ok(at.type === 'text' && at.mode === 'numeric' && at.ph === 'hh:mm', 'casella orario: si scrive (tastierino numerico), si vede «hh:mm», niente rotella');
+    const dieci = Date.now() - 10 * 60000, d4 = hm(dieci).replace(':', '');
+    await p.click('#cfin'); await p.keyboard.type(d4); await p.waitForTimeout(100);
+    ok(await p.$eval('#cfin', e => e.value) === hm(dieci) && /Ripartita alle/.test(await p.innerText('#cfin-fb')) && /fermo di/.test(await p.innerText('#cfin-fb')), 'scrivo «' + d4 + '» → ' + hm(dieci) + ', riga verde con minuti fa e durata del fermo');
+    const prima = hm(Date.now() - 40 * 60000).replace(':', '');
+    await p.fill('#cfin', ''); await p.keyboard.type(prima); await p.waitForTimeout(100);
+    ok(/prima dell'apertura/.test(await p.innerText('#cfin-fb')) && await p.$eval('#cfin', e => e.closest('.tbox').classList.contains('ko')), 'orario prima dell\'apertura: rosso subito, prima di salvare');
+    await p.fill('#cfin', ''); await p.keyboard.type('2575'); await p.waitForTimeout(100);
+    ok(/non valido/.test(await p.innerText('#cfin-fb')), 'orario impossibile (25:75): «non valido»');
+    await p.fill('#cfin', ''); await p.keyboard.type('705'); await p.$eval('#cfin', e => e.blur()); await p.waitForTimeout(100);
+    ok(await p.$eval('#cfin', e => e.value) === '07:05', '«705» diventa 07:05 quando esci dalla casella');
+    await p.fill('#cfin', hm(dieci));
+    await p.click('#gua [data-v="SENSORE"]'); await p.click('#int [data-v="REGOLAZIONE"]'); await p.fill('#altro', 'regolato sensore ingresso');
+    await p.click('#clotto'); await p.keyboard.type('60109'); await p.waitForTimeout(100);
+    ok(/5 cifre/.test(await p.innerText('#lcnt')) && /lotto/.test(await p.innerText('#cmanca')), 'lotto: conta le cifre mentre scrivi');
+    await p.keyboard.type('9'); await p.waitForTimeout(150);
+    ok(/6 cifre ✓/.test(await p.innerText('#lcnt')) && /Diverso da quello d'apertura \(601095\)/.test(await p.innerText('#lhint')), 'lotto diverso da quello d\'apertura: lo dice, ma va bene');
+    ok(/Tutto pronto/.test(await p.innerText('#cmanca')) && !(await p.$eval('#go', b => b.classList.contains('dim'))), 'tutto compilato: «Tutto pronto», pulsante pieno');
+    if (SP) await p.screenshot({ path: SP.replace('.png', '_orari.png') });
+    await p.evaluate(() => { closeSh(); window.__lottoManuale = false; });
+    await p.evaluate(() => { const eq = eqBy('ST3-05') || { code: 'ST3-05', linea: 'ST3', macchina: 'BILANCIA', area: 'Packaging' }; closeSh(); openSheet(eq); });
+    await p.click('#when [data-v="ora"]'); await p.keyboard.type(hm(Date.now() - 5 * 60000).replace(':', '')); await p.waitForTimeout(100);
+    ok(/Ferma dalle/.test(await p.innerText('#oraini-fb')) && await p.$eval('#oraini', e => e.placeholder) === 'hh:mm', 'apri fermo «Scegli orario»: stessa casella da scrivere, con controllo');
+    await p.evaluate(() => closeSh());
+  }
+
   console.log('\nLotto in chiusura: sempre a mano');
   {
     const r = await p.evaluate(async () => {
