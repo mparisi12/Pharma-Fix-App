@@ -189,6 +189,21 @@ button.hrow{cursor:pointer}button.hrow:active{background:var(--steel-soft)}
 .sbox input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
 .cdate{display:flex;gap:8px;margin-top:8px}.cdate label{flex:1;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
 .cdate input{font:500 15px var(--body);padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);min-width:0}
+.tbox{display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:12px;background:var(--surface);padding:4px 12px;transition:border-color .12s}
+.tbox:focus-within{border-color:var(--ink)}.tbox.ko{border-color:var(--crit)}.tbox.okb{border-color:var(--ok)}
+.tfield{border:0;outline:0;background:transparent;color:var(--ink);font:600 28px var(--mono);letter-spacing:.06em;text-align:center;width:100%;min-width:0;padding:6px 0}
+.tfield::placeholder{color:#a3adb5;opacity:1}
+.tbox .tk{font-size:11px;color:var(--muted);text-align:right;line-height:1.3;white-space:nowrap}
+.tbox.sm{padding:2px 8px}.tbox.sm .tfield{font-size:22px}
+.tfb{margin-top:7px;font-size:13.5px;padding:7px 10px;border-radius:8px;line-height:1.4}
+.tfb.ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}.tfb.ko{background:var(--crit-soft);color:var(--crit);border:1px solid var(--crit)}
+.cbar{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:14px -16px calc(-20px - env(safe-area-inset-bottom,0px));padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 16px rgba(0,0,0,.07);z-index:3}
+.cbar .submit{margin-top:8px}.cbar .submit.giro small{display:none}.cbar .submit.dim{opacity:.6}
+.cmanca{display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+.cmanca .pl{font:600 11.5px var(--body);padding:2px 8px;border-radius:999px;border:1px solid var(--crit);background:var(--crit-soft);color:var(--crit)}
+.cmanca .pl.ok{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.lotrow{display:flex;align-items:center;gap:8px}.lotrow .field{flex:1}.lcnt{font:600 12px var(--body);white-space:nowrap}
+.lcnt.ok{color:var(--ok)}.lcnt.ko{color:var(--amber-ink)}
 .sbox .clr{border:0;background:none;font-size:18px;color:var(--muted);padding:4px 6px;cursor:pointer}
 .cfl{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 4px}
 .csc{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding-bottom:3px;scrollbar-width:none}.csc::-webkit-scrollbar{display:none}
@@ -1350,7 +1365,7 @@ function modSheet(f, eq, opt = {}) {
   M.catScelta = M.cat; M.catG = M.guasto;
   sheet(`<div class="sheet-h"><div><h3>Correggi il fermo</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)} · ${fmtDT(f.start)}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     <div class="banner" style="margin-top:10px">Prima e unica correzione diretta: dopo, per cambiare ancora, dovrai chiederlo al responsabile.</div>
-    <div class="group"><span class="label">Orari del fermo</span><div class="times"><label>Inizio<input class="field" type="time" id="mini" value="${hhmm(f.start)}"></label><label>Fine<input class="field" type="time" id="mfin" value="${hhmm(f.end)}"></label></div>
+    <div class="group"><span class="label">Orari del fermo</span><div class="times"><label>Inizio${oraBox('mini', hhmm(f.start), '', 'sm')}</label><label>Fine${oraBox('mfin', hhmm(f.end), '', 'sm')}</label></div>
       <div class="hint">Se li cambi vengono segnati come <b>dichiarati</b>.</div></div>
     <div class="group"><span class="label">Cosa si è guastato</span><div class="chips" id="mgua">${guaChips(eq, M.guasto)}</div><div id="mcatbox"></div></div>
     <div class="group"><span class="label">Cosa hai fatto</span><div class="chips ich2" id="mint">${intChips(M.int)}</div></div>
@@ -1360,6 +1375,7 @@ function modSheet(f, eq, opt = {}) {
     <div class="group" id="mpzg" ${U(M.int) === 'SOSTITUZIONE' ? '' : 'hidden'}><label class="label" for="mpz">Codice pezzo sostituito</label><input class="field" id="mpz" value="${esc(f.pezzo || '')}"></div>
     <div class="err" id="merr" hidden></div>
     <button class="submit blue" id="mgo">Salva la correzione</button>`);
+  oraBind('mini'); oraBind('mfin');
   catBox($('#mcatbox'), M.guasto, M);
   singleChoice($('#mint'), v => { M.int = v; $('#mpzg').hidden = U(v) !== 'SOSTITUZIONE'; });
   singleChoice($('#mgua'), v => { M.guasto = v; catBox($('#mcatbox'), v, M); });
@@ -1368,7 +1384,7 @@ function modSheet(f, eq, opt = {}) {
     const e = $('#merr'), alt = $('#malt').value.trim(), lot = $('#mlot').value.trim(), pz = $('#mpz').value.trim();
     // orari: stesso giorno dell'inizio originale (fine dopo mezzanotte → giorno dopo)
     const at = (v, base) => { const m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); if (!m) return null; const d = new Date(base); d.setHours(+m[1], +m[2], 0, 0); return d.getTime(); };
-    let ini = at($('#mini').value, f.start), fin = at($('#mfin').value, f.start);
+    let ini = at(oraNorm($('#mini').value), f.start), fin = at(oraNorm($('#mfin').value), f.start);
     if (ini != null && fin != null && fin <= ini) fin += 864e5;
     const tmsg = ini == null || fin == null ? 'Scrivi ora di inizio e di fine.' : fin > Date.now() + 60000 ? 'La fine non può essere nel futuro.' : fin - ini > 12 * 3600e3 ? 'Fermo più lungo di 12 ore: controlla gli orari.' : '';
     const msg = tmsg || !M.cat || !M.int || !M.guasto ? 'Scegli cosa si è guastato, la categoria e cosa hai fatto.' : alt.length < 4 ? 'La descrizione è obbligatoria.' : !LOTTO_OK(lot) ? LOTTO_MSG : U(M.int) === 'SOSTITUZIONE' && !pz ? 'Con SOSTITUZIONE scrivi il codice del pezzo.' : '';
@@ -2051,12 +2067,15 @@ function openSheet(eq) {
     <div class="group"><span class="label">Quando si è fermata?</span><div class="when" id="when">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${pad(new Date(now0).getHours())}:${pad(new Date(now0).getMinutes())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>si è fermata prima</small></button></div>
-      <div id="orawrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="oraini"><div class="hint">L'inizio viene segnato come <b>dichiarato</b>.</div></div></div>
+      <div id="orawrap" hidden style="margin-top:10px">${oraBox('oraini', '')}<div class="hint">Scrivi solo i numeri: <b>705</b> diventa <b>07:05</b>. L'inizio viene segnato come <b>dichiarato</b>.</div></div></div>
     <div class="err" id="oerr" hidden></div>
     <button class="submit red" id="go" style="margin-top:16px">Apri fermo</button>
     <div class="center"><button class="linkbtn" data-x>Non ora · resta sulla scheda macchina</button></div>`, true);
   $$('#sheet [data-x]').forEach(b => b.onclick = closeSh);
   singleChoice($('#when'), v => { O.ora = v === 'ora'; $('#orawrap').hidden = !O.ora; if (O.ora) $('#oraini').focus(); });
+  oraBind('oraini', n => { if (oraFutura(n)) return { ko: `${n} è <b>nel futuro</b> (adesso sono le ${pad(new Date().getHours())}:${pad(new Date().getMinutes())}).` };
+    const t = oraToTs(n), t0 = limiteDichiarati();
+    return t < t0 ? { ko: `Si possono aprire fermi iniziati dalle ${pad(new Date(t0).getHours())}:${pad(new Date(t0).getMinutes())} in poi.` } : { ok: `Ferma dalle <b>${n}</b> · ${minFa(t)}. Segnato come <b>dichiarato</b>.` }; });
   $('#go').onclick = () => {
     const lv = $('#lotto').value.trim(), e = $('#oerr'), now = Date.now();
     if (!LOTTO_OK(lv)) { e.textContent = LOTTO_MSG; e.hidden = false; $('#lotto').focus(); return; }
@@ -2305,6 +2324,32 @@ function catBox(el, g, M, onPick) {
 function toggleChoice(el, onPick) { el.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const on = b.getAttribute('aria-pressed') !== 'true';
   el.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', on && x === b)); onPick(on ? b.dataset.v : null); }; }
 
+/* Orari scritti a mano (mai selezionati da una rotella): tastierino numerico, «705» → 07:05, controllo mentre scrivi */
+const oraFmt = v => { const t = String(v || ''); if (/^\d{1,2}:\d{0,2}$/.test(t)) return t; const d = t.replace(/\D/g, '').slice(0, 4); return d.length <= 2 ? d : d.slice(0, d.length - 2) + ':' + d.slice(-2); };
+const oraNorm = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(oraFmt(String(v || '').trim())); return m && +m[1] < 24 && +m[2] < 60 ? pad(+m[1]) + ':' + m[2] : null; };
+// "hh:mm" più avanti di adesso (oggi, entro 12 ore): è nel futuro, non un orario di ieri
+const oraFutura = n => { const [h, m] = n.split(':').map(Number), d = new Date(); d.setHours(h, m, 0, 0); return d.getTime() > Date.now() + 60000 && d.getTime() - Date.now() < 12 * 3600e3; };
+const minFa = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'adesso' : m < 60 ? m + (m === 1 ? ' minuto fa' : ' minuti fa') : fmtDur(m) + ' fa'; };
+function oraBox(id, val, side, cls) {
+  return `<div class="tbox${cls ? ' ' + cls : ''}"><input class="tfield" id="${id}" type="text" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="hh:mm" value="${esc(val || '')}">${side === '' ? '' : `<span class="tk">${side || 'scrivi<br>es. <b>0705</b>'}</span>`}</div>${cls === 'sm' ? '' : `<div class="tfb" id="${id}-fb" hidden></div>`}`;
+}
+// check(hh:mm) → { ok: html } o { ko: html } o null; restituisce la funzione che ricontrolla
+function oraBind(id, check, poi) {
+  const el = $('#' + id); if (!el) return () => {};
+  const run = (finale, init) => {
+    const v = el.value.trim(), n = oraNorm(v), fb = $('#' + id + '-fb'), cifre = v.replace(/\D/g, '').length;
+    let r = null;
+    if (v && !n && (finale || cifre >= 4)) r = { ko: 'Orario non valido: scrivi ore e minuti, es. <b>0705</b> = 07:05.' };
+    else if (n && check) r = check(n);
+    const box = el.closest('.tbox'); box.classList.toggle('ko', !!(r && r.ko)); box.classList.toggle('okb', !!(r && r.ok));
+    if (fb) { fb.hidden = !r; if (r) { fb.className = 'tfb ' + (r.ko ? 'ko' : 'ok'); fb.innerHTML = r.ko || r.ok; } }
+    if (poi && !init) poi();
+  };
+  el.addEventListener('input', () => { const a = el.value, f = oraFmt(a); if (f !== a) el.value = f; run(false); });
+  el.addEventListener('blur', () => { const n = oraNorm(el.value); if (n) el.value = n; run(true); });
+  el.addEventListener('focus', () => setTimeout(() => el.select(), 0));
+  run(false, true); return run;
+}
 function closeSheet(f, opt = {}) {
   const eq = eqBy(f.code) || { area: 'Packaging', code: f.code, linea: f.linea };
   const C = { img: null, circles: [], cat: null, int: null, guasto: PRE_G[f.id] || null };
@@ -2315,16 +2360,17 @@ function closeSheet(f, opt = {}) {
   const GIRO = !ORE; // "Intervento fatto, continuo" (tempo reale) solo in Packaging con il fermo aperto
   sheet(`<div class="sheet-h"><div><h3>${REG ? 'Registra fermo' : 'Chiudi fermo'}${N > 1 ? ' · intervento ' + N : ''}</h3><div class="label" style="margin-top:4px">${esc(f.linea)} · ${esc(f.macchina)}${REG ? ' · <b>' + esc(areaLbl(eq.area) || 'FERMO GIÀ FINITO') + '</b>' : ''}</div></div><button class="x" data-x aria-label="Annulla">✕</button></div>
     ${ORE ? `<div class="group"><span class="label">Orari del fermo${isFill(eq) ? ' · come sul batch record' : ''}</span>
-      <div class="times"><label>Inizio<input class="field" type="time" id="tini" ${FILL || f.start ? `value="${hhmm(f.start)}"` : ''} required></label><label><span id="tfinl">Fine</span><input class="field" type="time" id="tfin" value="${hhmm(Date.now())}" required></label></div>
+      <div class="times"><label>Inizio${oraBox('tini', FILL || f.start ? hhmm(f.start) : '', '', 'sm')}</label><label><span id="tfinl">Fine</span>${oraBox('tfin', hhmm(Date.now()), '', 'sm')}</label></div>
+      <div class="tfb" id="tpfb" hidden></div>
       <div class="hint">${FILL ? 'Già scritti: apertura e adesso. Correggili con gli orari del batch record. ' : REG && !isFill(eq) ? 'Fermo non aperto in tempo: scrivi quando la macchina si è fermata e quando è ripartita. ' : ''}Fermi dalle ${hhmm(t0)} in poi. Gli orari scritti a mano vengono segnati come <b>dichiarati</b>.</div></div>` : ''}
     ${prima.length ? `<div class="giri"><span class="label">Già registrati in questo fermo</span>${prima.map(x => `<div class="gr"><b>${x.giro || 1}.</b><span>${esc(x.guasto || '—')} · ${esc(nice(x.int || ''))}</span><em>${x.end ? fmtDur((x.end - x.start) / 60000) : ''}</em></div>`).join('')}
       <div class="hint">Ora compili l'intervento ${N}: solo quello che hai fatto da ${hhmm(f.start)}.</div></div>` : ''}
-    ${REG ? '' : `<div class="csum"><div><span class="label">${N > 1 ? 'Intervento da' : 'Aperto'}</span><b>${hhmm(f.start)}</b></div><div><span class="label">Durata</span><b class="timer" style="color:inherit;font:600 16px var(--mono)" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</b></div><div><span class="label">Lotto</span><b>${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '—')}</b></div></div>
+    ${REG ? '' : `<div class="csum"><div><span class="label">${N > 1 ? 'Intervento da' : 'Aperto'}</span><b>${hhmm(f.start)}</b></div><div><span class="label">Durata</span><b class="timer" style="color:inherit;font:600 16px var(--mono)" data-since="${f.start}">${fmtTimer(Date.now() - f.start)}</b></div><div><span class="label">Lotto apertura</span><b>${esc(f.lotto && f.lotto !== 'undefined' ? f.lotto : '—')}</b></div></div>
     <div class="hint" style="margin-top:6px">Aperto da <b>${esc(apertoDa(f) || '—')}</b>${U(apertoDa(f)) !== U(S.man) ? ' · lo stai chiudendo tu (' + esc(S.man) + ')' : ''}</div>`}
     ${ORE ? '' : `<div class="group" id="cwgrp"><span class="label">Quando è ripartita?</span><div class="when" id="cwhen">
       <button type="button" data-v="now" aria-pressed="true">Adesso<small>${hhmm(Date.now())}</small></button>
       <button type="button" data-v="ora" aria-pressed="false">Scegli orario<small>è ripartita prima</small></button></div>
-      <div id="cfwrap" hidden style="margin-top:10px"><input class="field lottobig" type="time" id="cfin"><div class="hint">L'orario scritto a mano viene segnato come <b>dichiarato</b>.</div></div></div>`}
+      <div id="cfwrap" hidden style="margin-top:10px">${oraBox('cfin', '', 'dalle ' + hhmm(f.start) + '<br>alle ' + hhmm(Date.now()))}<div class="hint">Scrivi solo i numeri: <b>705</b> diventa <b>07:05</b>. Segnato come <b>dichiarato</b>.</div></div></div>`}
     <div class="group step" id="st1"><span class="label"><em class="stepn">1</em>Cosa si è guastato <i class="lockhint" style="display:inline">· il componente / la zona</i></span><div class="chips" id="gua">${guaChips(eq, C.guasto)}</div><div id="catbox"></div>
       <div id="propbox" hidden style="margin-top:10px"><label class="label" for="gprop">Che voce manca? · obbligatoria con ALTRO</label><input class="field" id="gprop" autocomplete="off" placeholder="2–3 parole, es. LAMA SBUCCIATRICE"><div class="hint">Se la stessa voce torna più volte, il responsabile la aggiunge all'elenco.</div></div><div id="solsug"></div></div>
     <div class="group step locked" id="st2"><span class="label"><em class="stepn">2</em>Cosa hai fatto <span class="prop" id="iprop"></span><i class="lockhint">· scegli prima cosa si è guastato</i></span><div class="chips ich2" id="int">${intChips(null)}</div>
@@ -2341,13 +2387,14 @@ function closeSheet(f, opt = {}) {
           <label class="propsol okrow"><input type="checkbox" id="pok"><div><b>Ha risolto</b><span>la macchina è ripartita e il difetto non si è ripresentato</span></div></label>
           <div class="hint" style="margin:6px 0 0">Esempio approvato: <i>«Lame inserimento prospetti disallineate creano incastri → allentare le viti di serraggio e riallineare la lama»</i></div>
         </div></div>
-      <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="" placeholder="Scrivi il lotto: controllalo in linea"><div class="hint">Sempre a mano: l'app non lo propone, così non resta un lotto sbagliato.</div></div>
+      <div class="group"><label class="label" for="clotto"><em class="stepn">5</em>Lotto</label><div class="lotrow"><input class="field" id="clotto" inputmode="numeric" autocomplete="off" value="" placeholder="Scrivi il lotto: controllalo in linea"><span class="lcnt" id="lcnt"></span></div><div class="hint" id="lhint">Sempre a mano: l'app non lo propone, così non resta un lotto sbagliato.</div></div>
     </div>
     <div class="group"><label class="propsol"><input type="checkbox" id="multi"><div><b>Ho fatto più di un intervento</b><span>${GIRO ? 'te ne sei accorto solo ora? ' : ''}registri questo come intervento ${N} con l'ora in cui l'hai finito, poi compili il successivo</span></div></label>
-      ${ORE ? '' : `<div id="mwrap" hidden style="margin-top:10px"><label class="label" for="mfin">Fine dell'intervento ${N}</label><input class="field lottobig" type="time" id="mfin"><div class="hint">Orario scritto a mano: segnato come <b>dichiarato</b>. L'intervento ${N + 1} parte da qui.</div></div>`}</div>
+      ${ORE ? '' : `<div id="mwrap" hidden style="margin-top:10px"><label class="label" for="mfin">Fine dell'intervento ${N}</label>${oraBox('mfin', '', 'dalle ' + hhmm(f.start) + '<br>alle ' + hhmm(Date.now()))}<div class="hint">Orario scritto a mano: segnato come <b>dichiarato</b>. L'intervento ${N + 1} parte da qui.</div></div>`}</div>
     <div class="err" id="err" hidden></div>
+    <div class="cbar"><div class="cmanca" id="cmanca"></div>
     ${GIRO ? `<button class="submit giro" id="giro">⏱ Intervento fatto, continuo<small>la macchina è ancora ferma: registri l'intervento ${N} e parte il ${N + 1}</small></button>` : ''}
-    <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button>
+    <button class="submit" id="go">${REG ? 'Registra fermo' : 'Chiudi fermo'}</button></div>
     ${REG ? '' : N > 1 ? '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Intervento ' + N + ' aperto per sbaglio (la macchina era già ripartita)? Gli interventi già registrati restano.</div><button class="linkbtn danger" id="canc">Annulla l\'intervento ' + N + '</button></div>'
       : '<div class="dangerzone"><div class="hint" style="margin:0 0 4px">Fermo aperto per sbaglio (macchina non ferma, macchina sbagliata)?</div><button class="linkbtn danger" id="canc">Annulla il fermo</button></div>'}`);
   C.big = true; C.gal = true; C.extra = []; photoBox($('#phgrp'), C, 'Foto della zona di intervento', nuova => { if (nuova) drawExtra(); });
@@ -2363,6 +2410,42 @@ function closeSheet(f, opt = {}) {
     w.querySelectorAll('[data-add]').forEach(b => b.onclick = () => capture(im => { C.extra.push({ img: im, circles: [], gal: true }); drawExtra(); }, b.dataset.add === 'gal'));
   }
   drawExtra();
+  // orari scritti a mano: controllo mentre scrivi + barra in basso con cosa manca
+  const futuro = n => ({ ko: `${n} è <b>nel futuro</b> (adesso sono le ${hhmm(Date.now())}): controlla l'orario.` });
+  const cbarUpd = () => { const el = $('#cmanca'); if (!el) return;
+    const okOra = id => { const x = $('#' + id); return !!(x && oraNorm(x.value) && !x.closest('.tbox').classList.contains('ko')); };
+    const it = [['guasto', !!C.guasto], ['intervento', !!C.int]];
+    if (sost()) it.push(['pezzo', !!$('#pezzo').value.trim()]);
+    it.push(['descrizione', $('#altro').value.trim().length >= 4], ['lotto', LOTTO_OK($('#clotto').value)]);
+    if (ORE) it.push(['orari', okOra('tini') && okOra('tfin') && !$('#tpfb').classList.contains('ko')]);
+    else if ($('#multi').checked && $('#mfin')) it.push(['fine intervento ' + N, okOra('mfin')]);
+    else if (C.fineOra) it.push(['ora ripartenza', okOra('cfin')]);
+    const manca = it.filter(x => !x[1]);
+    el.innerHTML = `<span>${manca.length ? 'Manca:' : 'Tutto pronto'}</span>` + it.map(([t, o]) => `<span class="pl${o ? ' ok' : ''}">${esc(t)}${o ? ' ✓' : ''}</span>`).join('');
+    ['#go', '#giro'].forEach(q => { const b = $(q); if (b) b.classList.toggle('dim', manca.length > 0); });
+  };
+  oraBind('cfin', n => { if (oraFutura(n)) return futuro(n); const t = oraToTs(n);
+    if (t <= f.start) return { ko: `${n} è <b>prima dell'apertura</b> del fermo (${hhmm(f.start)}): controlla l'orario.` };
+    if (t < t0) return { ko: `Si possono chiudere solo fermi finiti dalle ${hhmm(t0)} in poi.` };
+    return { ok: `Ripartita alle <b>${n}</b> · ${minFa(t)} → fermo di <b>${fmtDur((t - f.start) / 60000)}</b>. Segnato come <b>dichiarato</b>.` }; }, cbarUpd);
+  oraBind('mfin', n => { if (oraFutura(n)) return futuro(n); const t = oraToTs(n);
+    if (t <= f.start) return { ko: `${n} è <b>prima dell'inizio</b> dell'intervento ${N} (${hhmm(f.start)}).` };
+    if (t < t0) return { ko: `Si possono registrare solo interventi finiti dalle ${hhmm(t0)} in poi.` };
+    return { ok: `Intervento ${N} finito alle <b>${n}</b> · ${minFa(t)} → durata <b>${fmtDur((t - f.start) / 60000)}</b>. L'intervento ${N + 1} parte da qui.` }; }, cbarUpd);
+  if (ORE) { const pair = () => { const fb = $('#tpfb'), a = oraNorm($('#tini').value), b = oraNorm($('#tfin').value); let r = null;
+      if (a && b) { const now = Date.now(); let ini = oraToTs(a, now), fin = oraToTs(b, now);
+        if (ini >= fin && fin - (ini - 864e5) <= 12 * 3600e3) ini -= 864e5;
+        r = oraFutura(b) ? futuro(b) : fin < t0 ? { ko: `Si possono registrare solo fermi finiti dalle ${hhmm(t0)} in poi.` } : fin <= ini ? { ko: 'La fine deve essere dopo l\'inizio.' }
+          : fin - ini > 12 * 3600e3 ? { ko: 'Fermo più lungo di 12 ore: controlla gli orari.' } : { ok: `Fermo dalle <b>${a}</b> alle <b>${b}</b> → <b>${fmtDur((fin - ini) / 60000)}</b>` }; }
+      fb.hidden = !r; if (r) { fb.className = 'tfb ' + (r.ko ? 'ko' : 'ok'); fb.innerHTML = r.ko || r.ok; } cbarUpd(); };
+    oraBind('tini', null, pair); oraBind('tfin', null, pair); }
+  { const lo = $('#clotto'), op = f.lotto && f.lotto !== 'undefined' ? String(f.lotto) : '', h0 = $('#lhint').innerHTML;
+    lo.addEventListener('input', () => { const v = lo.value.trim(), c = $('#lcnt');
+      c.className = 'lcnt ' + (LOTTO_OK(v) ? 'ok' : 'ko'); c.textContent = !v ? '' : /\D/.test(v) ? 'solo cifre' : v.length + ' cifre' + (LOTTO_OK(v) ? ' ✓' : '');
+      $('#lhint').innerHTML = LOTTO_OK(v) && op && v !== op ? `Diverso da quello d'apertura (${esc(op)}): va bene, vale questo.` : h0; }); }
+  $('#sheet .sheet').addEventListener('input', () => setTimeout(cbarUpd, 0));
+  $('#sheet .sheet').addEventListener('click', () => setTimeout(cbarUpd, 0));
+  setTimeout(cbarUpd, 0);
   C.fineOra = false; const cw = $('#cwhen'); if (cw) singleChoice(cw, v => { C.fineOra = v === 'ora'; $('#cfwrap').hidden = !C.fineOra; if (C.fineOra) $('#cfin').focus(); });
   $('#psol').onchange = () => { $('#pswrap').hidden = !$('#psol').checked; if ($('#psol').checked && !$('#pcome').value.trim()) $('#pcome').value = $('#altro').value.trim(); };
   // passo dopo passo: categoria → tipo intervento → tipo guasto → descrizione e lotto
