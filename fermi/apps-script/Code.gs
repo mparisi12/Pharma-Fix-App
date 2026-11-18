@@ -1793,9 +1793,8 @@ function doGet(e) {
     const action = e.parameter.action || 'init';
     if (action === 'init') return initCache_(e.parameter.v);
     if (action === 'ping') return json_({ ok: true });
-    if (action === 'formati') { // solo coordinatori, dal loro telefono: i dati dei formati non arrivano mai ai tecnici
+    if (action === 'formati') { // tutti i tecnici, solo dal telefono approvato (dati letti dal file nel Drive del responsabile)
       checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
-      if (!isCoordinatore_(e.parameter.man)) throw new Error('Sezione riservata ai coordinatori');
       return formatiJson_();
     }
     if (action === 'cerca') { // ricerca nell'archivio vecchio (oltre 90 giorni), per tutti i tecnici
@@ -2710,7 +2709,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '09/11/2026 11:00';
+const VERSIONE_SCRIPT = '19/11/2026 00:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -3320,13 +3319,13 @@ function collegaFormati() {
   if (!t) { props.deleteProperty('FORMATI_ID'); ui.alert('Formati scollegati.'); return; }
   if (!id) { ui.alert('Indirizzo non riconosciuto: copia l\'indirizzo del file dalla barra del browser.'); return; }
   props.setProperty('FORMATI_ID', id);
-  try { CacheService.getScriptCache().remove('fmt'); const d = formatiDati_(true); ui.alert('Collegato: ' + d.prod.length + ' codici, ' + d.macc.length + ' macchine, ' + d.linee.length + ' linee.' + (d.avvisi.length ? '\n\nAttenzione:\n' + d.avvisi.join('\n') : '')); }
+  try { CacheService.getScriptCache().remove('fmt2'); const d = formatiDati_(true); ui.alert('Collegato: ' + d.prod.length + ' codici, ' + d.macc.length + ' macchine, ' + d.linee.length + ' linee, ' + d.ric.length + ' ricette.' + (d.avvisi.length ? '\n\nAttenzione:\n' + d.avvisi.join('\n') : '')); }
   catch (e) { ui.alert('Non riesco a leggere il file: ' + e.message); }
 }
 function formatiJson_() {
   const c = CacheService.getScriptCache(); let t = null;
-  try { t = cacheGet_(c, 'fmt'); } catch (e) { Logger.log(e); }
-  if (!t) { t = JSON.stringify(Object.assign({ ok: true }, formatiDati_())); try { cachePut_(c, 'fmt', t); } catch (e) { Logger.log(e); } }
+  try { t = cacheGet_(c, 'fmt2'); } catch (e) { Logger.log(e); }
+  if (!t) { t = JSON.stringify(Object.assign({ ok: true }, formatiDati_())); try { cachePut_(c, 'fmt2', t); } catch (e) { Logger.log(e); } }
   return ContentService.createTextOutput(t).setMimeType(ContentService.MimeType.JSON);
 }
 // Legge il file dei formati e restituisce i dati compatti per l'app
@@ -3344,20 +3343,35 @@ function formatiDati_(nuovo) {
   const cAtt = ['CONTENITORE', 'TAPPO', 'CONTAGOCCE', 'DOSAGGIO', 'ETICHETTA', 'FUSTELLA ASTUCCIO', 'ISTRUZIONE', 'PEZZI PER ASTUCCIO', 'FUSTELLA CARTONE', 'FARDELLO'].map(n => col(new RegExp('^' + n)));
   const cFase = col(/^FASE$/), cFor = col(/^CODICE FORMATO/), cFF = col(/^FORMATO PRIMARIO \(FF\)/, -1), cEsito = col(/^ESITO$/, -1), cStato = col(/^STATO FORMATO/, -1), cRep = col(/^REPARTO/, -1);
   const cRicP = col(/^RICETTA PRIMARIO/, -1), cRicS = col(/^RICETTA SECONDARIO/, -1);
+  const cT5 = col(/^TIPO CODICE 5/, -1), cLg = col(/^LARGHEZZA ISTRUZIONE/, -1), cCRic = col(/^CONTROLLO RICETTE/, -1), cCDiba = col(/^CONTROLLO DIBA/, -1);
   const prod = P.slice(2).filter(r => S(r[cCod])).map(r => ({ c: S(r[cCod]), d: S(r[cDes]), lp: S(r[cPrim]).toUpperCase().replace(/\s+/g, ''),
     ls: cX.filter(([x, i]) => S(r[i]).toUpperCase() === 'X').map(([x]) => x.replace(/\s+/g, '')), a: cAtt.map(i => S(r[i])),
     f: S(r[cFase]), fmt: S(r[cFor]), ff: cFF >= 0 ? S(r[cFF]) : '', es: cEsito >= 0 ? S(r[cEsito]) : '', st: cStato >= 0 ? S(r[cStato]) : '', rep: cRep >= 0 ? S(r[cRep]) : '',
-    rp: cRicP >= 0 ? S(r[cRicP]) : '', rs: cRicS >= 0 ? S(r[cRicS]) : '' }));
+    rp: cRicP >= 0 ? S(r[cRicP]) : '', rs: cRicS >= 0 ? S(r[cRicS]) : '',
+    t5: cT5 >= 0 ? S(r[cT5]).toUpperCase() : '', lg: cLg >= 0 ? S(r[cLg]).toUpperCase() : '', cr: cCRic >= 0 ? S(r[cCRic]) : '', cd: cCDiba >= 0 ? S(r[cCDiba]) : '' }));
   // MACCHINE: intestazioni alla riga 1
   const M = foglio('MACCHINE'), hm = M[0].map(x => S(x).replace(/\s+/g, ' ').toUpperCase());
   const cm = n => { const e = hm.indexOf(n); return e >= 0 ? e : hm.findIndex(x => x.indexOf(n) === 0); };
   const iC = cm('CONTENITORE'), car = FMT_CAR.map((n, k) => iC + k);
   const macc = M.slice(1).filter(r => S(r[cm('MACCHINA_ID')])).map(r => ({ id: S(r[cm('MACCHINA_ID')]), l: S(r[cm('LINEA_ID')]).toUpperCase().replace(/\s+/g, ''), pos: Number(r[cm('POS')]) || 0,
     n: S(r[cm('MACCHINA')]), fn: S(r[cm('FUNZIONE')]), fase: S(r[cm('FASE')]).toUpperCase(), q: S(r[cm('LAVORA QUANDO')]).toUpperCase() || 'SEMPRE',
-    m: car.map(i => S(r[i]).toUpperCase().slice(0, 1)), ver: S(r[cm('VERIFICATA')]).toUpperCase() !== 'NO' }));
+    m: car.map(i => S(r[i]).toUpperCase().slice(0, 1)), ver: S(r[cm('VERIFICATA')]).toUpperCase() !== 'NO',
+    hr: cm('HA RICETTE?') >= 0 ? !/^NO/.test(S(r[cm('HA RICETTE?')]).toUpperCase()) : true }));
   if (iC < 0) avvisi.push('MACCHINE: colonna Contenitore non trovata');
+  // RICETTE (facoltativo): una riga per ricetta reale di ogni macchina, intestazioni alla riga 2.
+  // Ogni ricetta vale per i codici con gli stessi valori nelle colonne compilate (contenitore, dosaggio, fustella astuccio, larghezza istruzione, fustella cartone, media fill)
+  let ric = [];
+  const shR = ss.getSheets().find(x => x.getName().trim().toUpperCase() === 'RICETTE');
+  if (shR) {
+    const R = shR.getDataRange().getValues(), hr = (R[1] || []).map(x => S(x).replace(/\s+/g, ' ').toUpperCase());
+    const cr = n => hr.findIndex(x => x.indexOf(n) === 0);
+    const k = { id: cr('MACCHINA_ID'), co: cr('CONTENITORE'), do: cr('DOSAGGIO'), fa: cr('FUSTELLA ASTUCCIO'), lg: cr('LARGHEZZA'), fc: cr('FUSTELLA CARTONE'), mf: cr('MEDIA FILL'), nome: cr('NOME RICETTA'), n: cr('N° CODICI') };
+    if (k.id < 0 || k.nome < 0) avvisi.push('RICETTE: colonne Macchina_ID o Nome ricetta non trovate');
+    else ric = R.slice(2).filter(r => S(r[k.id]) && S(r[k.nome])).map(r => ({ id: S(r[k.id]), co: k.co >= 0 ? S(r[k.co]) : '', do: k.do >= 0 ? S(r[k.do]) : '', fa: k.fa >= 0 ? S(r[k.fa]) : '',
+      lg: k.lg >= 0 ? S(r[k.lg]).toUpperCase() : '', fc: k.fc >= 0 ? S(r[k.fc]) : '', mf: k.mf >= 0 ? S(r[k.mf]).toUpperCase() : '', nome: S(r[k.nome]), n: k.n >= 0 ? Number(r[k.n]) || 0 : 0 }));
+  }
   const L = foglio('LINEE'), hl = L[0].map(x => S(x).toUpperCase());
   const linee = L.slice(1).filter(r => S(r[0])).map(r => ({ id: S(r[0]).toUpperCase().replace(/\s+/g, ''), rep: S(r[hl.indexOf('REPARTO')]), pro: S(r[hl.findIndex(x => /^PROSEGUE/.test(x))]) }));
-  return { prod: prod, macc: macc, linee: linee, car: FMT_CAR, avvisi: avvisi, letto: Date.now() };
+  return { prod: prod, macc: macc, linee: linee, ric: ric, car: FMT_CAR, avvisi: avvisi, letto: Date.now() };
 }
 
