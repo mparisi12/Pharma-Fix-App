@@ -409,7 +409,7 @@ console.log('\nPiù operazioni nella descrizione (antifurbi)');
 }
 
 
-console.log('\nFormati (solo coordinatori, file collegato)');
+console.log('\nFormati (tutti dal telefono approvato, file collegato)');
 {
   const { ctx, props } = nuovo();
   const P = [['CONFEZIONATO SU'], ['Codice SAP', 'Descrizione', 'Linea PRIMARIO\n(filling)', 'ST3', 'SPL1', 'Contenitore', 'Tappo', 'Contagocce', 'Dosaggio\n(ml / g)', 'Etichetta', 'Fustella astuccio', 'Istruzione', 'Pezzi per astuccio', 'Fustella cartone', 'Fardello', 'Fase', 'Codice formato\ndel codice', 'ESITO'],
@@ -429,9 +429,18 @@ console.log('\nFormati (solo coordinatori, file collegato)');
   ok(d.linee[0].pro === 'ST3, SPL1' && !d.avvisi.length, 'LINEE lette, nessun avviso');
   const prova = man => { const r = ctx.doGet({ parameter: { key: 'k', action: 'formati', man: man, dev: 'T-1' } }); return JSON.parse(r.t || r.getContent && r.getContent() || '{}'); };
   ctx.checkKey_ = () => {}; ctx.checkTelefono_ = () => {};
-  ok(/coordinatori/.test(prova('ROSSI Mario').error || ''), 'un tecnico chiede i formati: rifiutato dallo script');
+  const jt = prova('ROSSI Mario');
+  ok(jt.ok && jt.prod.length === 2, 'un tecnico (telefono approvato) riceve i formati');
   const j = prova('VERDI Anna');
   ok(j.ok && j.prod.length === 2, 'un coordinatore li riceve');
+  ctx.checkTelefono_ = () => { throw new Error('Telefono non autorizzato per ROSSI Mario: in attesa'); };
+  ok(/Telefono non autorizzato/.test(prova('ROSSI Mario').error || ''), 'telefono non approvato: niente formati');
+  ctx.checkTelefono_ = () => {};
+  // foglio RICETTE (intestazioni alla riga 2)
+  fs.RICETTE = new Sheet('RICETTE', [['RICETTE'], ['Macchina_ID\n(codice ITEM)', 'Linea', 'Macchina', 'Fase', 'Contenitore\n(solo se la macchina lo usa)', 'Dosaggio\n(solo se)', 'Fustella astuccio\n(solo se)', 'Larghezza istruzione\n(solo se)', 'Fustella cartone\n(solo se)', 'Media fill', 'NOME RICETTA\nSUL PANNELLO', 'N° codici\nche la usano'],
+    ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '5 ml', '', '', '', '', 'RIC 5', 3], ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '10 ml', '', '', '', '', 'RIC 10', 7], ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '', '', '', '', 'MEDIA FILL', 'MF', 1]]);
+  const d2 = ctx.formatiDati_();
+  ok(d2.ric.length === 3 && d2.ric[0].id === 'ST3-02' && d2.ric[1].do === '10 ml' && d2.ric[2].mf === 'MEDIA FILL' && d2.ric[1].n === 7 && d2.ric[0].nome === 'RIC 5', 'RICETTE lette: macchina, valori, nome sul pannello, n° codici');
 }
 
 

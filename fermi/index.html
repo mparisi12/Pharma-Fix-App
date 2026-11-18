@@ -1294,6 +1294,7 @@ function renderEquip() {
       <button class="tile4" data-go="anoform" data-code="${esc(C)}">${I.ano}<b>ANOMALIA</b></button>
     </div>
     ${ano.length ? `<h2>Anomalie aperte · ${ano.length}</h2><div class="list">${ano.map(anoCard).join('')}</div>` : ''}
+    <button class="lnkline" id="eqfmt">${IK.fmt}<span><b>Formati e ricette di questa macchina</b><small>cosa cambia al cambio formato, ricette sul pannello</small></span><span class="chev">›</span></button>
     <button class="lnkline" data-linea="${esc(eq.linea)}">${IK.line}<span><b>Fermi di tutta la linea ${esc(eq.linea)}</b><small>riepilogo per macchina e ultimi interventi</small></span><span class="chev">›</span></button>
     <h2>Ultimi interventi${hist.length ? ` · ${hist.length}` : ''}<span class="h2r">dal più recente</span></h2>
     ${hist.length ? histList(hist.slice(0, shown)) : '<div class="empty">Nessun intervento negli ultimi 90 giorni.</div>'}
@@ -1304,6 +1305,7 @@ function renderEquip() {
   const rf = $('#regf'); if (rf) rf.onclick = () => needMan(() => fillSheet(eq));
   $$('[data-tab]').forEach(b => b.onclick = () => go({ name: 'doc', code: C, tab: b.dataset.tab }));
   const mh = $('#morehist'); if (mh) mh.onclick = () => { const y = window.scrollY; S.view.more = shown + 10; renderEquip(); window.scrollTo(0, y); };
+  $('#eqfmt').onclick = () => shFmtMacchina(eq);
   $$('[data-int]').forEach(b => b.onclick = () => { const f = hist.find(x => x.id === b.dataset.int); if (f) intSheet(f, eq); });
   const pg = $('#pg'); if (pg && open) pg.onclick = e => {
     if (e.target.closest('[data-more]')) { pg.classList.add('all'); e.target.closest('[data-more]').remove(); return; }
@@ -1818,7 +1820,7 @@ $('#manbtn').onclick = () => {
     ${menuCompiti()}
     ${(m => m.ok.length || m.att.length || m.no.length ? `<button class="mbtn" id="msol">${I.sol}Le mie soluzioni<span class="cnt ${scartNuove().length ? 'r' : ''}">${scartNuove().length ? scartNuove().length + (scartNuove().length === 1 ? ' scartata da leggere' : ' scartate da leggere') : m.ok.length + ' approvate'}</span></button>` : '')(mieSol())}
     ${isCoord() ? (n => `<button class="mbtn" id="vrep">${IK.vest}Scadenze del reparto<span class="cnt ${n ? 'r' : ''}">${n} da rinnovare</span></button>`)(personeRep().filter(p => scadDi(p).some(x => /warn|tol|exp/.test(vestStato(x)))).length) : ''}
-    ${isCoord() ? `<button class="mbtn" id="mfmt">${IK.fmt}Formati e cambi formato<span class="cnt">solo coordinatori</span></button>` : ''}
+    <button class="mbtn" id="mfmt">${IK.fmt}Formati e cambi formato<span class="cnt">codici, macchine, ricette</span></button>
     ${isCoord() ? `<a class="mbtn" href="qr.html" target="_blank" rel="noopener">${I.qr}Stampa etichette QR</a>` : ''}
     <p class="hint">Fermi, soluzioni, anomalie e compiti vengono registrati a tuo nome. Se il telefono passa a un collega, esci.</p>
     <button class="submit red" id="logout">Esci</button>`);
@@ -2129,8 +2131,8 @@ function guaChips(eq, sel) {
   const l = guastiFor(eq).map((g, i) => ({ g, n: U(g) === 'ALTRO' ? -1 : cnt[U(g)] || 0, i })).sort((a, b) => b.n - a.n || a.i - b.i);
   return l.map(x => `<button class="chip" type="button" data-v="${esc(x.g)}" aria-pressed="${sel === x.g}">${esc(x.g)}${x.n > 0 ? ` <span class="cnt">${x.n}</span>` : ''}</button>`).join('');
 }
-/* ===== Formati e cambi formato (solo coordinatori) =====
-   I dati arrivano dallo script SOLO su richiesta di un coordinatore (action=formati) e restano in memoria: non finiscono nella copia locale dell'app. */
+/* ===== Formati e cambi formato (tutti, dal telefono approvato) =====
+   I dati arrivano dallo script solo su richiesta (action=formati) e restano in memoria: non finiscono nella copia locale dell'app. */
 let FMT = null;
 async function caricaFormati(forza) {
   if (FMT && !forza) return FMT;
@@ -2173,7 +2175,9 @@ function fmtConfronto(A, B, linea) {
       diff = dif();
       if (diff.some(x => x.t === 'P')) { az = 'CAMBIO PEZZI'; nP++; } else if (diff.length) { az = 'SOLO RICETTA'; nR++; } else az = 'NIENTE';
     }
-    out.righe.push({ m, az, diff });
+    const ra = inA ? fmtRicetta(m, A) : null, rb = inB ? fmtRicetta(m, B) : null;
+    if (az === 'NIENTE' && ra && rb && ra.nome && rb.nome && U(ra.nome) !== U(rb.nome)) { az = 'SOLO RICETTA'; nR++; } // stessi componenti ma ricetta diversa sul pannello
+    out.righe.push({ m, az, diff, ra, rb });
   });
   const fA = sec ? A.fmt : A.ff || A.fmt, fB = sec ? B.fmt : B.ff || B.fmt, fCambia = fA && fB && U(fA) !== U(fB);
   out.linea = L; out.comuni = comuni; out.primUguale = primUguale;
@@ -2184,12 +2188,28 @@ function fmtConfronto(A, B, linea) {
   else { out.banner = 'NESSUN CAMBIO'; out.cls = 'grn'; out.motivo = fA || ''; }
   return out;
 }
+// Ricetta della macchina per il codice: la riga di RICETTE della macchina con gli stessi valori nelle colonne compilate (la più specifica)
+function fmtRicetta(m, p) {
+  if (!m.hr) return { no: true };
+  const R = (FMT.ric || []).filter(r => r.id === m.id); if (!R.length) return null;
+  const n = v => U(String(v || '')).replace(/\s+/g, ' ').trim(), mf = p.t5 === 'MEDIA FILL' ? 'MEDIA FILL' : '';
+  const val = { co: FV(p, 0), do: FV(p, 3), fa: FV(p, 5), lg: p.lg, fc: FV(p, 8) };
+  let best = null, bs = -1;
+  R.forEach(r => {
+    if (n(r.mf) && n(r.mf) !== n(mf)) return;
+    let sc = n(r.mf) ? 1 : 0;
+    for (const k of ['co', 'do', 'fa', 'lg', 'fc']) { if (!n(r[k])) continue; if (n(r[k]) !== n(val[k])) return; sc++; }
+    if (sc > bs) { bs = sc; best = r; }
+  });
+  return best ? { nome: best.nome, n: best.n } : { manca: true };
+}
+const fmtRicTxt = r => !r ? '' : r.no ? 'senza ricetta' : r.manca ? 'ricetta mancante nel file' : r.nome;
 function fmtCerca(q) {
   const t = U(q).trim(); if (!t) return [];
   return FMT.prod.filter(p => p.c.indexOf(t) === 0 || U(p.d).indexOf(t) >= 0).slice(0, 15);
 }
 async function shFormati(stato = {}) {
-  sheet(`<div class="sheet-h"><div><h3 class="fmth">${IK.fmt}Formati e cambi formato</h3><div class="hint" style="margin-top:4px">Solo coordinatori · dati dal file Base Gestione Formati</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtb"><div class="hint">Carico i formati…</div></div>`);
+  sheet(`<div class="sheet-h"><div><h3 class="fmth">${IK.fmt}Formati e cambi formato</h3><div class="hint" style="margin-top:4px">Dati dal file Base Gestione Formati</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtb"><div class="hint">Carico i formati…</div></div>`);
   try { await caricaFormati(); } catch (e) { $('#fmtb').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
   const modo = stato.modo || 'cambio';
   $('#fmtb').innerHTML = `<div class="chips" id="fmod">${chips(['Cambio formato', 'Cerca codice'], modo === 'cambio' ? 'Cambio formato' : 'Cerca codice')}</div><div id="fcont" style="margin-top:10px"></div>
@@ -2198,11 +2218,32 @@ async function shFormati(stato = {}) {
   $('#frel').onclick = async () => { FMT = null; shFormati(stato); };
   modo === 'cambio' ? fmtUiCambio(stato) : fmtUiCerca(stato);
 }
+// Dalla scheda della macchina: cosa cambia su questa macchina e le sue ricette (collegate col codice ITEM)
+async function shFmtMacchina(eq) {
+  sheet(`<div class="sheet-h"><div><h3 class="fmth">${IK.fmt}Formati e ricette</h3><div class="label" style="margin-top:4px">${esc(eq.code)} · ${esc(eq.macchina)}</div></div><button class="x" data-x aria-label="Chiudi">✕</button></div><div id="fmtm"><div class="hint">Carico i dati dei formati…</div></div>`);
+  try { await caricaFormati(); } catch (e) { $('#fmtm').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
+  const ids = [eq.code].concat(eq.prec || []).map(U), m = FMT.macc.find(x => ids.includes(U(x.id)));
+  if (!m) { $('#fmtm').innerHTML = `<div class="banner">Questa macchina non è nel file dei formati (foglio MACCHINE, colonna Macchina_ID = ${esc(eq.code)}).</div>`; return; }
+  const P = [], R = []; m.m.forEach((t, k) => { if (t === 'P') P.push(FMT.car[k]); if (t === 'R') R.push(FMT.car[k]); });
+  const ric = (FMT.ric || []).filter(r => r.id === m.id).sort((a, b) => b.n - a.n);
+  const det = r => [r.co, r.do, r.fa, r.lg, r.fc, r.mf].filter(Boolean).join(' · ');
+  $('#fmtm').innerHTML = `
+    <div class="fm${m.ver ? '' : ' nv'}"><div class="d">${esc(m.fase === 'PRIMARIO' ? 'Primario' : 'Secondario')} · linea <b>${esc(m.l)}</b> · posizione ${m.pos}${m.q !== 'SEMPRE' ? ' · lavora ' + esc(m.q.toLowerCase()) : ''}</div>
+      ${m.fn ? `<div class="d hint" style="margin:2px 0 0">${esc(m.fn)}</div>` : ''}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>
+    <div class="label" style="margin-top:12px">Al cambio prodotto, se cambia…</div>
+    <div class="fm"><div class="h"><b>🔧 Cambio pezzi</b><span class="tag P">P</span></div><div class="d">${P.length ? esc(P.join(' · ')) : '<span class="hint">niente</span>'}</div></div>
+    <div class="fm"><div class="h"><b>⌨ Solo ricetta</b><span class="tag R">R</span></div><div class="d">${R.length ? esc(R.join(' · ')) : '<span class="hint">niente</span>'}</div></div>
+    <div class="label" style="margin-top:12px">Ricette sul pannello${m.hr ? ' · ' + ric.length : ''}</div>
+    ${!m.hr ? '<div class="empty">Questa macchina non ha ricette.</div>' : ric.length ? ric.map(r => `<div class="fm"><div class="h"><b>${esc(r.nome)}</b><span class="tag N">${r.n} ${r.n === 1 ? 'codice' : 'codici'}</span></div>${det(r) && U(det(r)) !== U(r.nome) ? `<div class="d hint" style="margin:0">${esc(det(r))}</div>` : ''}</div>`).join('') : '<div class="empty">Nessuna ricetta nel foglio RICETTE.</div>'}
+    <button class="morebtn" id="fmtall" style="margin-top:12px">Cerca un codice o confronta due codici</button>`;
+  $('#fmtall').onclick = () => shFormati({ modo: 'cambio' });
+}
 const fmtTag = az => ({ 'CAMBIO PEZZI': 'P', 'SOLO RICETTA': 'R', 'NIENTE': 'N', 'ATTIVA': 'A', 'DA AVVIARE': 'A', 'SI FERMA': 'N', 'BYPASS': 'N', 'NON USATA': 'N' })[az] || 'N';
 function fmtProdBox(p) {
   return `<div class="fm"><div class="h"><b>${esc(p.c)} · ${esc(p.d)}</b><span class="tag ${p.es === 'OK' ? 'A' : 'R'}">${esc(p.es || p.st || '—')}</span></div>
     <div class="d">${p.f === 'PRIMARIO' ? 'Semilavorato (codice 5)' : 'Confezionato (codice 6)'} · primario <b>${esc(p.lp || '?')}</b>${p.ls.length ? ' · confezionato su <b>' + esc(p.ls.join(', ')) + '</b>' : ''}</div>
-    <div class="d">Formato <b>${esc(p.fmt || '—')}</b>${p.f === 'SECONDARIO' && p.ff ? ' · primario ' + esc(p.ff) : ''}${p.rp || p.rs ? ' · ricetta ' + esc([p.rp, p.rs].filter(Boolean).join(' / ')) : ''}</div></div>`;
+    <div class="d">Formato <b>${esc(p.fmt || '—')}</b>${p.f === 'SECONDARIO' && p.ff ? ' · primario ' + esc(p.ff) : ''}${p.t5 === 'MEDIA FILL' ? ' · <b>MEDIA FILL</b>' : ''}</div>
+    ${p.cr && U(p.cr) !== 'OK' ? `<div class="d" style="color:var(--amber-ink)">⚠ ${esc(p.cr)}</div>` : ''}</div>`;
 }
 function fmtUiCerca(stato) {
   $('#fcont').innerHTML = `<input class="field" id="fq" placeholder="Codice SAP o parte della descrizione" value="${esc(stato.q || '')}" autocomplete="off"><div id="fres"></div>`;
@@ -2215,7 +2256,8 @@ function fmtUiCerca(stato) {
     $('#fres').innerHTML = fmtProdBox(p) + (p.ls.length > 1 ? `<div class="chips" id="flin">${chips(p.ls, L)}</div>` : '') +
       mac.map(m => { const st = fmtAttiva(m, p), P = [], Rr = []; m.m.forEach((t, k) => { if (t === 'P') P.push(FMT.car[k] + ' ' + (FV(p, k) || '?')); if (t === 'R') Rr.push(FMT.car[k] + ' ' + (FV(p, k) || '?')); });
         return `<div class="fm${m.ver ? '' : ' nv'}"><div class="h"><b>${esc(m.fase === 'PRIMARIO' ? 'Primario' : 'Secondario')} · ${esc(m.l)} · ${esc(m.n)}</b><span class="tag ${fmtTag(st)}">${st}</span></div>
-          ${st === 'ATTIVA' ? (P.length ? `<div class="d"><b>Pezzi</b> in base a: ${esc(P.join(' · '))}</div>` : '') + (Rr.length ? `<div class="d"><b>Solo ricetta</b> in base a: ${esc(Rr.join(' · '))}</div>` : '') : ''}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`; }).join('');
+          <div class="d hint" style="margin:0">${esc(m.id)}</div>
+          ${st === 'ATTIVA' ? (P.length ? `<div class="d"><b>Pezzi</b> in base a: ${esc(P.join(' · '))}</div>` : '') + (Rr.length ? `<div class="d"><b>Solo ricetta</b> in base a: ${esc(Rr.join(' · '))}</div>` : '') + (r => r && !r.no ? `<div class="d">📋 Ricetta: <b>${esc(fmtRicTxt(r))}</b></div>` : '')(fmtRicetta(m, p)) : ''}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`; }).join('');
     const fl = $('#flin'); if (fl) singleChoice(fl, v => { stato.linea = v; stato.q = $('#fq').value; mostra(); });
   };
   $('#fq').oninput = () => { stato.q = $('#fq').value; mostra(); }; mostra();
@@ -2231,8 +2273,10 @@ function fmtUiCambio(stato) {
       ${c.ricette && c.ricette.length ? `<div class="hint">${c.ricette.map(([n, a, b]) => 'Ricetta ' + n + ': ' + esc(a || '—') + ' → <b>' + esc(b || '—') + '</b>').join('<br>')}</div>` : ''}
       ${c.banner !== 'NON CONFRONTABILE' && !c.primUguale ? '<div class="hint">Primario non coinvolto: i due codici arrivano da linee diverse.</div>' : ''}
       ${fmtProdBox(A)}${fmtProdBox(B)}
-      ${c.righe.map(({ m, az, diff }) => `<div class="fm${m.ver ? '' : ' nv'}"><div class="h"><b>${esc(m.l)} · ${esc(m.n)}</b><span class="tag ${fmtTag(az)}">${az}</span></div>
-        ${diff.map(x => `<div class="d">${x.t === 'P' ? '🔧' : '⌨'} ${esc(FMT.car[x.k])}: ${esc(x.da)} → <b>${esc(x.a)}</b></div>`).join('')}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`).join('')}`;
+      ${c.righe.map(({ m, az, diff, ra, rb }) => `<div class="fm${m.ver ? '' : ' nv'}"><div class="h"><b>${esc(m.l)} · ${esc(m.n)}</b><span class="tag ${fmtTag(az)}">${az}</span></div>
+        <div class="d hint" style="margin:0">${esc(m.id)}</div>
+        ${diff.map(x => `<div class="d">${x.t === 'P' ? '🔧' : '⌨'} ${esc(FMT.car[x.k])}: ${esc(x.da)} → <b>${esc(x.a)}</b></div>`).join('')}
+        ${/CAMBIO PEZZI|SOLO RICETTA|NIENTE|DA AVVIARE/.test(az) && (ra || rb) && !(rb && rb.no) ? `<div class="d">📋 Ricetta: ${az === 'DA AVVIARE' || !ra || U(fmtRicTxt(ra)) === U(fmtRicTxt(rb)) ? '<b>' + esc(fmtRicTxt(rb)) + '</b>' + (az === 'DA AVVIARE' ? '' : ' (resta uguale)') : esc(fmtRicTxt(ra)) + ' → <b>' + esc(fmtRicTxt(rb)) + '</b>'}</div>` : ''}${m.ver ? '' : '<div class="d hint">riga da verificare con la manutenzione</div>'}</div>`).join('')}`;
     const fl = $('#flin'); if (fl) singleChoice(fl, v => { stato.linea = v; mostra(); });
   };
   ['#fa', '#fb'].forEach(i => $(i).oninput = () => { stato.a = $('#fa').value; stato.b = $('#fb').value; stato.linea = null; mostra(); }); mostra();
