@@ -2246,7 +2246,7 @@ function fmtProdBox(p) {
     ${p.cr && U(p.cr) !== 'OK' ? `<div class="d" style="color:var(--amber-ink)">⚠ ${esc(p.cr)}</div>` : ''}</div>`;
 }
 function fmtUiCerca(stato) {
-  $('#fcont').innerHTML = `<input class="field" id="fq" placeholder="Codice SAP o parte della descrizione" value="${esc(stato.q || '')}" autocomplete="off"><div id="fres"></div>`;
+  $('#fcont').innerHTML = `<input class="field" id="fq" placeholder="Codice prodotto o parte della descrizione" value="${esc(stato.q || '')}" autocomplete="off"><div id="fres"></div>`;
   const mostra = () => {
     const l = fmtCerca($('#fq').value), p = l.length === 1 ? l[0] : FMT.prod.find(x => x.c === $('#fq').value.trim());
     if (!p) { $('#fres').innerHTML = l.map(x => `<button class="fm" style="width:100%;text-align:left" data-fc="${esc(x.c)}"><b>${esc(x.c)}</b> · ${esc(x.d)}</button>`).join('') || ($('#fq').value.trim() ? '<div class="empty">Nessun codice trovato</div>' : ''); 
@@ -2263,10 +2263,10 @@ function fmtUiCerca(stato) {
   $('#fq').oninput = () => { stato.q = $('#fq').value; mostra(); }; mostra();
 }
 function fmtUiCambio(stato) {
-  $('#fcont').innerHTML = `<div class="times"><label>In produzione<input class="field" id="fa" inputmode="numeric" placeholder="codice SAP" value="${esc(stato.a || '')}"></label><label>Da produrre<input class="field" id="fb" inputmode="numeric" placeholder="codice SAP" value="${esc(stato.b || '')}"></label></div><div id="fres"></div>`;
+  $('#fcont').innerHTML = `<div class="times"><label>In produzione<input class="field" id="fa" inputmode="numeric" placeholder="codice prodotto" value="${esc(stato.a || '')}"></label><label>Da produrre<input class="field" id="fb" inputmode="numeric" placeholder="codice prodotto" value="${esc(stato.b || '')}"></label></div><div id="fres"></div>`;
   const mostra = () => {
     const A = FMT.prod.find(x => x.c === $('#fa').value.trim()), B = FMT.prod.find(x => x.c === $('#fb').value.trim());
-    if (!A || !B) { $('#fres').innerHTML = `<div class="hint">${!$('#fa').value.trim() || !$('#fb').value.trim() ? 'Scrivi i due codici SAP.' : (!A ? 'Codice in produzione non trovato. ' : '') + (!B ? 'Codice da produrre non trovato.' : '')}</div>`; return; }
+    if (!A || !B) { $('#fres').innerHTML = `<div class="hint">${!$('#fa').value.trim() || !$('#fb').value.trim() ? 'Scrivi i due codici prodotto.' : (!A ? 'Codice in produzione non trovato. ' : '') + (!B ? 'Codice da produrre non trovato.' : '')}</div>`; return; }
     const c = fmtConfronto(A, B, stato.linea);
     $('#fres').innerHTML = `<div class="fbn ${c.cls}"><span class="fbt">${IK.fmt}${c.banner}</span><small>${esc(c.motivo || '')}${c.linea ? ' · linea ' + esc(c.linea) : ''}</small></div>
       ${c.comuni && c.comuni.length > 1 ? `<div class="chips" id="flin">${chips(c.comuni, c.linea)}</div>` : ''}
