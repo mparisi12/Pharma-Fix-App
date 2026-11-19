@@ -662,4 +662,27 @@ console.log('\nCerca fermi: archivio oltre 90 giorni, nome del tecnico solo per 
   ok((r => r.ok && r.fermi.map(f => f.id).join() === 'F2')(gd(Date.now() - 170 * 864e5, Date.now() - 120 * 864e5)), 'periodo col calendario, senza parole: solo i fermi vecchi di quelle date');
   ok(/telefono|Telefono/.test(get('ROSSI Mario', 'T-ALTRO', 'homing').error || ''), 'telefono non approvato: niente ricerca');
 }
+console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging separati');
+{
+  const { ctx, sheets } = nuovo(); const C = ctx.C, D = ctx.DD || Date;
+  const oggi = new D(2026, 10, 19, 9, 0);
+  const pO = ctx.periodoMese_('ottobre 2026', '', '', oggi), pN = ctx.periodoMese_('novembre 2026', '', '', oggi);
+  ok(pO.from.getDate() === 1 && pO.to.getDate() === 31 && !pO.inCorso && pN.inCorso && pN.to.getDate() === 19, 'mese intero; il mese in corso arriva fino a oggi');
+  const pP = ctx.periodoMese_('Personalizzato', new D(2026, 9, 5), new D(2026, 9, 12), oggi);
+  ok(pP.from.getDate() === 5 && pP.to.getDate() === 12, 'Personalizzato: le date scritte accanto');
+  ok(ctx.kpiMesi_(oggi)[0] === 'novembre 2026' && ctx.kpiMesi_(oggi)[1] === 'ottobre 2026' && ctx.kpiMesi_(oggi).length === 25, 'menu: ultimi 24 mesi + Personalizzato');
+  sheets.Equipment.rows.push(['SPL1-01', 'SPL1', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['SPL2-01', 'SPL2', 'Packaging', 'CARTONATRICE', 'SI']);
+  const riga = (id, g, h, min, linea, macc, code, lotto) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new D(2026, g[1], g[0], h, 0);
+    r[C.ID - 1] = id; r[C.DATA - 1] = new D(2026, g[1], g[0]); r[C.INIZIO - 1] = a; r[C.FINE - 1] = new D(a.getTime() + min * 60000); r[C.STATO - 1] = 'CHIUSO';
+    r[C.LINEA - 1] = linea; r[C.MACC - 1] = macc; r[C.EQ - 1] = code; r[C.LOTTO - 1] = lotto; r[C.GUASTO - 1] = 'X'; r[C.INT - 1] = 'REGOLAZIONE'; return r; };
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(),
+    riga('a', [3, 9], 8, 30, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '100'), riga('b', [4, 9], 8, 30, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '100'), riga('c', [5, 9], 8, 10, 'SPL2', 'CARTONATRICE', 'SPL2-01', '200'),
+    riga('d', [3, 10], 8, 10, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '101'), riga('e', [4, 10], 8, 20, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '102')]);
+  const R = ctx.kpiConfrontoCalcola_(ctx.SpreadsheetApp.getActiveSpreadsheet(), 'PACKAGING', pO, pN);
+  const s1 = R.find(r => r.linea === 'SPL1'), tu = R.find(r => r.linea === 'TUTTE');
+  ok(s1 && s1.A.n === 2 && s1.A.occ === 2 && s1.B.n === 2 && s1.B.occ === 1, 'SPL1: ottobre 2 fermi su 1 lotto (occ 2), novembre 2 fermi su 2 lotti (occ 1)');
+  ok(Math.round(s1.A.mttr * 1440) === 30 && Math.round(s1.B.mttr * 1440) === 15, 'MTTR per periodo: 30 → 15 minuti');
+  ok(tu && tu.A.n === 3 && tu.B.n === 2 && R[R.length - 1].linea === 'TUTTE', 'riga «Tutte le linee» dell\'area in fondo');
+  ok(!R.some(r => r.linea === 'ST3' && r.A.n), 'solo le linee dell\'area scelta (Packaging)');
+}
 fine('Script');
