@@ -17,7 +17,7 @@ class Sheet {
     const R = new Proxy({}, { get: (t, k) => {
       if (k === 'getValues' || k === 'getDisplayValues') return () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => (sh.rows[r - 1 + i] || [])[c - 1 + j] ?? ''));
       if (k === 'getValue') return () => R.getValues()[0][0];
-      if (k === 'setValues') return v => { v.forEach((row, i) => row.forEach((x, j) => { sh.rows[r - 1 + i] = sh.rows[r - 1 + i] || []; sh.rows[r - 1 + i][c - 1 + j] = x; })); return R; };
+      if (k === 'setValues') return v => { if (v.length !== nr || v.some(x => x.length !== nc)) throw new Error('Il numero di righe/colonne nei dati (' + v.length + '×' + (v[0] || []).length + ') non corrisponde all\'intervallo (' + nr + '×' + nc + ')'); v.forEach((row, i) => row.forEach((x, j) => { sh.rows[r - 1 + i] = sh.rows[r - 1 + i] || []; sh.rows[r - 1 + i][c - 1 + j] = x; })); return R; };
       if (k === 'setValue') return x => { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) { sh.rows[r - 1 + i] = sh.rows[r - 1 + i] || []; sh.rows[r - 1 + i][c - 1 + j] = x; } return R; };
       if (k === 'createTextFinder') return id => ({ matchEntireCell: () => ({ findNext: () => { for (let i = 0; i < nr; i++) if (String((sh.rows[r - 1 + i] || [])[c - 1]) === String(id)) return { getRow: () => r + i }; return null; } }) });
       if (k === 'clearContent') return () => { for (let i = 0; i < nr; i++) if (sh.rows[r - 1 + i]) for (let j = 0; j < nc; j++) sh.rows[r - 1 + i][c - 1 + j] = ''; return R; };
