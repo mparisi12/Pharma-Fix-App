@@ -43,7 +43,7 @@ Sheet.prototype.newChart = function () { const o = { opt: {} }; const b = new Pr
 Sheet.prototype.insertColumnBefore = function (c) { this.rows.forEach(r => { while (r.length < c - 1) r.push(''); r.splice(c - 1, 0, ''); }); return this; };
 Sheet.prototype.setConditionalFormatRules = function (r) { this.cf = r; };
 Sheet.prototype.setName = function (n) { this.n = n; return this; };
-for (const m of ['setFrozenColumns', 'hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
+for (const m of ['showColumns', 'setFrozenColumns', 'hideSheet', 'setFrozenRows', 'setColumnWidth', 'hideColumns', 'insertColumnsAfter', 'clearConditionalFormatRules']) Sheet.prototype[m] = function () { return this; };
 
 function carica(sheets) {
   const src = fs.readFileSync(path.join(__dirname, '../fermi/apps-script/Code.gs'), 'utf8');
