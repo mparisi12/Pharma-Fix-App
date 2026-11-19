@@ -211,6 +211,7 @@ function onOpen() {
     .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
     .addItem('Aggiorna KPI Risorse', 'aggiornaKpiRisorse')
+    .addItem('KPI: confronta due periodi', 'aggiornaKpiConfronto')
     .addItem('Alleggerisci foglio Programma (colonne vuote)', 'alleggerisciProgramma')
     .addSeparator()
     .addItem('Controlla registrazioni', 'controllaRegistrazioni')
@@ -244,6 +245,7 @@ function onOpen() {
 function onEdit(e) {
   try {
     if (e.range.getSheet().getName() === SH_KR) { if (e.range.getRow() <= 4) aggiornaKpiRisorse(); return; } // filtri del foglio KPI Risorse
+    if (e.range.getSheet().getName() === SH_KPIC) { if (e.range.getRow() <= 5) aggiornaKpiConfronto(); return; } // filtri del foglio KPI Confronto
     if (e.range.getSheet().getName() === SH_FERMI && e.range.getRow() > 1) { // cambiata la macchina di una riga: tendina Tipo guasto di quella macchina
       const c1 = e.range.getColumn(), c2 = e.range.getLastColumn();
       if ([C.MACC, C.LINEA, C.EQ].some(c => c >= c1 && c <= c2)) try { const ss = e.source || SpreadsheetApp.getActiveSpreadsheet();
@@ -547,6 +549,119 @@ function aggiornaValoriKpi() {
   sh.getRange(t, KPI_C1, 300, KPI_C2 + 4 - KPI_C1).clearContent();
   if (k.perCausa.length) { sh.getRange(t, KPI_C1, k.perCausa.length, 5).setValues(k.perCausa); sh.getRange(t, KPI_C1 + 2, k.perCausa.length, 1).setNumberFormat('0.0'); sh.getRange(t, KPI_C1 + 3, k.perCausa.length, 2).setNumberFormat('0%'); }
   if (k.perInt.length) { sh.getRange(t, KPI_C2, k.perInt.length, 4).setValues(k.perInt); sh.getRange(t, KPI_C2 + 2, k.perInt.length, 1).setNumberFormat('0.0'); sh.getRange(t, KPI_C2 + 3, k.perInt.length, 1).setNumberFormat('0%'); }
+}
+
+/* =================== KPI CONFRONTO: due periodi, linea per linea =================== */
+// Filling e Packaging sempre separati (si sceglie l'area). Occurrancy, MTBF e MTTR sono rapporti: si confrontano anche con un mese in corso.
+const SH_KPIC = 'KPI Confronto', KPIC_T = 8;
+const MESI_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+const meseLab_ = d => MESI_IT[d.getMonth()] + ' ' + d.getFullYear();
+function kpiMesi_(oggi) { const l = []; for (let i = 0; i < 24; i++) l.push(meseLab_(new Date(oggi.getFullYear(), oggi.getMonth() - i, 1))); return l.concat(['Personalizzato']); }
+// "ottobre 2026" → tutto il mese (fino a oggi se è quello in corso); "Personalizzato" → le date scritte accanto
+function periodoMese_(lab, dal, al, oggi) {
+  const g = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()), oggi0 = g(oggi);
+  let from, to;
+  const m = String(lab || '').trim().toLowerCase().match(/^([a-z]+) (\d{4})$/);
+  if (m && MESI_IT.indexOf(m[1]) >= 0) { from = new Date(Number(m[2]), MESI_IT.indexOf(m[1]), 1); to = new Date(Number(m[2]), MESI_IT.indexOf(m[1]) + 1, 0); }
+  else { from = dal instanceof Date ? g(dal) : new Date(oggi.getFullYear(), oggi.getMonth(), 1); to = al instanceof Date ? g(al) : oggi0; }
+  const inCorso = to > oggi0; if (inCorso) to = oggi0;
+  return { from: from, to: to, toEnd: new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1), inCorso: inCorso };
+}
+// Calcolo puro (testabile): per ogni linea dell'area e per il totale dell'area, i KPI dei due periodi
+function kpiConfrontoCalcola_(ss, area, pA, pB) {
+  const fsh = ss.getSheetByName(SH_FERMI), last = fsh.getLastRow();
+  const vals = last > 1 ? fsh.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
+  const aree = {};
+  ss.getSheetByName(SH_EQ).getDataRange().getValues().slice(1).forEach(r => {
+    const a = String(r[2]).trim().toUpperCase(); if (!r[0] || !a) return;
+    aree[String(r[0]).trim()] = a; aree[kpiChiave_(r[1], r[3])] = a;
+    String(r[EQ_PREC - 1] || '').split(/[,;\s]+/).filter(Boolean).forEach(o => { if (!aree[o]) aree[o] = a; });
+  });
+  const cause = last > 1 && fsh.getMaxColumns() >= C.CAUSA ? fsh.getRange(2, C.CAUSA, last - 1, 1).getValues().map(x => x[0]) : [];
+  const gruppi = gruppiCol_(fsh, last);
+  const linee = Array.from(new Set(equipment_(ss).filter(e => String(e.area).toUpperCase() === area).map(e => String(e.linea).trim()).filter(Boolean))).sort();
+  const uno = (p, linea) => { let ore = ''; try { ore = oreStimate_(ss, p, area, linea).ore || ''; } catch (e) { Logger.log(e); }
+    return calcolaKpi_(vals, { from: p.from, toEnd: p.toEnd, linea: linea, area: area, aree: aree, code: '', ore: ore, cause: cause, gruppi: gruppi }); };
+  return linee.map(l => ({ linea: l, A: uno(pA, l), B: uno(pB, l) })).concat([{ linea: 'TUTTE', A: uno(pA, 'TUTTE'), B: uno(pB, 'TUTTE') }]);
+}
+function kpiConfrontoBuild_(ss) {
+  const sh = ss.getSheetByName(SH_KPIC) || ss.insertSheet(SH_KPIC, 2);
+  sh.clear(); sh.getCharts().forEach(c => sh.removeChart(c));
+  const Y = '#fff3d6', G = '#5a6873', oggi = new Date(), mesi = kpiMesi_(oggi);
+  sh.getRange('A1').setValue('KPI — confronto tra due periodi, linea per linea').setFontWeight('bold').setFontSize(14);
+  sh.getRange('C1').setValue('Cambia le celle gialle: si ricalcola da solo (oppure menu Pharma-Fix → KPI: confronta due periodi)').setFontColor(G);
+  sh.getRange('A2:A4').setValues([['Area'], ['Periodo A'], ['Periodo B']]).setFontWeight('bold');
+  sh.getRange('B2').setValue('PACKAGING').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(KPI_AREE, true).setAllowInvalid(false).build());
+  sh.getRange('B3:B4').setValues([[mesi[1]], [mesi[0]]]).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(mesi, true).setAllowInvalid(false).build());
+  sh.getRange('B2:B4').setBackground(Y).setFontWeight('bold');
+  sh.getRange('C2').setValue('Filling e Packaging sono sempre separati: scegli quale guardare').setFontColor(G);
+  sh.getRange('C3:C4').setValues([['Personalizzato: dal →'], ['Personalizzato: dal →']]).setFontColor(G).setHorizontalAlignment('right');
+  sh.getRange('E3:E4').setValues([['al →'], ['al →']]).setFontColor(G).setHorizontalAlignment('right');
+  sh.getRange('D3:D4').setBackground(Y).setNumberFormat('dd/MM/yyyy'); sh.getRange('F3:F4').setBackground(Y).setNumberFormat('dd/MM/yyyy');
+  [[1, 170], [2, 130]].forEach(([c, w]) => sh.setColumnWidth(c, w));
+  for (let c = 3; c <= 18; c++) sh.setColumnWidth(c, 82);
+  sh.setFrozenRows(KPIC_T);
+  return sh;
+}
+// Menu e celle gialle: ricalcola il confronto
+function aggiornaKpiConfronto() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SH_KPIC);
+  if (!sh || String(sh.getRange('A3').getValue()) !== 'Periodo A') sh = kpiConfrontoBuild_(ss);
+  let area = String(sh.getRange('B2').getValue()).toUpperCase(); if (KPI_AREE.indexOf(area) < 0) { area = 'PACKAGING'; sh.getRange('B2').setValue(area); }
+  const oggi = new Date(), rd = sh.getRange('B3:F4').getValues();
+  sh.getRange('B3:B4').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(kpiMesi_(oggi), true).setAllowInvalid(false).build());
+  const pA = periodoMese_(rd[0][0], rd[0][2], rd[0][4], oggi), pB = periodoMese_(rd[1][0], rd[1][2], rd[1][4], oggi);
+  const etich = (lab, p) => /^Personalizzato/.test(lab) ? Utilities.formatDate(p.from, TZ, 'dd/MM') + '–' + Utilities.formatDate(p.to, TZ, 'dd/MM') : String(lab).replace(/^(\w{3})\w* (\d{2})(\d{2})$/, '$1 $3');
+  const la = etich(rd[0][0], pA), lb = etich(rd[1][0], pB);
+  const R = kpiConfrontoCalcola_(ss, area, pA, pB);
+  // tabella: per ogni KPI tre colonne (A, B, Δ). meglio = 1 se più alto è meglio (MTBF), -1 se più basso è meglio
+  // con un periodo in corso (o di lunghezza diversa) N° fermi e tempo di fermo non si colorano: dipendono da quanti giorni ci sono
+  const giorni = p => Math.round((p.toEnd - p.from) / 864e5), pari = !pA.inCorso && !pB.inCorso && Math.abs(giorni(pA) - giorni(pB)) <= 3 ? -1 : 0;
+  const K = [['N° fermi', k => k.n, pari, '0'], ['Occurrancy (fermi/lotti)', k => k.occ, -1, '0.00'], ['MTBF (h)', k => k.mtbf, 1, '0.0'],
+    ['MTTR per intervento', k => k.mttr, -1, '[h]:mm'], ['Tempo di fermo', k => k.tot, pari, '[h]:mm']];
+  const t = KPIC_T, nc = 1 + K.length * 3 + 2;
+  sh.getRange(t - 2, 1, Math.max(sh.getMaxRows() - t + 3, 1), Math.max(nc, 26)).clear();
+  sh.getCharts().forEach(c => sh.removeChart(c));
+  const H = '#dfe7ec';
+  sh.getRange(t - 1, 1).setValue('Linea').setFontWeight('bold').setBackground(H);
+  K.forEach(([n], i) => sh.getRange(t - 1, 2 + i * 3, 1, 3).merge().setValue(n).setFontWeight('bold').setBackground(H).setHorizontalAlignment('center'));
+  sh.getRange(t - 1, 2 + K.length * 3, 1, 2).merge().setValue('N° lotti').setFontWeight('bold').setBackground(H).setHorizontalAlignment('center');
+  sh.getRange(t, 1, 1, nc).setValues([[area === 'FILLING' ? 'Filling' : 'Packaging'].concat(...K.map(() => [la, lb, 'Δ']), [la, lb])]).setFontWeight('bold').setBackground(H).setHorizontalAlignment('center');
+  const vuoto = v => v === '' || v == null || isNaN(Number(v));
+  const out = [], bg = [];
+  R.forEach(r => {
+    const riga = [r.linea === 'TUTTE' ? 'Tutte le linee' : r.linea], col = ['#ffffff'];
+    K.forEach(([, f, meglio]) => { const a = f(r.A), b = f(r.B); const d = !vuoto(a) && !vuoto(b) && Number(a) ? (Number(b) - Number(a)) / Number(a) : '';
+      riga.push(vuoto(a) ? '' : a, vuoto(b) ? '' : b, d);
+      col.push('#ffffff', '#ffffff', d === '' || Math.abs(d) < 0.05 || !meglio ? '#ffffff' : d * meglio > 0 ? '#d9f0e0' : '#f8d7d3'); });
+    riga.push(r.A.lotti || '', r.B.lotti || ''); col.push('#ffffff', '#ffffff');
+    out.push(riga); bg.push(col);
+  });
+  sh.getRange(t + 1, 1, out.length, nc).setValues(out).setBackgrounds(bg);
+  K.forEach(([, , , fm], i) => { sh.getRange(t + 1, 2 + i * 3, out.length, 2).setNumberFormat(fm); sh.getRange(t + 1, 4 + i * 3, out.length, 1).setNumberFormat('+0%;-0%;0%'); });
+  sh.getRange(t + out.length, 1, 1, nc).setFontWeight('bold').setBorder(true, null, null, null, null, null);
+  sh.getRange(t + 1, 2, out.length, nc - 1).setHorizontalAlignment('center');
+  const note = t + out.length + 1;
+  sh.getRange(note, 1, 4, 1).setValues([
+    ['Δ = variazione da A a B. Verde = migliora (meno fermi, occurrancy più bassa, MTBF più alto, MTTR più corto), rosso = peggiora; sotto il 5% resta bianco.'],
+    ['MTBF stimato dal Programma (giorni con lotti × ' + ORE_GIORNO + ' h); vuoto se nel Programma non ci sono lotti per quella linea.'],
+    [pA.inCorso || pB.inCorso ? '⚠ ' + (pB.inCorso ? lb : la) + ' è in corso (fino a oggi): Occurrancy, MTBF e MTTR si confrontano; N° fermi e tempo di fermo no (meno giorni), per questo il loro Δ non è colorato.'
+      : !pari ? 'Periodi di lunghezza diversa: N° fermi e tempo di fermo non sono colorati.' : ''],
+    ['Periodo A: ' + Utilities.formatDate(pA.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pA.to, TZ, 'dd/MM/yyyy') + ' · Periodo B: ' + Utilities.formatDate(pB.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pB.to, TZ, 'dd/MM/yyyy')]]).setFontColor('#5a6873').setFontSize(9);
+  // grafici: Occurrancy, MTBF, MTTR (A e B affiancati per linea); dati nelle colonne nascoste T:AB
+  const lin = R.filter(r => r.linea !== 'TUTTE'), gc = 20;
+  if (sh.getMaxColumns() < gc + 8) sh.insertColumnsAfter(sh.getMaxColumns(), gc + 8 - sh.getMaxColumns());
+  const graf = [['Occurrancy (fermi/lotti) — più bassa è meglio', k => k.occ, '0.00'], ['MTBF (h) — più alto è meglio', k => k.mtbf, '0'], ['MTTR per intervento (min) — più corto è meglio', k => vuoto(k.mttr) ? '' : k.mttr * 1440, '0']];
+  graf.forEach(([tit, f], i) => {
+    const c = gc + i * 3;
+    sh.getRange(t, c, 1, 3).setValues([['Linea', la, lb]]);
+    if (lin.length) sh.getRange(t + 1, c, lin.length, 3).setValues(lin.map(r => [r.linea, vuoto(f(r.A)) ? 0 : Number(f(r.A)), vuoto(f(r.B)) ? 0 : Number(f(r.B))]));
+    try { sh.insertChart(sh.newChart().asColumnChart().addRange(sh.getRange(t, c, lin.length + 1, 3)).setNumHeaders(1)
+      .setOption('title', tit).setOption('legend', { position: 'bottom' }).setOption('colors', ['#9fb3c1', '#245a7a'])
+      .setPosition(note + 5, 1 + i * 6, 0, 0).setOption('width', 480).setOption('height', 300).build()); } catch (e) { Logger.log('Grafico non creato: ' + e); }
+  });
+  sh.hideColumns(gc, 9);
 }
 
 /* =================== SOLUZIONI, DOCUMENTI, ANOMALIE =================== */
@@ -2709,7 +2824,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/11/2026 00:30';
+const VERSIONE_SCRIPT = '19/11/2026 09:30';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
