@@ -686,5 +686,11 @@ console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging 
   ok(Math.round(s1.A.mttr * 1440) === 30 && Math.round(s1.B.mttr * 1440) === 15, 'MTTR per periodo: 30 → 15 minuti');
   ok(tu && tu.A.n === 3 && tu.B.n === 2 && R[R.length - 1].linea === 'TUTTE', 'riga «Tutte le linee» dell\'area in fondo');
   ok(!R.some(r => r.linea === 'ST3' && r.A.n), 'solo le linee dell\'area scelta (Packaging)');
+  ok(s1.A.nInt === 2 && s1.A.n === 2, 'N° interventi accanto a N° fermi');
+  ctx.aggiornaKpiConfronto();
+  const kc = sheets['KPI Confronto'], h7 = kc.rows[6] || [], h8 = kc.rows[7] || [];
+  ok(h7.indexOf('N° interventi') === 4 && h7.indexOf('Occurrancy (fermi/lotti)') === 7, 'foglio: colonne N° fermi, poi N° interventi, poi Occurrancy');
+  ok(kc.rows.some(r => r && /^• Fermo = la macchina ferma/.test(r[0])) && kc.rows.some(r => r && /^• Intervento = ogni riga/.test(r[0])), 'sotto la tabella: spiegazione breve di fermo e intervento');
+  ok(typeof kc.rows[2][1] === 'string' && /\d{4}$/.test(kc.rows[2][1]), 'periodo scritto come testo (non data)');
 }
 fine('Script');
