@@ -601,7 +601,7 @@ function kpiConfrontoBuild_(ss) {
   sh.getRange('E3:E4').setValues([['al →'], ['al →']]).setFontColor(G).setHorizontalAlignment('right');
   sh.getRange('D3:D4').setBackground(Y).setNumberFormat('dd/MM/yyyy'); sh.getRange('F3:F4').setBackground(Y).setNumberFormat('dd/MM/yyyy');
   [[1, 170], [2, 130]].forEach(([c, w]) => sh.setColumnWidth(c, w));
-  for (let c = 3; c <= 18; c++) sh.setColumnWidth(c, 82);
+  for (let c = 3; c <= 21; c++) sh.setColumnWidth(c, 82);
   sh.setFrozenRows(KPIC_T);
   return sh;
 }
@@ -623,10 +623,12 @@ function aggiornaKpiConfronto() {
   // tabella: per ogni KPI tre colonne (A, B, Δ). meglio = 1 se più alto è meglio (MTBF), -1 se più basso è meglio
   // con un periodo in corso (o di lunghezza diversa) N° fermi e tempo di fermo non si colorano: dipendono da quanti giorni ci sono
   const giorni = p => Math.round((p.toEnd - p.from) / 864e5), pari = !pA.inCorso && !pB.inCorso && Math.abs(giorni(pA) - giorni(pB)) <= 3 ? -1 : 0;
-  const K = [['N° fermi', k => k.n, pari, '0'], ['Occurrancy (fermi/lotti)', k => k.occ, -1, '0.00'], ['MTBF (h)', k => k.mtbf, 1, '0.0'],
+  const K = [['N° fermi', k => k.n, pari, '0'], ['N° interventi', k => k.nInt, pari, '0'], ['Occurrancy (fermi/lotti)', k => k.occ, -1, '0.00'], ['MTBF (h)', k => k.mtbf, 1, '0.0'],
     ['MTTR per intervento', k => k.mttr, -1, '[h]:mm'], ['Tempo di fermo', k => k.tot, pari, '[h]:mm']];
   const t = KPIC_T, nc = 1 + K.length * 3 + 2;
-  sh.getRange(t - 2, 1, Math.max(sh.getMaxRows() - t + 3, 1), Math.max(nc, 26)).clear();
+  if (sh.getMaxColumns() < nc + 14) sh.insertColumnsAfter(sh.getMaxColumns(), nc + 14 - sh.getMaxColumns());
+  sh.showColumns(1, sh.getMaxColumns());
+  sh.getRange(t - 2, 1, Math.max(sh.getMaxRows() - t + 3, 1), sh.getMaxColumns()).clear();
   sh.getCharts().forEach(c => sh.removeChart(c));
   const H = '#dfe7ec';
   sh.getRange(t - 1, 1).setValue('Linea').setFontWeight('bold').setBackground(H);
@@ -648,14 +650,19 @@ function aggiornaKpiConfronto() {
   sh.getRange(t + out.length, 1, 1, nc).setFontWeight('bold').setBorder(true, null, null, null, null, null);
   sh.getRange(t + 1, 2, out.length, nc - 1).setHorizontalAlignment('center');
   const note = t + out.length + 1;
-  sh.getRange(note, 1, 4, 1).setValues([
+  sh.getRange(note, 1, 9, 1).setValues([
+    ['Come si conta:'],
+    ['• Fermo = la macchina ferma, dall\'apertura a quando riparte. Se nello stesso fermo si fanno più interventi conta 1 (colonna «Fermo n.» del foglio Fermi).'],
+    ['• Intervento = ogni riga del foglio Fermi. N° interventi ≥ N° fermi.'],
+    ['• Occurrancy = fermi ÷ lotti · MTBF = ore di funzionamento ÷ fermi · MTTR = durata media di un intervento (senza i micro-interventi sotto i ' + MICRO_MIN + ' minuti) · Tempo di fermo = somma delle durate degli interventi.'],
     ['Δ = variazione da A a B. Verde = migliora (meno fermi, occurrancy più bassa, MTBF più alto, MTTR più corto), rosso = peggiora; sotto il 5% resta bianco.'],
     ['MTBF stimato dal Programma (giorni con lotti × ' + ORE_GIORNO + ' h); vuoto se nel Programma non ci sono lotti per quella linea.'],
-    [pA.inCorso || pB.inCorso ? '⚠ ' + (pB.inCorso ? lb : la) + ' è in corso (fino a oggi): Occurrancy, MTBF e MTTR si confrontano; N° fermi e tempo di fermo no (meno giorni), per questo il loro Δ non è colorato.'
-      : !pari ? 'Periodi di lunghezza diversa: N° fermi e tempo di fermo non sono colorati.' : ''],
+    [pA.inCorso || pB.inCorso ? '⚠ ' + (pB.inCorso ? lb : la) + ' è in corso (fino a oggi): Occurrancy, MTBF e MTTR si confrontano; N° fermi, N° interventi e tempo di fermo no (meno giorni), per questo il loro Δ non è colorato.'
+      : !pari ? 'Periodi di lunghezza diversa: N° fermi, N° interventi e tempo di fermo non sono colorati.' : ''],
     ['Periodo A: ' + Utilities.formatDate(pA.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pA.to, TZ, 'dd/MM/yyyy') + ' · Periodo B: ' + Utilities.formatDate(pB.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pB.to, TZ, 'dd/MM/yyyy')]]).setFontColor('#5a6873').setFontSize(9);
+  sh.getRange(note, 1).setFontWeight('bold');
   // grafici: Occurrancy, MTBF, MTTR (A e B affiancati per linea); dati nelle colonne nascoste T:AB
-  const lin = R.filter(r => r.linea !== 'TUTTE'), gc = 20;
+  const lin = R.filter(r => r.linea !== 'TUTTE'), gc = 1 + K.length * 3 + 2 + 3; // colonne nascoste dopo la tabella
   if (sh.getMaxColumns() < gc + 8) sh.insertColumnsAfter(sh.getMaxColumns(), gc + 8 - sh.getMaxColumns());
   const graf = [['Occurrancy (fermi/lotti) — più bassa è meglio', k => k.occ, '0.00'], ['MTBF (h) — più alto è meglio', k => k.mtbf, '0'], ['MTTR per intervento (min) — più corto è meglio', k => vuoto(k.mttr) ? '' : k.mttr * 1440, '0']];
   graf.forEach(([tit, f], i) => {
@@ -664,7 +671,7 @@ function aggiornaKpiConfronto() {
     if (lin.length) sh.getRange(t + 1, c, lin.length, 3).setValues(lin.map(r => [r.linea, vuoto(f(r.A)) ? 0 : Number(f(r.A)), vuoto(f(r.B)) ? 0 : Number(f(r.B))]));
     try { sh.insertChart(sh.newChart().asColumnChart().addRange(sh.getRange(t, c, lin.length + 1, 3)).setNumHeaders(1)
       .setOption('title', tit).setOption('legend', { position: 'bottom' }).setOption('colors', ['#9fb3c1', '#245a7a'])
-      .setPosition(note + 5, 1 + i * 6, 0, 0).setOption('width', 480).setOption('height', 300).build()); } catch (e) { Logger.log('Grafico non creato: ' + e); }
+      .setPosition(note + 10, 1 + i * 7, 0, 0).setOption('width', 480).setOption('height', 300).build()); } catch (e) { Logger.log('Grafico non creato: ' + e); }
   });
   sh.hideColumns(gc, 9);
 }
@@ -2829,7 +2836,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/11/2026 09:45';
+const VERSIONE_SCRIPT = '19/11/2026 10:15';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
