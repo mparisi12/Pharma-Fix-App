@@ -561,6 +561,8 @@ function kpiMesi_(oggi) { const l = []; for (let i = 0; i < 24; i++) l.push(mese
 function periodoMese_(lab, dal, al, oggi) {
   const g = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()), oggi0 = g(oggi);
   let from, to;
+  // Fogli Google trasforma da solo «ottobre 2026» in una data (1/10/2026): vale il mese di quella data
+  if (lab instanceof Date) lab = meseLab_(lab);
   const m = String(lab || '').trim().toLowerCase().match(/^([a-z]+) (\d{4})$/);
   if (m && MESI_IT.indexOf(m[1]) >= 0) { from = new Date(Number(m[2]), MESI_IT.indexOf(m[1]), 1); to = new Date(Number(m[2]), MESI_IT.indexOf(m[1]) + 1, 0); }
   else { from = dal instanceof Date ? g(dal) : new Date(oggi.getFullYear(), oggi.getMonth(), 1); to = al instanceof Date ? g(al) : oggi0; }
@@ -592,7 +594,7 @@ function kpiConfrontoBuild_(ss) {
   sh.getRange('C1').setValue('Cambia le celle gialle: si ricalcola da solo (oppure menu Pharma-Fix → KPI: confronta due periodi)').setFontColor(G);
   sh.getRange('A2:A4').setValues([['Area'], ['Periodo A'], ['Periodo B']]).setFontWeight('bold');
   sh.getRange('B2').setValue('PACKAGING').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(KPI_AREE, true).setAllowInvalid(false).build());
-  sh.getRange('B3:B4').setValues([[mesi[1]], [mesi[0]]]).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(mesi, true).setAllowInvalid(false).build());
+  sh.getRange('B3:B4').setNumberFormat('@').setValues([[mesi[1]], [mesi[0]]]).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(mesi, true).setAllowInvalid(false).build());
   sh.getRange('B2:B4').setBackground(Y).setFontWeight('bold');
   sh.getRange('C2').setValue('Filling e Packaging sono sempre separati: scegli quale guardare').setFontColor(G);
   sh.getRange('C3:C4').setValues([['Personalizzato: dal →'], ['Personalizzato: dal →']]).setFontColor(G).setHorizontalAlignment('right');
@@ -610,6 +612,9 @@ function aggiornaKpiConfronto() {
   if (!sh || String(sh.getRange('A3').getValue()) !== 'Periodo A') sh = kpiConfrontoBuild_(ss);
   let area = String(sh.getRange('B2').getValue()).toUpperCase(); if (KPI_AREE.indexOf(area) < 0) { area = 'PACKAGING'; sh.getRange('B2').setValue(area); }
   const oggi = new Date(), rd = sh.getRange('B3:F4').getValues();
+  // mese diventato data (Fogli lo converte da solo): lo riscrivo come testo
+  rd.forEach((r, i) => { if (r[0] instanceof Date) { r[0] = meseLab_(r[0]); sh.getRange(3 + i, 2).setNumberFormat('@').setValue(r[0]); } });
+  sh.getRange('B3:B4').setNumberFormat('@');
   sh.getRange('B3:B4').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(kpiMesi_(oggi), true).setAllowInvalid(false).build());
   const pA = periodoMese_(rd[0][0], rd[0][2], rd[0][4], oggi), pB = periodoMese_(rd[1][0], rd[1][2], rd[1][4], oggi);
   const etich = (lab, p) => /^Personalizzato/.test(lab) ? Utilities.formatDate(p.from, TZ, 'dd/MM') + '–' + Utilities.formatDate(p.to, TZ, 'dd/MM') : String(lab).replace(/^(\w{3})\w* (\d{2})(\d{2})$/, '$1 $3');
@@ -2824,7 +2829,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/11/2026 09:30';
+const VERSIONE_SCRIPT = '19/11/2026 09:45';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
