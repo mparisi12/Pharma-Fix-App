@@ -670,6 +670,8 @@ console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging 
   ok(pO.from.getDate() === 1 && pO.to.getDate() === 31 && !pO.inCorso && pN.inCorso && pN.to.getDate() === 19, 'mese intero; il mese in corso arriva fino a oggi');
   const pP = ctx.periodoMese_('Personalizzato', new D(2026, 9, 5), new D(2026, 9, 12), oggi);
   ok(pP.from.getDate() === 5 && pP.to.getDate() === 12, 'Personalizzato: le date scritte accanto');
+  const pD = ctx.periodoMese_(new D(2026, 8, 1), '', '', oggi);
+  ok(pD.from.getMonth() === 8 && pD.to.getDate() === 30 && !pD.inCorso, 'mese che Fogli ha trasformato in data (1/9/2026): vale settembre intero');
   ok(ctx.kpiMesi_(oggi)[0] === 'novembre 2026' && ctx.kpiMesi_(oggi)[1] === 'ottobre 2026' && ctx.kpiMesi_(oggi).length === 25, 'menu: ultimi 24 mesi + Personalizzato');
   sheets.Equipment.rows.push(['SPL1-01', 'SPL1', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['SPL2-01', 'SPL2', 'Packaging', 'CARTONATRICE', 'SI']);
   const riga = (id, g, h, min, linea, macc, code, lotto) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new D(2026, g[1], g[0], h, 0);
