@@ -650,7 +650,7 @@ function aggiornaKpiConfronto() {
   sh.getRange(t + out.length, 1, 1, nc).setFontWeight('bold').setBorder(true, null, null, null, null, null);
   sh.getRange(t + 1, 2, out.length, nc - 1).setHorizontalAlignment('center');
   const note = t + out.length + 1;
-  sh.getRange(note, 1, 9, 1).setValues([
+  const righeNote = [
     ['Come si conta:'],
     ['• Fermo = la macchina ferma, dall\'apertura a quando riparte. Se nello stesso fermo si fanno più interventi conta 1 (colonna «Fermo n.» del foglio Fermi).'],
     ['• Intervento = ogni riga del foglio Fermi. N° interventi ≥ N° fermi.'],
@@ -659,7 +659,8 @@ function aggiornaKpiConfronto() {
     ['MTBF stimato dal Programma (giorni con lotti × ' + ORE_GIORNO + ' h); vuoto se nel Programma non ci sono lotti per quella linea.'],
     [pA.inCorso || pB.inCorso ? '⚠ ' + (pB.inCorso ? lb : la) + ' è in corso (fino a oggi): Occurrancy, MTBF e MTTR si confrontano; N° fermi, N° interventi e tempo di fermo no (meno giorni), per questo il loro Δ non è colorato.'
       : !pari ? 'Periodi di lunghezza diversa: N° fermi, N° interventi e tempo di fermo non sono colorati.' : ''],
-    ['Periodo A: ' + Utilities.formatDate(pA.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pA.to, TZ, 'dd/MM/yyyy') + ' · Periodo B: ' + Utilities.formatDate(pB.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pB.to, TZ, 'dd/MM/yyyy')]]).setFontColor('#5a6873').setFontSize(9);
+    ['Periodo A: ' + Utilities.formatDate(pA.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pA.to, TZ, 'dd/MM/yyyy') + ' · Periodo B: ' + Utilities.formatDate(pB.from, TZ, 'dd/MM/yyyy') + ' – ' + Utilities.formatDate(pB.to, TZ, 'dd/MM/yyyy')]];
+  sh.getRange(note, 1, righeNote.length, 1).setValues(righeNote).setFontColor('#5a6873').setFontSize(9);
   sh.getRange(note, 1).setFontWeight('bold');
   // grafici: Occurrancy, MTBF, MTTR (A e B affiancati per linea); dati nelle colonne nascoste T:AB
   const lin = R.filter(r => r.linea !== 'TUTTE'), gc = 1 + K.length * 3 + 2 + 3; // colonne nascoste dopo la tabella
@@ -2836,7 +2837,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/11/2026 10:15';
+const VERSIONE_SCRIPT = '19/11/2026 10:20';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
