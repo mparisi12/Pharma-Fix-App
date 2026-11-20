@@ -426,6 +426,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   await p.fill('#fb', '6000003'); await p.dispatchEvent('#fb', 'input'); await attesa(200);
   ok(/STESSO FORMATO – SOLO RICETTE/.test(await p.innerText('#fres')) && /Etichetta: E1 → E9/.test(await p.innerText('#fres')), 'stesso formato, cambia solo l\'etichetta: solo ricetta');
   ok(/Ricetta: ETI A \(resta uguale\)/.test(await p.innerText('#fres')), 'stessa ricetta: «resta uguale»');
+  ok(await p.evaluate(() => { const o = FMT.prod.map(x => x.f); FMT.prod.forEach(x => { x.f = ''; }); const r = (FMT.prod.forEach(x => { x.f = String(x.f || '').toUpperCase() || (/^5/.test(x.c) ? 'PRIMARIO' : 'SECONDARIO'); }), FMT.prod.every(x => x.f)); FMT.prod.forEach((x, i) => { x.f = o[i]; }); return r; }), 'fase mancante nel file: ricavata dal codice');
   ok(await p.evaluate(() => !Object.keys(localStorage).some(k => /FP-A|6000002|ETI A/.test(localStorage.getItem(k) || ''))), 'i dati dei formati non restano salvati sul telefono');
   await p.evaluate(() => { closeSh(); shFmtMacchina({ code: 'SPL2-01', macchina: 'ETICHETTATRICE', linea: 'SPL2' }); }); await attesa(300);
   const fmm = await p.innerText('#fmtm');
