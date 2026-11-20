@@ -1436,6 +1436,8 @@ function controllaRegistrazioni() {
       const m = String((mv[i] || [])[0] || '').trim(), d = piuOperazioni_(r[C.ALTRO - 1]);
       if (m || d) out.push(['Più interventi in un fermo?', String(r[C.MAN - 1]) + ': ' + (m || d + ' — "' + String(r[C.ALTRO - 1]).trim().slice(0, 80) + '"'), 'Fermi riga ' + (i + 2)]); });
   }
+  // 3) foglio Guasti: righe con un codice che in Equipment non esiste → l'app non mostra quelle voci per nessuna macchina
+  try { guastiSenzaMacchina_(ss).forEach(x => out.push(['Guasti: codice che non esiste', '«' + x.code + '» (' + x.prom + ') non è in Equipment: l\'app non mostra queste voci' + (x.forse ? '. Forse è ' + x.forse : ''), 'Guasti riga ' + x.riga])); } catch (e) { Logger.log(e); }
   if (out.length === 1) out.push(['Nessun caso da controllare', '', '']);
   let c = ss.getSheetByName('Controlli'); if (c) c.clear(); else c = ss.insertSheet('Controlli');
   c.getRange(1, 1, out.length, 3).setValues(out);
@@ -1443,6 +1445,19 @@ function controllaRegistrazioni() {
   c.setColumnWidth(1, 240); c.setColumnWidth(2, 460); c.setColumnWidth(3, 160); c.setFrozenRows(1);
   c.getRange(1, 4).setValue('Aggiornato: ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
   ss.setActiveSheet(c);
+}
+
+// Righe del foglio Guasti con un codice che non è una macchina di Equipment, né una linea, né TUTTE (es. «SPL2-11» invece di SPL2-111)
+function guastiSenzaMacchina_(ss) {
+  const g = ss.getSheetByName(SH_GUASTI); if (!g || g.getLastRow() < 2) return [];
+  const U = x => String(x == null ? '' : x).trim().toUpperCase(), eq = ss.getSheetByName(SH_EQ).getDataRange().getValues().slice(1).filter(r => r[0]);
+  const codici = new Set(eq.map(r => U(r[0]))), linee = new Set(eq.map(r => U(r[1])).concat(eq.map(r => U(r[1]).replace(/\s+/g, ''))));
+  const vecchi = {}; eq.forEach(r => String(r[EQ_PREC - 1] || '').split(/[,;\s]+/).filter(Boolean).forEach(o => vecchi[U(o)] = String(r[0]).trim()));
+  return g.getRange(2, 1, g.getLastRow() - 1, 2).getValues().map((r, i) => ({ code: String(r[0]).trim(), prom: String(r[1]).trim(), riga: i + 2 }))
+    .filter(x => x.code && !codici.has(U(x.code)) && !linee.has(U(x.code)) && U(x.code) !== 'TUTTE')
+    .map(x => { // suggerimento: codice vecchio diventato ITEM, oppure la macchina con lo stesso nome scritto nel promemoria
+      const nome = eq.filter(r => U(x.prom).indexOf(U(r[3])) >= 0 && U(x.prom).indexOf(U(r[1])) >= 0).map(r => String(r[0]).trim());
+      return Object.assign(x, { forse: vecchi[U(x.code)] || (nome.length === 1 ? nome[0] : '') }); });
 }
 
 /* Aggiornamento v3 (rieseguibile): aree Filling/Packaging, colonne di traccia in Fermi, foglio Telefoni */
@@ -2837,7 +2852,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '20/11/2026 12:50';
+const VERSIONE_SCRIPT = '20/11/2026 21:00';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
