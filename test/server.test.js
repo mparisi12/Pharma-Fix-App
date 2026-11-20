@@ -699,4 +699,13 @@ console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging 
   ok(kc.rows.some(r => r && /^• Fermo = la macchina ferma/.test(r[0])) && kc.rows.some(r => r && /^• Intervento = ogni riga/.test(r[0])), 'sotto la tabella: spiegazione breve di fermo e intervento');
   ok(typeof kc.rows[2][1] === 'string' && /\d{4}$/.test(kc.rows[2][1]), 'periodo scritto come testo (non data)');
 }
+console.log('\nGuasti: righe con un codice che in Equipment non esiste');
+{
+  const { ctx, sheets } = nuovo();
+  sheets.Equipment.rows.push(['SPL2-111', 'SPL2', 'Packaging', 'ASTUCCIATRICE ROMACO PC4250', 'SI', '', 'SPL2-04']);
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)'], ['TUTTE', 'tutte', 'SENSORE'], ['ST3', 'linea', 'X'], ['SPL2-11', 'SPL2 · ASTUCCIATRICE ROMACO PC4250', 'MAG. ASTUCCI'], ['SPL2-04', 'vecchio', 'GUIDE'], ['SPL2-111', 'ok', 'CHIUSURE AST']]);
+  const l = ctx.guastiSenzaMacchina_(ctx.SpreadsheetApp.getActiveSpreadsheet());
+  ok(l.length === 2 && l[0].code === 'SPL2-11' && l[0].forse === 'SPL2-111' && l[0].riga === 4, '«SPL2-11» segnalato, con il suggerimento SPL2-111 (dal nome nel promemoria)');
+  ok(l[1].code === 'SPL2-04' && l[1].forse === 'SPL2-111', 'codice vecchio (prima del cambio ITEM): suggerito quello nuovo');
+}
 fine('Script');
