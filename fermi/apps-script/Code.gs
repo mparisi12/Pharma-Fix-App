@@ -2837,7 +2837,7 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '19/11/2026 10:20';
+const VERSIONE_SCRIPT = '20/11/2026 12:50';
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -3469,12 +3469,13 @@ function formatiDati_(nuovo) {
   const cCod = col(/^CODICE SAP/), cDes = col(/^DESCRIZIONE/), cPrim = col(/^LINEA PRIMARIO/);
   const cX = h.map((x, i) => [x, i]).filter(([x, i]) => i > cPrim && i < cPrim + 12 && /^(ST\d|SPL\d|ST1MAR|ST1TGM|ORL)/.test(x));
   const cAtt = ['CONTENITORE', 'TAPPO', 'CONTAGOCCE', 'DOSAGGIO', 'ETICHETTA', 'FUSTELLA ASTUCCIO', 'ISTRUZIONE', 'PEZZI PER ASTUCCIO', 'FUSTELLA CARTONE', 'FARDELLO'].map(n => col(new RegExp('^' + n)));
-  const cFase = col(/^FASE$/), cFor = col(/^CODICE FORMATO/), cFF = col(/^FORMATO PRIMARIO \(FF\)/, -1), cEsito = col(/^ESITO$/, -1), cStato = col(/^STATO FORMATO/, -1), cRep = col(/^REPARTO/, -1);
+  const cFase = col(/^FASE\b/, -1), cFor = col(/^CODICE FORMATO/), cFF = col(/^FORMATO PRIMARIO \(FF\)/, -1), cEsito = col(/^ESITO$/, -1), cStato = col(/^STATO FORMATO/, -1), cRep = col(/^REPARTO/, -1);
   const cRicP = col(/^RICETTA PRIMARIO/, -1), cRicS = col(/^RICETTA SECONDARIO/, -1);
   const cT5 = col(/^TIPO CODICE 5/, -1), cLg = col(/^LARGHEZZA ISTRUZIONE/, -1), cCRic = col(/^CONTROLLO RICETTE/, -1), cCDiba = col(/^CONTROLLO DIBA/, -1);
   const prod = P.slice(2).filter(r => S(r[cCod])).map(r => ({ c: S(r[cCod]), d: S(r[cDes]), lp: S(r[cPrim]).toUpperCase().replace(/\s+/g, ''),
     ls: cX.filter(([x, i]) => S(r[i]).toUpperCase() === 'X').map(([x]) => x.replace(/\s+/g, '')), a: cAtt.map(i => S(r[i])),
-    f: S(r[cFase]), fmt: S(r[cFor]), ff: cFF >= 0 ? S(r[cFF]) : '', es: cEsito >= 0 ? S(r[cEsito]) : '', st: cStato >= 0 ? S(r[cStato]) : '', rep: cRep >= 0 ? S(r[cRep]) : '',
+    // fase: colonna Fase se c'è (anche «Fase (…)»), altrimenti dal codice: 5… semilavorato = PRIMARIO, gli altri SECONDARIO
+    f: (cFase >= 0 && S(r[cFase]) ? S(r[cFase]).toUpperCase() : /^5/.test(S(r[cCod])) ? 'PRIMARIO' : 'SECONDARIO'), fmt: S(r[cFor]), ff: cFF >= 0 ? S(r[cFF]) : '', es: cEsito >= 0 ? S(r[cEsito]) : '', st: cStato >= 0 ? S(r[cStato]) : '', rep: cRep >= 0 ? S(r[cRep]) : '',
     rp: cRicP >= 0 ? S(r[cRicP]) : '', rs: cRicS >= 0 ? S(r[cRicS]) : '',
     t5: cT5 >= 0 ? S(r[cT5]).toUpperCase() : '', lg: cLg >= 0 ? S(r[cLg]).toUpperCase() : '', cr: cCRic >= 0 ? S(r[cCRic]) : '', cd: cCDiba >= 0 ? S(r[cCDiba]) : '' }));
   // MACCHINE: intestazioni alla riga 1
