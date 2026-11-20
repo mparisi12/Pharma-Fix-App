@@ -440,6 +440,12 @@ console.log('\nFormati (tutti dal telefono approvato, file collegato)');
   fs.RICETTE = new Sheet('RICETTE', [['RICETTE'], ['Macchina_ID\n(codice ITEM)', 'Linea', 'Macchina', 'Fase', 'Contenitore\n(solo se la macchina lo usa)', 'Dosaggio\n(solo se)', 'Fustella astuccio\n(solo se)', 'Larghezza istruzione\n(solo se)', 'Fustella cartone\n(solo se)', 'Media fill', 'NOME RICETTA\nSUL PANNELLO', 'N° codici\nche la usano'],
     ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '5 ml', '', '', '', '', 'RIC 5', 3], ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '10 ml', '', '', '', '', 'RIC 10', 7], ['ST3-02', 'ST3', 'RIEMPITRICE', 'PRIMARIO', 'FL.X', '', '', '', '', 'MEDIA FILL', 'MF', 1]]);
   const d2 = ctx.formatiDati_();
+  { // file nuovo senza colonna «Fase»: niente avviso, la fase si ricava dal codice
+    const P0 = fs.PRODOTTI.rows, iF = P0[1].findIndex(x => /^Fase$/i.test(String(x).trim()));
+    if (iF >= 0) { const salva = P0[1][iF]; P0[1][iF] = 'Colonna tolta'; const d3 = ctx.formatiDati_();
+      ok(!d3.avvisi.some(a => /FASE/.test(a)) && d3.prod.every(p => p.f === (/^5/.test(p.c) ? 'PRIMARIO' : 'SECONDARIO')), 'senza colonna Fase: nessun avviso, fase dal codice (5 = primario)');
+      P0[1][iF] = 'Fase (primario / secondario)'; ok(!ctx.formatiDati_().avvisi.some(a => /FASE/.test(a)), 'colonna «Fase (…)» riconosciuta'); P0[1][iF] = salva; }
+  }
   ok(d2.ric.length === 3 && d2.ric[0].id === 'ST3-02' && d2.ric[1].do === '10 ml' && d2.ric[2].mf === 'MEDIA FILL' && d2.ric[1].n === 7 && d2.ric[0].nome === 'RIC 5', 'RICETTE lette: macchina, valori, nome sul pannello, n° codici');
 }
 
