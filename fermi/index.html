@@ -2137,7 +2137,10 @@ let FMT = null;
 async function caricaFormati(forza) {
   if (FMT && !forza) return FMT;
   const r = await fetch(CFG.API_URL + '?action=formati&key=' + encodeURIComponent(getPin()) + '&man=' + encodeURIComponent(S.man) + '&dev=' + encodeURIComponent(DEV) + '&devName=' + encodeURIComponent(DEV_NAME));
-  const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore'); FMT = j; return j;
+  const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Errore');
+  // fase mancante (file senza colonna «Fase»): dal codice, 5… = semilavorato → PRIMARIO, gli altri SECONDARIO. Senza, un cambio sul secondario risultava «nessun cambio»
+  (j.prod || []).forEach(p => { p.f = String(p.f || '').toUpperCase() || (/^5/.test(p.c) ? 'PRIMARIO' : 'SECONDARIO'); });
+  FMT = j; return j;
 }
 const FV = (p, k) => k === 10 ? p.c : String(p.a[k] || '');
 const fNA = v => /^N\/?A$/i.test(String(v).trim());
