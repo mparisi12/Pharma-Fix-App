@@ -10,10 +10,10 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
 
 const now = Date.now(), g0 = new Date(); g0.setHours(0, 0, 0, 0);
 // Macchine finte: nell'app vera arrivano solo dal foglio Equipment (non più da defaults.js)
-const D = { equipment: [['ST3-01', 'Filling', 'RIORDINATORE'], ['ST3-02', 'Filling', 'RIEMPITRICE'], ['ST3-03', 'Packaging', 'ETICHETTATRICE'],
-    ['ST3-04', 'Packaging', 'ASTUCCIATRICE'], ['ST3-05', 'Packaging', 'BILANCIA'], ['ST3-06', 'Packaging', 'CARTONATRICE']].map(([code, area, macchina]) => ({ code, linea: 'ST3', area, macchina })),
-  liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['ST3'],
-  fermi: [{ id: 'F0', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
+const D = { equipment: [['LIND-01', 'Filling', 'RIORDINATORE'], ['LIND-02', 'Filling', 'RIEMPITRICE'], ['LIND-03', 'Packaging', 'ETICHETTATRICE'],
+    ['LIND-04', 'Packaging', 'ASTUCCIATRICE'], ['LIND-05', 'Packaging', 'BILANCIA'], ['LIND-06', 'Packaging', 'CARTONATRICE']].map(([code, area, macchina]) => ({ code, linea: 'LIND', area, macchina })),
+  liste: { Manutentori: ['ROSSI Mario', 'BIANCHI Luca'], Coordinatori: ['VERDI Anna'] }, guasti: {}, soluzioni: [], anomalie: [], turni: {}, programma: {}, continuo: ['LIND'],
+  fermi: [{ id: 'F0', code: 'LIND-02', linea: 'LIND', macchina: 'RIEMPITRICE', start: now - 20 * 60000, stato: 'APERTO', lotto: '601090', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' }],
   compiti: [], documenti: [], vestizioni: [{ man: 'ROSSI Mario', scad: g0.getTime() + 40 * 864e5 }],
   convalide: { list: [{ man: 'ROSSI Mario', cat: 'G', desc: 'Intervento Meccanico di regolazione', scad: g0.getTime() - 3 * 864e5 }, { man: 'BIANCHI Luca', cat: 'H', desc: 'Intervento Meccanico di sostituzione componente', scad: g0.getTime() + 200 * 864e5 }], ignote: [] },
   sterileNo: ['VERDI Anna'] };
@@ -33,7 +33,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
     const u = r.request().url();
     if (r.request().method() === 'POST') {
       const o = JSON.parse(r.request().postData()); posts.push(o); ver++;
-      if (o.action === 'open') D.fermi.unshift({ id: o.id, code: o.code, linea: 'ST3', macchina: 'X', start: o.ts, stato: 'APERTO', lotto: o.lotto, man: o.manutentore, apertoDa: o.manutentore });
+      if (o.action === 'open') D.fermi.unshift({ id: o.id, code: o.code, linea: 'LIND', macchina: 'X', start: o.ts, stato: 'APERTO', lotto: o.lotto, man: o.manutentore, apertoDa: o.manutentore });
       if (o.action === 'compito') D.compiti.push({ id: o.id, ts: o.ts, da: o.manutentore, a: o.a, code: o.code || '', linea: '', titolo: o.titolo, descr: o.descr, pr: o.pr, entro: o.entroTs, stato: 'DA FARE', storia: '' });
       if (o.action === 'compitoStato') Object.assign(D.compiti.find(k => k.id === o.id), { stato: o.stato, presoDa: o.manutentore, preso: o.ts });
       if (o.action === 'documento') D.documenti.push({ id: o.id, ts: o.ts, dove: o.dove, tipo: o.tipo, titolo: o.titolo, descr: o.descr, link: o.link });
@@ -60,24 +60,24 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   ok(full === f0 && same >= 3, 'aggiornamenti senza modifiche: nessun riscaricamento completo');
 
   console.log('\nApri fermo');
-  await p.click('#manual'); await attesa(300); await p.click('#pl [data-v="ST3"]'); await attesa(200); await p.click('#pm [data-v="ST3-04"]'); await attesa(500);
+  await p.click('#manual'); await attesa(300); await p.click('#pl [data-v="LIND"]'); await attesa(200); await p.click('#pm [data-v="LIND-04"]'); await attesa(500);
   ok(await p.isVisible('#lotto'), 'popup centrale con il lotto');
   await p.fill('#lotto', '601095'); await p.click('#sheet #go'); await attesa(2500);
-  ok(posts.some(o => o.action === 'open' && o.code === 'ST3-04' && o.lotto === '601095'), 'fermo inviato al foglio');
+  ok(posts.some(o => o.action === 'open' && o.code === 'LIND-04' && o.lotto === '601095'), 'fermo inviato al foglio');
   ok(full > f0, 'dopo l\'invio i dati nuovi si riscaricano');
   // apri fermo: lotto sempre a mano, nessuna proposta (né l'ultimo usato né il programma)
-  const lt = await p.evaluate(() => { const eq = eqBy('ST3-05') || { code: 'ST3-05', linea: 'ST3', macchina: 'BILANCIA', area: 'Packaging' }; const old = S.programma;
-    S.programma = { ST3: { [dKey(giornoProd())]: '601090' } }; closeSh(); openSheet(eq);
+  const lt = await p.evaluate(() => { const eq = eqBy('LIND-05') || { code: 'LIND-05', linea: 'LIND', macchina: 'BILANCIA', area: 'Packaging' }; const old = S.programma;
+    S.programma = { LIND: { [dKey(giornoProd())]: '601090' } }; closeSh(); openSheet(eq);
     const r = { v: document.querySelector('#lotto').value, chips: document.querySelectorAll('#sheet #lch [data-v]').length };
     closeSh(); S.programma = old; return r; });
   ok(lt.v === '' && lt.chips === 0, 'apri fermo: campo lotto vuoto, nessun lotto proposto (né l\'ultimo usato 601095 né il programma 601090)');
 
   console.log('\nDocumenti');
-  await p.evaluate(() => go({ name: 'doc', code: 'ST3-04', tab: 'sch' })); await attesa(300);
+  await p.evaluate(() => go({ name: 'doc', code: 'LIND-04', tab: 'sch' })); await attesa(300);
   await p.click('#adddoc'); await attesa(300); await p.click('#dgo');
   ok(/titolo/i.test(await p.innerText('#derr')), 'senza titolo: chiede il titolo');
   await p.fill('#dti', 'Scheda formato prova'); await p.fill('#dli', 'https://drive.google.com/file/d/abc/view'); await p.click('#dgo'); await attesa(2000);
-  ok(posts.some(o => o.action === 'documento' && o.tipo === 'SCHEDA FORMATO' && o.dove === 'ST3-04'), 'documento inviato');
+  ok(posts.some(o => o.action === 'documento' && o.tipo === 'SCHEDA FORMATO' && o.dove === 'LIND-04'), 'documento inviato');
   ok(/Scheda formato prova/.test(await p.innerText('#view')), 'documento in elenco');
 
   console.log('\nCompiti');
@@ -104,7 +104,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   ok((await p.$$eval('#sheet .sgrid .n', x => x.map(e => e.textContent))).join() === 'BIANCHI Luca,ROSSI Mario', 'filtro Scadute: scaduti + chi non ha la convalida (BIANCHI senza Cat. G); esonerati fuori');
   ok(/MANCA/.test(await p.innerText('#sheet .sgrid')), 'convalida mancante segnata MANCA');
   // coordinatore: scartare una soluzione chiede il motivo
-  await p.evaluate(() => { closeSh(); S.soluzioni.push({ id: 'SP1', ts: Date.now(), dove: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'I flaconi si incastravano', soluzione: 'Regolato sponde e vomere', autore: 'ROSSI Mario', stato: 'DA APPROVARE' }); go({ name: 'sol', code: 'ST3-04' }); }); await attesa(300);
+  await p.evaluate(() => { closeSh(); S.soluzioni.push({ id: 'SP1', ts: Date.now(), dove: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'I flaconi si incastravano', soluzione: 'Regolato sponde e vomere', autore: 'ROSSI Mario', stato: 'DA APPROVARE' }); go({ name: 'sol', code: 'LIND-04' }); }); await attesa(300);
   await p.click('#daapp [data-app="NO"]'); await attesa(150);
   ok(await p.isVisible('#daapp .scmot'), 'Scarta: compare la scelta del motivo');
   await p.click('#daapp [data-app="NOK"]'); await attesa(150);
@@ -145,7 +145,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   ok(await p.isHidden('#login') && /ROSSI Mario/.test(await p.innerText('#manbtn')) && await p.evaluate(() => !!localStorage.getItem('pf_pin')), 'memoria del browser svuotata: codice e accesso ripresi dalla copia nell\'archivio');
   const ios = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
   await ios.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' })); await ios.route(/script\.google\.com/, r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D }) }));
-  const q = await ios.newPage(); await q.goto(`http://localhost:${PORT}/fermi/?eq=ST3-04`); await q.waitForTimeout(800);
+  const q = await ios.newPage(); await q.goto(`http://localhost:${PORT}/fermi/?eq=LIND-04`); await q.waitForTimeout(800);
   ok(await q.isVisible('#iosban'), 'iPhone in Safari (es. QR con la fotocamera): avviso "apri l\'app dalla schermata Home"');
   await q.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true })); await q.reload(); await q.waitForTimeout(800);
   ok(!(await q.isVisible('#iosban')), 'iPhone dall\'icona sulla schermata Home: nessun avviso');
@@ -167,7 +167,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
 
   console.log('\nTocco sulla scritta in alto: aggiorna subito');
   await ctx.unroute(/script\.google\.com/); let get = 0;
-  D.fermi.unshift({ id: 'F-ALTRO', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '123456', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' });
+  D.fermi.unshift({ id: 'F-ALTRO', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '123456', man: 'BIANCHI Luca', apertoDa: 'BIANCHI Luca' });
   await ctx.route(/script\.google\.com/, r => { get++; r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, ver: 'NUOVA' }) }); });
   await p.evaluate(() => go('home')); await attesa(200);
   await p.click('#sync'); await attesa(800);
@@ -176,9 +176,9 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
 
   console.log('\nChiusura fermo: cosa si è guastato → cosa hai fatto → perché');
   await ctx.unroute(/script\.google\.com/);
-  const storia = k => ({ id: 'H' + k, code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - (k + 2) * 3600e3, end: Date.now() - (k + 1) * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: k < 2 ? 'REGOLAZIONE' : 'RIAVVIO', cat: 'AUTOMATION', man: 'ROSSI Mario', lotto: '601095' });
-  D.fermi = D.fermi.concat([0, 1, 2].map(storia), [{ id: 'FC', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }]);
-  D.guasti = { 'ST3-04': ['CAM. OMRON', 'MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ALTRO'] }; D.vociCat = { 'CAM. OMRON': 'AUTOMATION', 'MAG. ISTRUZIONI': 'MECCANICO', SENSORE: 'ELETTRICO' };
+  const storia = k => ({ id: 'H' + k, code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - (k + 2) * 3600e3, end: Date.now() - (k + 1) * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: k < 2 ? 'REGOLAZIONE' : 'RIAVVIO', cat: 'AUTOMATION', man: 'ROSSI Mario', lotto: '601095' });
+  D.fermi = D.fermi.concat([0, 1, 2].map(storia), [{ id: 'FC', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }]);
+  D.guasti = { 'LIND-04': ['CAM. OMRON', 'MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ALTRO'] }; D.vociCat = { 'CAM. OMRON': 'AUTOMATION', 'MAG. ISTRUZIONI': 'MECCANICO', SENSORE: 'ELETTRICO' };
   await ctx.route(/script\.google\.com/, r => { if (r.request().method() === 'POST') { posts.push(JSON.parse(r.request().postData())); return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); }
     r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, ...D, ver: 'CL' }) }); });
   await p.evaluate(() => refresh()); await attesa(500);
@@ -205,13 +205,13 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   const cl = posts.filter(o => o.action === 'close' && o.id === 'FC').pop() || {};
   const dim = await p.evaluate(f => new Promise(r => { const im = new Image(); im.onload = () => r([im.naturalWidth, im.naturalHeight]); im.src = 'data:image/jpeg;base64,' + f; }), cl.foto || '');
   ok(dim[0] === 1024 && dim[1] === 768, 'foto dalla galleria 4000×3000 ridimensionata a 1024×768 prima dell\'invio');
-  await p.evaluate(() => { closeSh(); go({ name: 'anoform', code: 'ST3-04' }); }); await attesa(300);
+  await p.evaluate(() => { closeSh(); go({ name: 'anoform', code: 'LIND-04' }); }); await attesa(300);
   ok(await p.isVisible('#aph .camtile') && await p.isVisible('#aph .galbtn'), 'anomalie: foto anche dalla galleria');
   await p.evaluate(() => go({ name: 'home' })); await attesa(200);
   ok(cl.categoria === 'AUTOMATION' && cl.intervento === 'REGOLAZIONE' && cl.guasto === 'CAM. OMRON' && cl.causa === 'MATERIALE FUORI SPEC.', 'inviato: categoria automatica, intervento, guasto e causa (secondo tocco toglie la scelta)');
 
   D.liste['Tipo intervento'] = ['REGOLAZIONE', 'SOSTITUZIONE', 'RIPRISTINO', 'PULIZIA']; D.intDesc = { RIPRISTINO: 'reset allarme, homing' }; D.liste.Causa = ['USURA', 'MANUTENZIONE NON ESEGUITA'];
-  D.fermi.push({ id: 'FC2', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 300000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  D.fermi.push({ id: 'FC2', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 300000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
   await p.evaluate(() => { S.ver = 'x'; return refresh(); }); await attesa(400);
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC2')); }); await attesa(300);
   ok(/reset allarme, homing/.test(await p.innerText('#int')) && /MANUTENZIONE NON ESEGUITA/.test(await p.innerText('#cau')), 'interventi, spiegazioni e cause presi dal foglio Liste');
@@ -219,9 +219,9 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
 
   console.log('\nRaccolta uniforme: definizioni, voce mancante con ALTRO, Da rivedere, correzioni al tecnico');
   D.vociDesc = { 'CAM. OMRON': 'telecamera Omron che scarta o non legge' };
-  D.fermi.push({ id: 'FC3', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' },
-    { id: 'RV1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 5 * 3600e3, end: Date.now() - 4.5 * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: 'REGOLAZIONE', altro: 'sostituito cavo telecamera', man: 'ROSSI Mario', lotto: '601095', orari: 'TEMPO REALE' },
-    { id: 'CR1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 8 * 3600e3, end: Date.now() - 7.5 * 3600e3, stato: 'CHIUSO', guasto: 'MAG. ISTRUZIONI', int: 'REGOLAZIONE', altro: 'x', man: 'ROSSI Mario', lotto: '601095', rivisto: 'VERDI Anna', corr: { da: 'VERDI Anna', ts: 123, txt: 'Tipo guasto: INCASTRO → MAG. ISTRUZIONI' } });
+  D.fermi.push({ id: 'FC3', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' },
+    { id: 'RV1', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 5 * 3600e3, end: Date.now() - 4.5 * 3600e3, stato: 'CHIUSO', guasto: 'CAM. OMRON', int: 'REGOLAZIONE', altro: 'sostituito cavo telecamera', man: 'ROSSI Mario', lotto: '601095', orari: 'TEMPO REALE' },
+    { id: 'CR1', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 8 * 3600e3, end: Date.now() - 7.5 * 3600e3, stato: 'CHIUSO', guasto: 'MAG. ISTRUZIONI', int: 'REGOLAZIONE', altro: 'x', man: 'ROSSI Mario', lotto: '601095', rivisto: 'VERDI Anna', corr: { da: 'VERDI Anna', ts: 123, txt: 'Tipo guasto: INCASTRO → MAG. ISTRUZIONI' } });
   await p.evaluate(() => { S.ver = 'y'; return refresh(); }); await attesa(400);
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC3')); }); await attesa(300);
   await p.click('#gua [data-v="CAM. OMRON"]'); await attesa(150);
@@ -232,7 +232,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   await p.fill('#gprop', 'lama sbucciatrice'); await p.click('#go'); await attesa(200); await p.click('#go').catch(() => {}); await attesa(600);
   ok((posts.filter(o => o.action === 'close' && o.id === 'FC3').pop() || {}).proposta === 'lama sbucciatrice', 'la voce proposta viene inviata con il fermo');
   // Proponi come soluzione: campi guidati e controlli prima dell'invio
-  D.fermi.push({ id: 'FC4', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  D.fermi.push({ id: 'FC4', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
   await p.evaluate(() => { S.ver = 'x'; return refresh(); }); await attesa(400);
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC4')); }); await attesa(300);
   // categoria: proposta e modificabile; "A SCELTA" la sceglie sempre il tecnico
@@ -257,7 +257,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   ok((posts.filter(o => o.action === 'close' && o.id === 'FC4').pop() || {}).categoria === 'ELETTRICO', 'inviata la categoria scelta dal tecnico');
   ok(so.problema === 'astucci segnati in uscita' && /^Causa: lama inserimento storta\n allentate|^Causa: lama inserimento storta\nallentate/.test(so.soluzione), 'inviata: problema = cosa si vedeva, soluzione = causa + come');
   // più foto in chiusura (fino a 3): la 2ª e la 3ª partono dopo la chiusura come operazioni a sé
-  D.fermi.push({ id: 'FC5', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  D.fermi.push({ id: 'FC5', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 900000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
   await p.evaluate(() => { S.ver = 'x5'; return refresh(); }); await attesa(400);
   await p.evaluate(() => { closeSh(); closeSheet(S.fermi.find(f => f.id === 'FC5')); }); await attesa(300);
   ok(!(await p.isVisible('#phx [data-add]')), 'prima della foto principale non si aggiungono altre foto');
@@ -278,8 +278,8 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   const fx = posts.filter(o => o.action === 'foto' && o.fermo === 'FC5'), cl5 = posts.filter(o => o.action === 'close' && o.id === 'FC5').pop() || {};
   ok(cl5.foto && fx.length === 2 && fx.map(o => o.n).join() === '2,3' && fx.every(o => o.foto && o.foto.length < 400000), 'chiusura con la foto 1, poi foto 2 e 3 inviate a parte (ridimensionate)');
   ok(posts.indexOf(cl5) < posts.indexOf(fx[0]), 'prima parte la chiusura, poi le foto');
-  const det = await p.evaluate(() => { const f = Object.assign({}, S.fermi.find(x => x.id === 'FC5') || { id: 'FC5', start: Date.now() - 6e5, end: Date.now(), linea: 'ST3', macchina: 'AST' }, { stato: 'CHIUSO', end: Date.now(), fotoC: 'https://drive/1', fotoX: ['https://drive/2', 'https://drive/3'] });
-    intSheet(f, eqBy('ST3-04')); const t = [...document.querySelectorAll('#sheet .fotorow a')].map(a => a.textContent.trim()); closeSh(); return t; });
+  const det = await p.evaluate(() => { const f = Object.assign({}, S.fermi.find(x => x.id === 'FC5') || { id: 'FC5', start: Date.now() - 6e5, end: Date.now(), linea: 'LIND', macchina: 'AST' }, { stato: 'CHIUSO', end: Date.now(), fotoC: 'https://drive/1', fotoX: ['https://drive/2', 'https://drive/3'] });
+    intSheet(f, eqBy('LIND-04')); const t = [...document.querySelectorAll('#sheet .fotorow a')].map(a => a.textContent.trim()); closeSh(); return t; });
   ok(det.join('|') === 'Foto 1|Foto 2|Foto 3', 'dettaglio dell\'intervento: Foto 1 · Foto 2 · Foto 3');
   // tecnico: soluzione scartata con il motivo
   await p.evaluate(() => { closeSh(); S.solScartate = [{ id: 'SX1', ts: Date.now(), macchina: 'ASTUCCIATRICE', guasto: 'INCASTRO', problema: 'regolato sponde', autore: 'ROSSI Mario', motivo: 'Troppo vaga: manca dove e come', da: 'VERDI Anna' }]; go('home'); }); await attesa(300);
@@ -312,23 +312,23 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   await tel.route(/script\.google\.com/, r => r.fulfill({ contentType: 'application/json',
     body: r.request().method() === 'POST' || /action=login/.test(r.request().url()) ? '{"ok":true}' : JSON.stringify({ ok: true, ...D, ver: 'V' + ver }) }));
   const t = await tel.newPage(); t.on('pageerror', e => errori.push(e.message));
-  await t.goto(`http://localhost:${PORT}/fermi/?eq=ST3-05`); await t.waitForTimeout(400);
+  await t.goto(`http://localhost:${PORT}/fermi/?eq=LIND-05`); await t.waitForTimeout(400);
   ok(await t.evaluate(() => S.equipment.length === 0), 'prima dell\'accesso nessuna macchina in memoria: nel codice pubblico non c\'è l\'elenco reale');
   await t.fill('#lpin', 'prova'); await t.fill('#lnome', 'Mario'); await t.fill('#lcogn', 'Rossi'); await t.click('#lgo'); await t.waitForTimeout(3500);
   const sh = await t.innerText('#sheet');
-  ok(/Apri fermo/i.test(sh) && /ST3-05/.test(sh) && /BILANCIA/i.test(sh), 'dopo l\'accesso le macchine arrivano dal foglio e si apre il fermo della macchina del QR');
+  ok(/Apri fermo/i.test(sh) && /LIND-05/.test(sh) && /BILANCIA/i.test(sh), 'dopo l\'accesso le macchine arrivano dal foglio e si apre il fermo della macchina del QR');
   await tel.close();
 
   console.log('\nFermo con più interventi: giro, divisione alla chiusura, controllo antifurbi');
   const D2 = { ...D, guasti: { TUTTE: ['SENSORE', 'GUIDE', 'ALTRO'] }, vociCat: { SENSORE: 'ELETTRICO', GUIDE: 'MECCANICO' },
-    fermi: [{ id: 'GA', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 30 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }] };
+    fermi: [{ id: 'GA', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 30 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' }] };
   const P2 = []; let v2 = 1;
   const gc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' }); await gc.addInitScript(LOTTO_AUTO);
   await gc.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
   await gc.route(/script\.google\.com/, r => {
     if (r.request().method() === 'POST') { // come il foglio vero: apre e chiude le righe, con Fermo n. e Intervento n.
       const o = JSON.parse(r.request().postData()); P2.push(o); v2++;
-      if (o.action === 'open') D2.fermi.unshift({ id: o.id, code: o.code, linea: 'ST3', macchina: 'ASTUCCIATRICE', start: o.ts, stato: 'APERTO', lotto: o.lotto, man: o.manutentore, apertoDa: o.manutentore, gruppo: o.gruppo || '', giro: o.giro || 0 });
+      if (o.action === 'open') D2.fermi.unshift({ id: o.id, code: o.code, linea: 'LIND', macchina: 'ASTUCCIATRICE', start: o.ts, stato: 'APERTO', lotto: o.lotto, man: o.manutentore, apertoDa: o.manutentore, gruppo: o.gruppo || '', giro: o.giro || 0 });
       if (o.action === 'close') { const f = D2.fermi.find(x => x.id === o.id); Object.assign(f, { stato: 'CHIUSO', end: o.ts, guasto: o.guasto, int: o.intervento, altro: o.altro, multi: o.multi || '' }, o.gruppo ? { gruppo: o.gruppo, giro: o.giro } : {}); }
       return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
     }
@@ -343,8 +343,8 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   await g.click('#giro'); await g.waitForTimeout(2500);
   const c1 = P2.find(o => o.action === 'close' && o.id === 'GA') || {}, o2 = P2.find(o => o.action === 'open' && o.gruppo === 'GA') || {};
   ok(c1.gruppo === 'GA' && c1.giro === 1 && !c1.dichiarato, 'giro: intervento 1 chiuso adesso (tempo reale), Fermo n. GA');
-  ok(o2.giro === 2 && o2.ts === c1.ts && o2.code === 'ST3-04' && o2.lotto === '601095', 'giro: intervento 2 aperto dallo stesso istante, stessa macchina e stesso lotto');
-  await g.evaluate(() => go({ name: 'equip', code: 'ST3-04' })); await g.waitForTimeout(300);
+  ok(o2.giro === 2 && o2.ts === c1.ts && o2.code === 'LIND-04' && o2.lotto === '601095', 'giro: intervento 2 aperto dallo stesso istante, stessa macchina e stesso lotto');
+  await g.evaluate(() => go({ name: 'equip', code: 'LIND-04' })); await g.waitForTimeout(300);
   ok(/intervento 2/.test(await g.innerText('#view')) && /^(0:)?3\d:/.test((await g.innerText('#view .hero .timer')).trim()), 'scheda macchina: "intervento 2" e cronometro del fermo intero (dall\'inizio del primo)');
   await g.click('[data-close]'); await g.waitForTimeout(300);
   ok(/intervento 2/i.test(await g.innerText('#sheet h3')) && /1\.\s*SENSORE/.test(await g.innerText('#sheet .giri')), 'chiusura intervento 2: titolo e interventi già registrati');
@@ -363,7 +363,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   // divisione alla chiusura: fermo già finito registrato con gli orari (come per il filling)
   const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const t1 = Date.now() - 40 * 60000, t2 = Date.now() - 25 * 60000, t3 = Date.now() - 10 * 60000;
-  await g.evaluate(() => { closeSh(); closeSheet({ id: 'RG', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', lotto: '601095' }, { reg: true }); }); await g.waitForTimeout(300);
+  await g.evaluate(() => { closeSh(); closeSheet({ id: 'RG', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', lotto: '601095' }, { reg: true }); }); await g.waitForTimeout(300);
   ok(await g.isHidden('#giro'), 'fermo registrato con gli orari: niente giro, solo divisione alla chiusura');
   await g.fill('#tini', hm(t1)); await g.fill('#tfin', hm(t2)); await g.check('#multi'); await g.dispatchEvent('#multi', 'change');
   ok(/Fine intervento 1/.test(await g.innerText('#tfinl')), 'con "più interventi" la Fine diventa la fine dell\'intervento 1');
@@ -376,10 +376,10 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   ok(rg.length === 4 && rg.filter(o => o.action === 'close').map(o => o.giro).join() === '1,2' && rg.every(o => o.action !== 'open' || o.dichiarato), 'registrati 2 interventi, Fermo n. RG, orari dichiarati');
   const ra = rg.find(o => o.action === 'close' && o.giro === 1), rb = rg.find(o => o.action === 'open' && o.giro === 2);
   ok(ra && rb && Math.abs(ra.ts - rb.ts) < 60000, 'l\'intervento 2 inizia dove finisce l\'1');
-  ok(await g.evaluate(() => /Più interventi/.test(motiviRev({ id: 'x', code: 'ST3-04', guasto: 'GUIDE', int: 'SOSTITUZIONE', altro: 'sostituita cinghia, regolato nonio', stato: 'CHIUSO' }, []).join()) && !piuInterventi('regolato sensore ingresso') && !!piuInterventi('pulito + resettato')),
+  ok(await g.evaluate(() => /Più interventi/.test(motiviRev({ id: 'x', code: 'LIND-04', guasto: 'GUIDE', int: 'SOSTITUZIONE', altro: 'sostituita cinghia, regolato nonio', stato: 'CHIUSO' }, []).join()) && !piuInterventi('regolato sensore ingresso') && !!piuInterventi('pulito + resettato')),
     'coordinatore: "Più interventi in un fermo?" tra i motivi da rivedere');
   // giro con "Scegli orario": l'intervento finisce all'ora scritta e il successivo parte da lì (dichiarati)
-  D2.fermi.unshift({ id: 'GB', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 40 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
+  D2.fermi.unshift({ id: 'GB', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 40 * 60000, stato: 'APERTO', lotto: '601095', man: 'ROSSI Mario', apertoDa: 'ROSSI Mario' });
   await g.evaluate(() => { S.ver = 'gb'; return refresh(); }); await g.waitForTimeout(300);
   await g.evaluate(() => { closeSh(); closeSheet(allFermi().find(f => f.id === 'GB')); }); await g.waitForTimeout(300);
   const tg = Date.now() - 20 * 60000;
@@ -399,46 +399,46 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   console.log('\nVoci guasto: solo quelle della macchina (foglio Guasti)');
   const vg = await p.evaluate(() => {
     const old = { g: S.guasti, f: S.fermi };
-    S.guasti = { 'ST3-04': ['MAG. ASTUCCI', 'CHIUSURE AST', 'SENSORE'], 'ST3-03': ['PARAM VIDEOJET'], ST3: ['GUIDE'], 'ST1MAR-05': ['MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ARIA COMPRESSA', 'INCASTRO'] };
-    const t = Date.now(), f = (id, code, g) => ({ id, code, linea: 'ST3', macchina: 'X', start: t - 3600e3, end: t - 3000e3, stato: 'CHIUSO', guasto: g });
-    S.fermi = old.f.concat([f('V1', 'ST3-04', 'CHIUSURE AST'), f('V2', 'ST3-04', 'CHIUSURE AST'), f('V3', 'ST3-04', 'INCASTRO'), f('V4', 'ST3-03', 'CHIUSURE AST')]);
-    const eq = { code: 'ST3-04', linea: 'ST3', area: 'Packaging', macchina: 'ASTUCCIATRICE' };
-    const lista = guastiFor(eq), altra = guastiFor({ code: 'ST3-05', linea: 'ST3', area: 'Packaging', macchina: 'BILANCIA' }), mar = guastiFor({ code: 'ST1MAR-05', linea: 'ST1 MAR', area: 'Packaging', macchina: 'ASTUCCIATRICE' });
+    S.guasti = { 'LIND-04': ['MAG. ASTUCCI', 'CHIUSURE AST', 'SENSORE'], 'LIND-03': ['PARAM VIDEOJET'], LIND: ['GUIDE'], 'LINA-05': ['MAG. ISTRUZIONI'], TUTTE: ['SENSORE', 'ARIA COMPRESSA', 'INCASTRO'] };
+    const t = Date.now(), f = (id, code, g) => ({ id, code, linea: 'LIND', macchina: 'X', start: t - 3600e3, end: t - 3000e3, stato: 'CHIUSO', guasto: g });
+    S.fermi = old.f.concat([f('V1', 'LIND-04', 'CHIUSURE AST'), f('V2', 'LIND-04', 'CHIUSURE AST'), f('V3', 'LIND-04', 'INCASTRO'), f('V4', 'LIND-03', 'CHIUSURE AST')]);
+    const eq = { code: 'LIND-04', linea: 'LIND', area: 'Packaging', macchina: 'ASTUCCIATRICE' };
+    const lista = guastiFor(eq), altra = guastiFor({ code: 'LIND-05', linea: 'LIND', area: 'Packaging', macchina: 'BILANCIA' }), mar = guastiFor({ code: 'LINA-05', linea: 'LIN A', area: 'Packaging', macchina: 'ASTUCCIATRICE' });
     const chipsTxt = html => [...new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').querySelectorAll('[data-v]')].map(b => b.dataset.v);
     const ordine = chipsTxt(guaChips(eq, null));
-    closeSh(); closeSheet({ id: 'VX', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: t - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
+    closeSh(); closeSheet({ id: 'VX', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: t - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
     const chiusura = [...document.querySelectorAll('#gua [data-v]')].map(b => b.dataset.v); closeSh();
     S.guasti = old.g; S.fermi = old.f;
     return { lista, altra, mar, ordine, chiusura };
   });
-  ok(vg.lista.join('|') === 'MAG. ASTUCCI|CHIUSURE AST|SENSORE|GUIDE|ARIA COMPRESSA|INCASTRO|ALTRO', 'ST3-04: voci della macchina + linea ST3 + TUTTE, senza doppioni (SENSORE una volta), ALTRO in fondo: ' + vg.lista.join('|'));
-  ok(!vg.lista.includes('PARAM VIDEOJET') && !vg.lista.includes('MAG. ISTRUZIONI'), 'niente voci di altre macchine (PARAM VIDEOJET dell\'etichettatrice, MAG. ISTRUZIONI di ST1 MAR)');
+  ok(vg.lista.join('|') === 'MAG. ASTUCCI|CHIUSURE AST|SENSORE|GUIDE|ARIA COMPRESSA|INCASTRO|ALTRO', 'LIND-04: voci della macchina + linea LIND + TUTTE, senza doppioni (SENSORE una volta), ALTRO in fondo: ' + vg.lista.join('|'));
+  ok(!vg.lista.includes('PARAM VIDEOJET') && !vg.lista.includes('MAG. ISTRUZIONI'), 'niente voci di altre macchine (PARAM VIDEOJET dell\'etichettatrice, MAG. ISTRUZIONI di LIN A)');
   ok(vg.altra.join('|') === 'GUIDE|SENSORE|ARIA COMPRESSA|INCASTRO|ALTRO', 'macchina senza riga propria: solo linea + TUTTE + ALTRO');
-  ok(vg.mar.join('|') === 'MAG. ISTRUZIONI|SENSORE|ARIA COMPRESSA|INCASTRO|ALTRO', 'altra linea: la riga di linea ST3 non c\'entra');
+  ok(vg.mar.join('|') === 'MAG. ISTRUZIONI|SENSORE|ARIA COMPRESSA|INCASTRO|ALTRO', 'altra linea: la riga di linea LIND non c\'entra');
   ok(vg.ordine.slice(0, 2).join('|') === 'CHIUSURE AST|INCASTRO' && vg.ordine.at(-1) === 'ALTRO', 'in ordine di frequenza su QUESTA macchina (il fermo dell\'etichettatrice non conta), ALTRO sempre in fondo: ' + vg.ordine.join('|'));
   ok(vg.chiusura.join('|') === vg.ordine.join('|'), 'chiusura fermo: le stesse voci, nello stesso ordine');
 
   console.log('\nFermi per linea');
   const SP = process.env.SHOT_LIN || '';
-  await p.evaluate(() => { const t = Date.now(), h = 3600e3, mk = (id, code, mac, ore, min, g, int, man, alt) => ({ id, code, linea: 'ST3', macchina: mac, start: t - ore * h, end: t - ore * h + min * 60000, stato: 'CHIUSO', guasto: g, int, man, altro: alt || '', lotto: '601095' });
-    S.equipment = S.equipment.concat([{ code: 'ST3-03', linea: 'ST3', area: 'Packaging', macchina: 'ETICHETTATRICE' }]);
-    S.fermi = S.fermi.filter(f => f.linea !== 'ST3' || f.stato === 'APERTO').concat([mk('L1', 'ST3-04', 'ASTUCCIATRICE', 2, 25, 'MAG. ASTUCCI', 'REGOLAZIONE', 'ROSSI Mario', 'regolate guide magazzino'), mk('L2', 'ST3-04', 'ASTUCCIATRICE', 30, 40, 'MAG. ASTUCCI', 'REGOLAZIONE', 'BIANCHI Luca'),
-      mk('L3', 'ST3-03', 'ETICHETTATRICE', 5, 15, 'PARAM VIDEOJET', 'REGOLAZIONE', 'ROSSI Mario'), mk('L4', 'ST3-02', 'RIEMPITRICE', 8, 50, 'H7, Sblocco Homing', 'RIPRISTINO', 'BIANCHI Luca'), mk('L5', 'ST3-04', 'ASTUCCIATRICE', 60, 20, 'CHIUSURE AST', 'SOSTITUZIONE', 'ROSSI Mario'), mk('L6', 'ST3-02', 'RIEMPITRICE', 200, 30, 'H7, Sblocco Homing', 'RIPRISTINO', 'ROSSI Mario')]); go('home'); });
+  await p.evaluate(() => { const t = Date.now(), h = 3600e3, mk = (id, code, mac, ore, min, g, int, man, alt) => ({ id, code, linea: 'LIND', macchina: mac, start: t - ore * h, end: t - ore * h + min * 60000, stato: 'CHIUSO', guasto: g, int, man, altro: alt || '', lotto: '601095' });
+    S.equipment = S.equipment.concat([{ code: 'LIND-03', linea: 'LIND', area: 'Packaging', macchina: 'ETICHETTATRICE' }]);
+    S.fermi = S.fermi.filter(f => f.linea !== 'LIND' || f.stato === 'APERTO').concat([mk('L1', 'LIND-04', 'ASTUCCIATRICE', 2, 25, 'MAG. ASTUCCI', 'REGOLAZIONE', 'ROSSI Mario', 'regolate guide magazzino'), mk('L2', 'LIND-04', 'ASTUCCIATRICE', 30, 40, 'MAG. ASTUCCI', 'REGOLAZIONE', 'BIANCHI Luca'),
+      mk('L3', 'LIND-03', 'ETICHETTATRICE', 5, 15, 'PARAM VIDEOJET', 'REGOLAZIONE', 'ROSSI Mario'), mk('L4', 'LIND-02', 'RIEMPITRICE', 8, 50, 'H7, Sblocco Homing', 'RIPRISTINO', 'BIANCHI Luca'), mk('L5', 'LIND-04', 'ASTUCCIATRICE', 60, 20, 'CHIUSURE AST', 'SOSTITUZIONE', 'ROSSI Mario'), mk('L6', 'LIND-02', 'RIEMPITRICE', 200, 30, 'H7, Sblocco Homing', 'RIPRISTINO', 'ROSSI Mario')]); go('home'); });
   await attesa(300);
-  ok(await p.isVisible('.lchips2 [data-linea="ST3"]'), 'home: sotto "Chiusi oggi" le linee con il numero di interventi');
+  ok(await p.isVisible('.lchips2 [data-linea="LIND"]'), 'home: sotto "Chiusi oggi" le linee con il numero di interventi');
   if (SP) await p.evaluate(() => document.querySelector('.lchips2').scrollIntoView({ block: 'center' })), await p.screenshot({ path: SP.replace('.png', '_home.png') });
-  await p.click('.lchips2 [data-linea="ST3"]'); await attesa(300);
+  await p.click('.lchips2 [data-linea="LIND"]'); await attesa(300);
   const lv = await p.innerText('#view');
-  ok(/linea st3/i.test(lv) && /filling/i.test(lv) && /packaging/i.test(lv) && /astucciatrice/i.test(lv) && /riempitrice/i.test(lv), 'vista linea: Filling e Packaging separati, per macchina');
+  ok(/linea lind/i.test(lv) && /filling/i.test(lv) && /packaging/i.test(lv) && /astucciatrice/i.test(lv) && /riempitrice/i.test(lv), 'vista linea: Filling e Packaging separati, per macchina');
   ok(/linea · 5/i.test(lv) && /1 fermo · 1 intervento · 50′/.test(lv), 'ultimi 7 giorni: 5 interventi (quello di 8 giorni fa escluso); Filling: 1 fermo, 1 intervento, 50 min');
   if (SP) await p.screenshot({ path: SP, fullPage: true });
   await p.click('#lgg [data-v="30"]'); await attesa(200);
   ok(/linea · 6/i.test(await p.innerText('#view')), '30 giorni: compare anche il fermo di 8 giorni fa');
-  await p.click('.mrow[data-eq="ST3-04"]'); await attesa(300);
-  ok(await p.isVisible('.lnkline[data-linea="ST3"]'), 'scheda macchina: link "Fermi di tutta la linea ST3"');
+  await p.click('.mrow[data-eq="LIND-04"]'); await attesa(300);
+  ok(await p.isVisible('.lnkline[data-linea="LIND"]'), 'scheda macchina: link "Fermi di tutta la linea LIND"');
   if (SP) { await p.evaluate(() => document.querySelector('.lnkline').scrollIntoView({ block: 'center' })); await p.screenshot({ path: SP.replace('.png', '_mac.png') }); }
   await p.click('.lnkline'); await attesa(300);
-  ok(/linea st3/i.test(await p.innerText('#view')), 'dal link si apre la vista della linea');
+  ok(/linea lind/i.test(await p.innerText('#view')), 'dal link si apre la vista della linea');
   await p.evaluate(() => go('home'));
 
   console.log('\nTelefono in attesa di approvazione: schermata che si sblocca da sola, ID in più punti, approvazione dal coordinatore');
@@ -487,10 +487,10 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   console.log('\nCerca fermi: per tutti, filtri per persona solo ai coordinatori, archivio vecchio dal foglio');
   {
     const n = Date.now(), qs = [];
-    const FF = [{ id: 'C1', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: n - 2 * 864e5, end: n - 2 * 864e5 + 14 * 60000, stato: 'CHIUSO', int: 'RIPRISTINO', cat: 'AUTOMATION', guasto: 'H7, SBLOCCO HOMING', altro: 'reset asse 3', man: 'BIANCHI Luca', lotto: '028294' },
-      { id: 'C2', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: n - 3 * 864e5, end: n - 3 * 864e5 + 30 * 60000, stato: 'CHIUSO', int: 'REGOLAZIONE', cat: 'MECCANICO', guasto: 'MAG. ASTUCCI', altro: 'Homing manuale del magazzino', man: 'ROSSI Mario', lotto: '028300', fotoC: 'https://x/f.jpg' },
-      { id: 'C3', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: n - 40 * 864e5, end: n - 40 * 864e5 + 20 * 60000, stato: 'CHIUSO', int: 'SOSTITUZIONE', cat: 'MECCANICO', guasto: 'CHIUSURE AST', altro: 'cambiata molla', man: 'ROSSI Mario', lotto: '027000' }];
-    const VECCHIO = { id: 'OLD1', code: 'ST3-02', linea: 'ST3', macchina: 'RIEMPITRICE', start: n - 200 * 864e5, end: n - 200 * 864e5 + 600000, stato: 'CHIUSO', int: 'RIPRISTINO', guasto: 'H7, SBLOCCO HOMING', altro: 'homing vecchio', man: 'BIANCHI Luca', lotto: '011111' };
+    const FF = [{ id: 'C1', code: 'LIND-02', linea: 'LIND', macchina: 'RIEMPITRICE', start: n - 2 * 864e5, end: n - 2 * 864e5 + 14 * 60000, stato: 'CHIUSO', int: 'RIPRISTINO', cat: 'AUTOMATION', guasto: 'H7, SBLOCCO HOMING', altro: 'reset asse 3', man: 'BIANCHI Luca', lotto: '028294' },
+      { id: 'C2', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: n - 3 * 864e5, end: n - 3 * 864e5 + 30 * 60000, stato: 'CHIUSO', int: 'REGOLAZIONE', cat: 'MECCANICO', guasto: 'MAG. ASTUCCI', altro: 'Homing manuale del magazzino', man: 'ROSSI Mario', lotto: '028300', fotoC: 'https://x/f.jpg' },
+      { id: 'C3', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: n - 40 * 864e5, end: n - 40 * 864e5 + 20 * 60000, stato: 'CHIUSO', int: 'SOSTITUZIONE', cat: 'MECCANICO', guasto: 'CHIUSURE AST', altro: 'cambiata molla', man: 'ROSSI Mario', lotto: '027000' }];
+    const VECCHIO = { id: 'OLD1', code: 'LIND-02', linea: 'LIND', macchina: 'RIEMPITRICE', start: n - 200 * 864e5, end: n - 200 * 864e5 + 600000, stato: 'CHIUSO', int: 'RIPRISTINO', guasto: 'H7, SBLOCCO HOMING', altro: 'homing vecchio', man: 'BIANCHI Luca', lotto: '011111' };
     const tc = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     await tc.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
     await tc.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url());
@@ -549,7 +549,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   console.log('\nOrari scritti a mano: hh:mm, tastierino, controllo mentre scrivi, barra con cosa manca');
   {
     await p.evaluate(() => { window.__lottoManuale = true; closeSh(); const t = Date.now();
-      closeSheet({ id: 'OR1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: t - 18 * 60000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man }); });
+      closeSheet({ id: 'OR1', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: t - 18 * 60000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man }); });
     await p.waitForTimeout(200);
     const pad = n => String(n).padStart(2, '0'), hm = t => pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes());
     ok(/Manca:/.test(await p.innerText('#cmanca')) && /guasto/.test(await p.innerText('#cmanca')) && await p.$eval('#go', b => b.classList.contains('dim')), 'barra in basso: "Manca" con guasto, intervento, descrizione, lotto; pulsante attenuato');
@@ -575,7 +575,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
     ok(/Tutto pronto/.test(await p.innerText('#cmanca')) && !(await p.$eval('#go', b => b.classList.contains('dim'))), 'tutto compilato: «Tutto pronto», pulsante pieno');
     if (SP) await p.screenshot({ path: SP.replace('.png', '_orari.png') });
     await p.evaluate(() => { closeSh(); window.__lottoManuale = false; });
-    await p.evaluate(() => { const eq = eqBy('ST3-05') || { code: 'ST3-05', linea: 'ST3', macchina: 'BILANCIA', area: 'Packaging' }; closeSh(); openSheet(eq); });
+    await p.evaluate(() => { const eq = eqBy('LIND-05') || { code: 'LIND-05', linea: 'LIND', macchina: 'BILANCIA', area: 'Packaging' }; closeSh(); openSheet(eq); });
     await p.click('#when [data-v="ora"]'); await p.keyboard.type(hm(Date.now() - 5 * 60000).replace(':', '')); await p.waitForTimeout(100);
     ok(/Ferma dalle/.test(await p.innerText('#oraini-fb')) && await p.$eval('#oraini', e => e.placeholder) === 'hh:mm', 'apri fermo «Scegli orario»: stessa casella da scrivere, con controllo');
     await p.evaluate(() => closeSh());
@@ -585,7 +585,7 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
   {
     const r = await p.evaluate(async () => {
       window.__lottoManuale = true; const n0 = OUTBOX.length;
-      closeSh(); closeSheet({ id: 'LM1', code: 'ST3-04', linea: 'ST3', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
+      closeSh(); closeSheet({ id: 'LM1', code: 'LIND-04', linea: 'LIND', macchina: 'ASTUCCIATRICE', start: Date.now() - 600000, stato: 'APERTO', lotto: '601095', man: S.man, apertoDa: S.man });
       await new Promise(x => setTimeout(x, 200));
       const vuoto = document.querySelector('#clotto').value;
       document.querySelector('#gua [data-v="SENSORE"]').click(); document.querySelector('#int [data-v="REGOLAZIONE"]').click();

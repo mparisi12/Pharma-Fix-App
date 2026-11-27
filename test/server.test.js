@@ -3,8 +3,8 @@ const { Sheet, carica, ok, fine } = require('./fake-sheets');
 const nuovo = () => {
   const sheets = {
     Liste: new Sheet('Liste', [['Manutentori', 'Coordinatori'], ['ROSSI Mario', 'VERDI Anna'], ['BIANCHI Luca', ''], ['VERDI Anna', '']]),
-    Equipment: new Sheet('Equipment', [['Codice (QR)', 'Linea', 'Area', 'Macchina', 'Attivo'], ['ST3-02', 'ST3', 'Filling', 'RIEMPITRICE', 'SI'], ['ST3-04', 'ST3', 'Packaging', 'ASTUCCIATRICE', 'SI'],
-      ['ST1MAR-06', 'ST1 MAR', 'Packaging', 'BILANCIA', 'SI'], ['ST9-01', 'ST9', 'Packaging', 'DISMESSA', 'NO']]),
+    Equipment: new Sheet('Equipment', [['Codice (QR)', 'Linea', 'Area', 'Macchina', 'Attivo'], ['LIND-02', 'LIND', 'Filling', 'RIEMPITRICE', 'SI'], ['LIND-04', 'LIND', 'Packaging', 'ASTUCCIATRICE', 'SI'],
+      ['LINA-06', 'LIN A', 'Packaging', 'BILANCIA', 'SI'], ['ST9-01', 'ST9', 'Packaging', 'DISMESSA', 'NO']]),
     Documenti: new Sheet('Documenti', [['ID']])
   };
   return { sheets, ...carica(sheets) };
@@ -33,12 +33,12 @@ console.log('Versione dei dati e copia pronta');
 console.log('\nDocumenti');
 {
   const { ctx, sheets } = nuovo();
-  ok(JSON.stringify(ctx.docDove_(ctx.SpreadsheetApp.getActiveSpreadsheet())) === JSON.stringify(['TUTTE', 'ST1 MAR', 'ST3', 'ST1MAR-06', 'ST3-02', 'ST3-04']), 'elenco "Dove": TUTTE + linee + codici attivi (senza dismesse)');
+  ok(JSON.stringify(ctx.docDove_(ctx.SpreadsheetApp.getActiveSpreadsheet())) === JSON.stringify(['TUTTE', 'LIN A', 'LIND', 'LINA-06', 'LIND-02', 'LIND-04']), 'elenco "Dove": TUTTE + linee + codici attivi (senza dismesse)');
   ok(ctx.docElenchi_(ctx.SpreadsheetApp.getActiveSpreadsheet()) === true && sheets.Elenco_Dove.rows.length === 7, 'foglio Elenco_Dove creato');
   const prova = p => { try { return ctx.addDocumento_(p); } catch (e) { return { err: e.message }; } };
-  ok(/coordinatori/.test(prova({ manutentore: 'ROSSI Mario', dove: 'ST3', tipo: 'MANUALE', titolo: 'x', link: 'https://a' }).err || ''), 'un tecnico non può aggiungere documenti');
-  ok(prova({ id: 'D1', manutentore: 'VERDI Anna', dove: 'st3-04', tipo: 'SCHEDA FORMATO', titolo: 'Scheda 10 ml', link: 'https://drive/x' }).ok, 'il coordinatore aggiunge (codice scritto minuscolo corretto)');
-  ok(prova({ id: 'D1', manutentore: 'VERDI Anna', dove: 'ST3-04', tipo: 'SCHEDA FORMATO', titolo: 'Scheda 10 ml', link: 'https://drive/x' }).dup, 'invio ripetuto: nessun doppione');
+  ok(/coordinatori/.test(prova({ manutentore: 'ROSSI Mario', dove: 'LIND', tipo: 'MANUALE', titolo: 'x', link: 'https://a' }).err || ''), 'un tecnico non può aggiungere documenti');
+  ok(prova({ id: 'D1', manutentore: 'VERDI Anna', dove: 'lind-04', tipo: 'SCHEDA FORMATO', titolo: 'Scheda 10 ml', link: 'https://drive/x' }).ok, 'il coordinatore aggiunge (codice scritto minuscolo corretto)');
+  ok(prova({ id: 'D1', manutentore: 'VERDI Anna', dove: 'LIND-04', tipo: 'SCHEDA FORMATO', titolo: 'Scheda 10 ml', link: 'https://drive/x' }).dup, 'invio ripetuto: nessun doppione');
   ok(/Equipment/.test(prova({ id: 'D2', manutentore: 'VERDI Anna', dove: 'ST9-01', tipo: 'MANUALE', titolo: 'x', link: 'https://d' }).err || ''), 'macchina dismessa rifiutata');
   ok(/link/.test(prova({ id: 'D3', manutentore: 'VERDI Anna', dove: '', tipo: 'ALTRO', titolo: 'x', link: 'drive' }).err || ''), 'link non valido rifiutato');
   sheets.Documenti.rows.push(['', '', '', '', 'Manuale senza Dove', '', 'https://m', '']);
@@ -73,7 +73,7 @@ console.log('\nMenu a tendina del foglio Fermi');
   const { ctx, sheets } = nuovo();
   sheets.Liste.rows = [['Categoria', 'Tipo intervento', 'Manutentori', 'Coordinatori'], ['MECCANICO', 'REGOLAZIONE', 'ROSSI Mario', 'VERDI Anna'], ['ELETTRICO', 'SOSTITUZIONE', 'BIANCHI Luca', '']];
   sheets.Fermi = new Sheet('Fermi', [['Lotto']]);
-  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE'], ['ST3-04', '', 'GUIDE', 'formato']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE'], ['LIND-04', '', 'GUIDE', 'formato']]);
   const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   ok(ctx.fermiConvalida_(ss) === true, 'prima volta: tendine create');
   const col = c => (sheets.Fermi.dv || []).find(d => d.c === c);
@@ -170,43 +170,43 @@ console.log('\nPassaggio turno e riepilogo: fermi per reparto');
   const { ctx } = nuovo(); const msg = [];
   ctx.mail_ = (tipo, titolo, testo) => { msg.push(titolo + '\n' + testo); return true; };
   const now = Date.now(), F = (linea, area, min, extra) => Object.assign({ linea, area, macc: 'X', a: new ctx.DD(now - 90 * 60000), b: new ctx.DD(now - 90 * 60000 + min * 60000), stato: 'CHIUSO', guasto: 'FORMATO', man: 'ROSSI Mario' }, extra || {});
-  const fermi = [F('ST3', 'FILLING', 50), F('ST3', 'FILLING', 20), F('ST3', 'PACKAGING', 7), F('SPL2', 'PACKAGING', 220), F('ST2', 'PACKAGING', 2)];
+  const fermi = [F('LIND', 'FILLING', 50), F('LIND', 'FILLING', 20), F('LIND', 'PACKAGING', 7), F('LINQ', 'PACKAGING', 220), F('LINC', 'PACKAGING', 2)];
   ctx.fermiTutti_ = () => fermi.map(f => Object.assign({}, f)); ctx.areaDi_ = () => f => f.area; ctx.areaStd_ = a => a; ctx.minDi_ = f => (f.b - f.a) / 60000;
   ctx.macchinaBreve_ = () => () => 'Macchina'; ctx.anomalieTutte_ = () => []; ctx.rigaTurno_ = () => ''; ctx.rigaCambiFormato_ = () => '';
   ctx.inizioTurno_ = () => new ctx.DD(now - 4 * 3600e3);
   ctx.passaggioTurno(false);
   const m = msg[0] || '';
   ok(!/\d+ FERMI ·/.test(m) && !/PACKAGING ·/.test(m), 'niente totali sommati tra reparti né per area');
-  ok(/ST3 · Filling 1h 10′ \(2\) · Packaging 7′ \(1\)/.test(m), 'ST3 · Filling 1h 10′ (2) · Packaging 7′ (1)');
-  ok(m.indexOf('SPL2 ·') < m.indexOf('ST3 ·') && /SPL2 · Packaging 3h 40′ \(1\)/.test(m), 'reparti dal più fermo; linee con solo Packaging mostrano solo quello');
-  ok(/Senza fermi: ST1 MAR/.test(m), 'linee senza fermi in una riga');
+  ok(/LIND · Filling 1h 10′ \(2\) · Packaging 7′ \(1\)/.test(m), 'LIND · Filling 1h 10′ (2) · Packaging 7′ (1)');
+  ok(m.indexOf('LINQ ·') < m.indexOf('LIND ·') && /LINQ · Packaging 3h 40′ \(1\)/.test(m), 'reparti dal più fermo; linee con solo Packaging mostrano solo quello');
+  ok(/Senza fermi: LIN A/.test(m), 'linee senza fermi in una riga');
 }
 {
   const { ctx } = nuovo(); const msg = [];
   ctx.mail_ = (tipo, titolo, testo) => { msg.push(titolo + '\n' + testo); return true; };
   const o = new ctx.DD(); o.setHours(0, 0, 0, 0); const dow = (o.getDay() + 6) % 7; const fine = o.getTime() - dow * 864e5, t1 = fine - 3 * 864e5, t0 = fine - 10 * 864e5;
   const F = (t, linea, area, min, extra) => Object.assign({ linea, area, macc: 'X', a: new ctx.DD(t), b: new ctx.DD(t + min * 60000), stato: 'CHIUSO', guasto: 'FORMATO', man: 'ROSSI Mario' }, extra || {});
-  const fermi = [F(t1, 'ST3', 'FILLING', 190), F(t1, 'ST3', 'PACKAGING', 125, { orari: 'DICHIARATI' }), F(t1, 'SPL2', 'PACKAGING', 60), F(t0, 'ST3', 'FILLING', 130), F(t0, 'ST3', 'PACKAGING', 145)];
+  const fermi = [F(t1, 'LIND', 'FILLING', 190), F(t1, 'LIND', 'PACKAGING', 125, { orari: 'DICHIARATI' }), F(t1, 'LINQ', 'PACKAGING', 60), F(t0, 'LIND', 'FILLING', 130), F(t0, 'LIND', 'PACKAGING', 145)];
   ctx.fermiTutti_ = () => fermi.map(f => Object.assign({}, f)); ctx.areaDi_ = () => f => f.area; ctx.areaStd_ = a => a; ctx.minDi_ = f => (f.b - f.a) / 60000;
   ctx.macchinaBreve_ = () => () => 'Fardellatrice'; ctx.anomalieTutte_ = () => []; ctx.completaFermiCarta_ = () => ({}); ctx.compitiTutti_ = () => []; ctx.rigaVestizioni_ = () => ''; ctx.rigaConvalide_ = () => '';
   ctx.riepilogoSettimanale();
   const m = msg[0] || ''; if (process.env.MOSTRA) console.log(m);
-  ok(/ST3 · Filling 3h 10′ \(1\) ▲\+1h · Packaging 2h 5′ \(1\) ▼−20′/.test(m), 'riepilogo: ST3 · Filling ▲+1h · Packaging ▼−20′ rispetto alla settimana prima');
-  ok(/SPL2 · Packaging 1h \(1\)$/m.test(m) && /Packaging registrati dopo: 1 su 2/.test(m), 'senza confronto se la settimana prima non c\'erano fermi; registrati dopo solo Packaging');
+  ok(/LIND · Filling 3h 10′ \(1\) ▲\+1h · Packaging 2h 5′ \(1\) ▼−20′/.test(m), 'riepilogo: LIND · Filling ▲+1h · Packaging ▼−20′ rispetto alla settimana prima');
+  ok(/LINQ · Packaging 1h \(1\)$/m.test(m) && /Packaging registrati dopo: 1 su 2/.test(m), 'senza confronto se la settimana prima non c\'erano fermi; registrati dopo solo Packaging');
 }
 console.log('\nKPI Risorse');
 {
   const { ctx, sheets } = nuovo();
-  const t = Date.now() - 12 * 864e5, F = (man, g, min, h, extra) => Object.assign({ a: new ctx.DD(t + h * 3600e3), b: new ctx.DD(t + h * 3600e3 + min * 60000), stato: 'CHIUSO', linea: 'ST3', macc: 'ASTUCCIATRICE', guasto: g, man, altro: 'ok', orari: '', eq: 'ST3-04' }, extra || {});
+  const t = Date.now() - 12 * 864e5, F = (man, g, min, h, extra) => Object.assign({ a: new ctx.DD(t + h * 3600e3), b: new ctx.DD(t + h * 3600e3 + min * 60000), stato: 'CHIUSO', linea: 'LIND', macc: 'ASTUCCIATRICE', guasto: g, man, altro: 'ok', orari: '', eq: 'LIND-04' }, extra || {});
   const fermi = [];
   for (let i = 0; i < 6; i++) { fermi.push(F('ROSSI Mario', 'FORMATO', 10, i * 30)); fermi.push(F('VERDI Anna', 'FORMATO', 20, i * 30 + 5)); fermi.push(F('BIANCHI Luca', 'FORMATO', 40, i * 30 + 10, { orari: 'DICHIARATI', altro: '' })); }
-  fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 200, { linea: 'ST2', eq: 'ST3-02' })); fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 210, { linea: 'ST2', eq: 'ST3-02' }));
+  fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 200, { linea: 'LINC', eq: 'LIND-02' })); fermi.push(F('BIANCHI Luca', 'SENSORE', 15, 210, { linea: 'LINC', eq: 'LIND-02' }));
   ctx.fermiTutti_ = () => fermi; ctx.completaFermiCarta_ = () => ({}); ctx.anomalieTutte_ = () => [{ ts: new ctx.DD(t), da: 'ROSSI Mario' }]; ctx.compitiTutti_ = () => []; ctx.turniTutti_ = () => ({});
   const K = ctx.aggiornaKpiRisorse(), R = n => K.rows.find(x => x.n === n);
   ok(Math.abs(R('ROSSI Mario').rel - 0.5) < 1e-9 && Math.abs(R('BIANCHI Luca').rel - 2) < 1e-9, 'MTTR relativo rispetto alla mediana dello stesso guasto sulla stessa macchina (anche con gli interventi dei coordinatori)');
   ok(R('BIANCHI Luca').tempo === 0 && R('ROSSI Mario').desc === 1 && R('ROSSI Mario').ano === 1, 'registrati in tempo, descrizione, anomalie segnalate');
   ok(R('BIANCHI Luca').ric > 0, 'ricorrenza: lo stesso guasto torna entro 24h');
-  ok(K.esperti[K.linee.indexOf('ST3')] === 2, 'matrice: 2 esperti su ST3 (coordinatrice esclusa)');
+  ok(K.esperti[K.linee.indexOf('LIND')] === 2, 'matrice: 2 esperti su LIND (coordinatrice esclusa)');
   ok(sheets['KPI Risorse'] && sheets['KPI Risorse'].rows[6][0] === 'Tecnico', 'foglio KPI Risorse creato con la tabella');
   fermi.push(F('VERDI Anna', 'FORMATO', 20, 300)); // VERDI Anna è coordinatrice nel foglio Liste
   const K2 = ctx.aggiornaKpiRisorse();
@@ -252,7 +252,7 @@ console.log('\nClassificazione: voci guasto, interventi a 4, causa');
   const C = ctx.C, riga = (int, gua, cat) => { const r = new Array(ctx.HEAD.length).fill(''); r[C.ID - 1] = 'F' + Math.random(); r[C.INT - 1] = int; r[C.GUASTO - 1] = gua; r[C.CAT - 1] = cat; r[C.STATO - 1] = 'CHIUSO'; return r; };
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('RIAVVIO', 'CAM. OMRON', 'AUTOMATION'), riga('REGOLAZIONE', 'CAM. OMRON', 'AUTOMATION'), riga('REGOLAZIONE', 'CAM. OMRON', 'MECCANICO'), riga('ALTRO', 'GUIDE', 'MECCANICO')]);
   sheets.Liste.rows = [['Categoria', 'Tipo intervento', 'Manutentori'], ['MECCANICO', 'SOSTITUZIONE', 'ROSSI Mario'], ['ELETTRICO', 'REGOLAZIONE', ''], ['AUTOMATION', 'PULIZIA', ''], ['ALTRO', 'RIAVVIO', ''], ['', 'ALTRO', '']];
-  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO', 'RIAVVIO', 'RIPARAZIONE'], ['ST3-04', '', 'CAM. OMRON', 'GUIDE', 'PARAM VIDEOJET']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'FORMATO', 'SENSORE', 'USURA', 'SPIKE CORRENTE', 'ARIA COMPRESSA', 'ALTRO', 'RIAVVIO', 'RIPARAZIONE'], ['LIND-04', '', 'CAM. OMRON', 'GUIDE', 'PARAM VIDEOJET']]);
   const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   ctx.classificazione_(ss);
   ok(sheets.Liste.rows.slice(1).map(r => r[1]).filter(Boolean).join() === 'REGOLAZIONE,SOSTITUZIONE,RIPRISTINO,PULIZIA', 'Liste: Tipo intervento a 4 voci (RIAVVIO, ALTRO tolti)');
@@ -277,11 +277,11 @@ console.log('\nClassificazione: voci guasto, interventi a 4, causa');
 console.log('\nRicodifica dei fermi vecchi');
 {
   const { ctx, sheets } = nuovo(); const C = ctx.C;
-  const riga = (id, int, gua, altro, pz) => { const r = new Array(ctx.HEAD.length).fill(''); Object.assign(r, { [C.ID - 1]: id, [C.INT - 1]: int, [C.GUASTO - 1]: gua, [C.ALTRO - 1]: altro, [C.PEZZO - 1]: pz || '', [C.STATO - 1]: 'CHIUSO', [C.EQ - 1]: 'ST3-04', [C.LINEA - 1]: 'ST3', [C.CAT - 1]: 'MECCANICO' }); return r; };
+  const riga = (id, int, gua, altro, pz) => { const r = new Array(ctx.HEAD.length).fill(''); Object.assign(r, { [C.ID - 1]: id, [C.INT - 1]: int, [C.GUASTO - 1]: gua, [C.ALTRO - 1]: altro, [C.PEZZO - 1]: pz || '', [C.STATO - 1]: 'CHIUSO', [C.EQ - 1]: 'LIND-04', [C.LINEA - 1]: 'LIND', [C.CAT - 1]: 'MECCANICO' }); return r; };
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('A', 'SOSTITUZIONE', 'USURA', 'LAMA SBUCCIATRICE 9500085'), riga('B', 'ALTRO', 'ALTRO', 'regolato chiusura astucci lato operatore'),
     riga('C', 'RIAVVIO', 'CAM. OMRON', ''), riga('D', 'REGOLAZIONE', 'H7, Sblocco Homing', '')]);
   sheets.Liste.rows = [['Categoria', 'Tipo intervento', 'Manutentori'], ['MECCANICO', 'SOSTITUZIONE', 'ROSSI Mario'], ['ELETTRICO', 'RIAVVIO', ''], ['AUTOMATION', 'ALTRO', '']];
-  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['ST3-04', 'AST', 'CHIUSURE AST', 'CAM. OMRON', 'H7, Sblocco Homing']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['LIND-04', 'AST', 'CHIUSURE AST', 'CAM. OMRON', 'H7, Sblocco Homing']]);
   ctx.ricodificaPrepara();
   const R = sheets.Ricodifica.rows, by = id => R.find(r => r[0] === id);
   ok(by('A')[11] === 'SOSTITUZIONE' && by('A')[12] === 'USURA' && by('A')[13] === '9500085' && !by('A')[10], 'lama: SOSTITUZIONE, causa USURA, codice pezzo dalla descrizione, guasto da scegliere');
@@ -301,7 +301,7 @@ console.log('\nKPI: per causa, per intervento, micro-fermi, MTBF stimato, guasti
   const { ctx, sheets } = nuovo(); const C = ctx.C, DD = ctx.DD, oggi = new DD(); oggi.setHours(0, 0, 0, 0);
   const riga = (gg, min, gua, int, linea) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new DD(oggi.getTime() - gg * 864e5 + 10 * 3600e3);
     Object.assign(r, { [C.STATO - 1]: 'CHIUSO', [C.DATA - 1]: new DD(a.getFullYear(), a.getMonth(), a.getDate()), [C.INIZIO - 1]: a, [C.FINE - 1]: new DD(a.getTime() + min * 60000),
-      [C.GUASTO - 1]: gua, [C.INT - 1]: int, [C.LINEA - 1]: linea || 'ST3', [C.MACC - 1]: 'ASTUCCIATRICE', [C.EQ - 1]: 'ST3-04', [C.LOTTO - 1]: '601095' }); return r; };
+      [C.GUASTO - 1]: gua, [C.INT - 1]: int, [C.LINEA - 1]: linea || 'LIND', [C.MACC - 1]: 'ASTUCCIATRICE', [C.EQ - 1]: 'LIND-04', [C.LOTTO - 1]: '601095' }); return r; };
   const vals = [riga(1, 60, 'CHIUSURE AST', 'SOSTITUZIONE'), riga(2, 30, 'CHIUSURE AST', 'REGOLAZIONE'), riga(3, 1, 'GUIDE', 'RIAVVIO'), riga(3, 2, 'GUIDE', 'REGOLAZIONE')];
   const f = { from: new DD(oggi.getTime() - 29 * 864e5), toEnd: new DD(oggi.getTime() + 864e5), linea: 'TUTTE', area: '', aree: {}, code: '', ore: 100, cause: ['USURA', '', 'USURA', 'MATERIALE FUORI SPEC.'] };
   const k = ctx.calcolaKpi_(vals, f);
@@ -315,10 +315,10 @@ console.log('\nKPI: per causa, per intervento, micro-fermi, MTBF stimato, guasti
   const st = ctx.oreStimate_(ctx.SpreadsheetApp.getActiveSpreadsheet(), { from: d(29), toEnd: new DD(oggi.getTime() + 864e5) }, 'PACKAGING', 'TUTTE');
   ok(st.giorni === 4 && st.ore === 96 && st.linee === 2, 'ore stimate: giorni con lotti fino a oggi (domani escluso) × 24 h, su tutte le linee dell\'area');
   // guasti cronici
-  const f2 = (gg, min, gua) => ({ a: new DD(oggi.getTime() - gg * 864e5), b: new DD(oggi.getTime() - gg * 864e5 + min * 60000), guasto: gua, linea: 'ST3', macc: 'AST' });
+  const f2 = (gg, min, gua) => ({ a: new DD(oggi.getTime() - gg * 864e5), b: new DD(oggi.getTime() - gg * 864e5 + min * 60000), guasto: gua, linea: 'LIND', macc: 'AST' });
   const tutti = [f2(3, 60, 'H7'), f2(10, 60, 'H7'), f2(40, 20, 'H7'), f2(5, 30, 'GUIDE'), f2(6, 30, 'GUIDE'), f2(35, 90, 'GUIDE'), f2(4, 200, 'ALTRO'), f2(4, 200, 'ALTRO')];
   const rr = ctx.croniciRighe_(tutti, oggi, (l, m) => m);
-  ok(rr.length === 4 && /H7 · ST3 AST ×2 · 2h ▲ \+1h 40/.test(rr[2]) && /GUIDE.*×2 · 1h ▼ −30/.test(rr[3]) && !rr.join().includes('ALTRO'), 'guasti cronici: ore delle ultime 4 settimane con tendenza (▲/▼), ALTRO escluso');
+  ok(rr.length === 4 && /H7 · LIND AST ×2 · 2h ▲ \+1h 40/.test(rr[2]) && /GUIDE.*×2 · 1h ▼ −30/.test(rr[3]) && !rr.join().includes('ALTRO'), 'guasti cronici: ore delle ultime 4 settimane con tendenza (▲/▼), ALTRO escluso');
 }
 
 
@@ -338,7 +338,7 @@ console.log('\nRaccolta uniforme: definizioni, rivisto, correzioni');
   ok(/coordinatori/.test(err), 'solo un coordinatore può segnare "rivisto"');
   ctx.rivistoFermo_({ fermo: 'F9', manutentore: 'VERDI Anna', ts: Date.now() });
   ok(/^VERDI Anna · /.test(sheets.Fermi.rows[1][C.RIV - 1]) && sheets.Fermi.rows[0][C.PROP - 1] === 'Voce proposta (con ALTRO)', 'rivisto: nome e data nella colonna Rivisto; colonne in fondo create');
-  sheets.Correzioni = new Sheet('Correzioni', [['h'], [new ctx.DD(), 'F9', 2, 'ST3', 'X', '', 'VERDI Anna', 'Modifica diretta: Tipo guasto: A → B', 'FATTA']]);
+  sheets.Correzioni = new Sheet('Correzioni', [['h'], [new ctx.DD(), 'F9', 2, 'LIND', 'X', '', 'VERDI Anna', 'Modifica diretta: Tipo guasto: A → B', 'FATTA']]);
   const d = ctx.correzioniDett_(ss);
   ok(d.F9 && d.F9.da === 'VERDI Anna' && d.F9.txt === 'Tipo guasto: A → B', 'correzioni: chi e cosa, per il messaggio al tecnico');
 }
@@ -348,7 +348,7 @@ console.log('\nFermo con più interventi (giri)');
   const { ctx, sheets } = nuovo(); const C = ctx.C;
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice()]);
   const t0 = Date.now() - 50 * 60000, t1 = t0 + 20 * 60000, t2 = t1 + 25 * 60000;
-  const base = { code: 'ST3-04', lotto: '012345', manutentore: 'ROSSI Mario' };
+  const base = { code: 'LIND-04', lotto: '012345', manutentore: 'ROSSI Mario' };
   ctx.openFermo_({ ...base, id: 'F1', ts: t0 });
   ctx.closeFermo_({ ...base, id: 'F1', ts: t1, guasto: 'GUIDE', categoria: 'MECCANICO', intervento: 'REGOLAZIONE', altro: 'guida regolata', gruppo: 'F1', giro: 1 });
   ctx.openFermo_({ ...base, id: 'F2', ts: t1, gruppo: 'F1', giro: 2 });
@@ -379,7 +379,7 @@ console.log('\nFermi (macchina ferma) e interventi separati');
   const { ctx, sheets } = nuovo(); const C = ctx.C, DD = ctx.DD, oggi = new DD(); oggi.setHours(0, 0, 0, 0);
   const riga = (gg, ini, min, gua) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new DD(oggi.getTime() - gg * 864e5 + ini * 60000);
     Object.assign(r, { [C.STATO - 1]: 'CHIUSO', [C.DATA - 1]: new DD(a.getFullYear(), a.getMonth(), a.getDate()), [C.INIZIO - 1]: a, [C.FINE - 1]: new DD(a.getTime() + min * 60000),
-      [C.GUASTO - 1]: gua, [C.INT - 1]: 'REGOLAZIONE', [C.LINEA - 1]: 'ST3', [C.MACC - 1]: 'AST', [C.EQ - 1]: 'ST3-04', [C.LOTTO - 1]: '601095' }); return r; };
+      [C.GUASTO - 1]: gua, [C.INT - 1]: 'REGOLAZIONE', [C.LINEA - 1]: 'LIND', [C.MACC - 1]: 'AST', [C.EQ - 1]: 'LIND-04', [C.LOTTO - 1]: '601095' }); return r; };
   // fermo 1 = 3 interventi consecutivi (gruppo G1), fermo 2 = un intervento solo
   const vals = [riga(1, 600, 20, 'GUIDE'), riga(1, 620, 10, 'SENSORE'), riga(1, 630, 30, 'GUIDE'), riga(2, 600, 15, 'INCASTRO')];
   const k = ctx.calcolaKpi_(vals, { from: new DD(oggi.getTime() - 29 * 864e5), toEnd: new DD(oggi.getTime() + 864e5), linea: 'TUTTE', area: '', aree: {}, code: '', ore: 100, cause: [], gruppi: ['G1', 'G1', 'G1', ''] });
@@ -389,13 +389,13 @@ console.log('\nFermi (macchina ferma) e interventi separati');
   const v2 = vals.concat([Object.assign(riga(3, 600, 25, 'GUIDE'), { [C.INT - 1]: 'SOSTITUZIONE' })]);
   const k2 = ctx.calcolaKpi_(v2, { from: new DD(oggi.getTime() - 29 * 864e5), toEnd: new DD(oggi.getTime() + 864e5), linea: 'TUTTE', area: '', aree: {}, code: '', ore: 100, cause: [], gruppi: ['G1', 'G1', 'G1', '', ''] });
   ok(k2.pareto.find(r => r[0] === 'REG · GUIDE')[1] === 2 && k2.pareto.find(r => r[0] === 'SOS · GUIDE')[1] === 1 && /^REG · GUIDE · 40%/.test(k2.top) && /^REG · GUIDE/.test(k2.macchine[0][5]), 'regolazione e sostituzione della stessa voce contate separatamente (Pareto, guasto n°1, per macchina)');
-  const f = (min0, min, gua, g, id) => ({ id: id, gruppo: g, a: new DD(oggi.getTime() + min0 * 60000), b: new DD(oggi.getTime() + (min0 + min) * 60000), guasto: gua, linea: 'ST3', macc: 'AST', area: 'PACKAGING', orari: '' });
+  const f = (min0, min, gua, g, id) => ({ id: id, gruppo: g, a: new DD(oggi.getTime() + min0 * 60000), b: new DD(oggi.getTime() + (min0 + min) * 60000), guasto: gua, linea: 'LIND', macc: 'AST', area: 'PACKAGING', orari: '' });
   const L = [f(600, 20, 'GUIDE', 'G1', 'a'), f(620, 10, 'SENSORE', 'G1', 'b'), f(630, 30, 'GUIDE', 'G1', 'c'), f(700, 45, 'INCASTRO', '', 'd')];
-  const rr = ctx.righeReparti_(L, ['ST3']).join('|');
+  const rr = ctx.righeReparti_(L, ['LIND']).join('|');
   ok(/\(2 fermi · 4 int\.\)/.test(rr) && /1h 45/.test(rr), 'passaggio turno / riepilogo: "(2 fermi · 4 int.)", ore totali uguali');
   const pl = ctx.piuLunghi_(L, (l, m) => m, false).join('|');
   ok(/GUIDE \+ SENSORE · 1h \(3 interventi\)/.test(pl) && pl.indexOf('GUIDE + SENSORE') < pl.indexOf('INCASTRO'), 'più lunghi: il fermo con 3 interventi conta intero (1h, guasti in fila)');
-  ok(ctx.righeReparti_([L[3]], ['ST3']).join().includes('(1)'), 'fermo con un solo intervento: resta "(1)" come prima');
+  ok(ctx.righeReparti_([L[3]], ['LIND']).join().includes('(1)'), 'fermo con un solo intervento: resta "(1)" come prima');
 }
 
 
@@ -412,20 +412,20 @@ console.log('\nPiù operazioni nella descrizione (antifurbi)');
 console.log('\nVoci guasto: tendina per macchina nel foglio Fermi e unione dei doppioni');
 {
   const { ctx, sheets } = nuovo(); const C = ctx.C, ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
-  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['ST3', '', 'GUIDE'], ['ST3-04', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'Magazzino astucci', 'CAM. OMRON'], ['ST3-02', '', 'H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice', 'Macchina', 'Tipi'], ['TUTTE', '', 'SENSORE', 'ALTRO'], ['LIND', '', 'GUIDE'], ['LIND-04', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'Magazzino astucci', 'CAM. OMRON'], ['LIND-02', '', 'H7, Sblocco Homing', 'H7 GUANTONE, Sblocco Homing']]);
   const riga = (eq, lin, mac, g) => { const r = new Array(30).fill(''); r[C.EQ - 1] = eq; r[C.LINEA - 1] = lin; r[C.MACC - 1] = mac; r[C.GUASTO - 1] = g; return r; };
-  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'Magazzino astucci'), riga('', 'ST3', 'RIEMPITRICE', 'H7 GUANTONE, Sblocco Homing'), riga('', 'ST7', 'BOH', 'X'), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'CAM. OMRON'), riga('ST3-04', 'ST3', 'ASTUCCIATRICE', 'mag. astucci ')]);
-  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H, ['s1', '', 'ST3-04', 'ST3', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'p', 's']]);
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('LIND-04', 'LIND', 'ASTUCCIATRICE', 'Magazzino astucci'), riga('', 'LIND', 'RIEMPITRICE', 'H7 GUANTONE, Sblocco Homing'), riga('', 'ST7', 'BOH', 'X'), riga('LIND-04', 'LIND', 'ASTUCCIATRICE', 'CAM. OMRON'), riga('LIND-04', 'LIND', 'ASTUCCIATRICE', 'mag. astucci ')]);
+  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H, ['s1', '', 'LIND-04', 'LIND', 'ASTUCCIATRICE', 'MAG. ASTUCCI', 'p', 's']]);
   sheets['Elenchi_Fermi'] = new Sheet('Elenchi_Fermi', [['M', 'T'], ['', 'SENSORE']]);
   ctx.fermiGuastoDV_(ss, sheets.Fermi, 2, 4);
   const dv = sheets.Fermi.dvr, l = r => { const d = dv[r + ',' + C.GUASTO]; return d.requireValueInList ? d.requireValueInList[0] : d.requireValueInRange[0].getValues().map(x => x[0]); };
-  ok(l(2).join('|') === 'MAG. ASTUCCI|Magazzino astucci|CAM. OMRON|GUIDE|SENSORE|ALTRO', 'riga ST3-04: solo le voci dell\'astucciatrice + linea ST3 + TUTTE, ALTRO in fondo');
-  ok(l(3).indexOf('H7 GUANTONE, Sblocco Homing') >= 0 && l(3).indexOf('MAG. ASTUCCI') < 0, 'riga scritta a mano senza codice: macchina trovata da linea + nome (riempitrice ST3)');
+  ok(l(2).join('|') === 'MAG. ASTUCCI|Magazzino astucci|CAM. OMRON|GUIDE|SENSORE|ALTRO', 'riga LIND-04: solo le voci dell\'astucciatrice + linea LIND + TUTTE, ALTRO in fondo');
+  ok(l(3).indexOf('H7 GUANTONE, Sblocco Homing') >= 0 && l(3).indexOf('MAG. ASTUCCI') < 0, 'riga scritta a mano senza codice: macchina trovata da linea + nome (riempitrice LIND)');
   ok(!!dv['4,' + C.GUASTO].requireValueInRange, 'macchina sconosciuta: tutte le voci');
   ok(l(3)[0] === 'H7, Sblocco Homing' && !!dv['3,' + C.GUASTO].requireValueInRange && sheets.Elenchi_Fermi.rows[0].slice(4).filter(Boolean).length === 2, 'voci con la virgola restano intere: elenco in una colonna di Elenchi_Fermi, non scritto nella regola (niente triangolo rosso)');
   ok(dv['2,' + C.GUASTO] === dv['5,' + C.GUASTO], 'stessa macchina: stessa regola (una sola per codice)');
   // onEdit: cambia la macchina di una riga → nuova tendina
-  sheets.Fermi.rows[3][C.EQ - 1] = 'ST3-02'; sheets.Fermi.dvr = {};
+  sheets.Fermi.rows[3][C.EQ - 1] = 'LIND-02'; sheets.Fermi.dvr = {};
   ctx.onEdit({ range: { getSheet: () => sheets.Fermi, getRow: () => 4, getColumn: () => C.EQ, getLastColumn: () => C.EQ, getNumRows: () => 1, getA1Notation: () => 'T4' }, source: ss });
   ok(sheets.Fermi.dvr && (d => d.requireValueInRange[0].getValues().map(x => x[0]))(sheets.Fermi.dvr['4,' + C.GUASTO]).indexOf('H7, Sblocco Homing') === 0, 'modifica a mano del codice macchina: la tendina Tipo guasto si aggiorna');
   // Unione: Magazzino astucci → MAG. ASTUCCI, H7 GUANTONE → H7, catena CAM. OMRON → CAMERA → CAMERA OMRON (rinomina)
@@ -445,23 +445,23 @@ console.log('\nFoglio Fermi: righe copiate a mano e macchina corretta a mano');
 {
   const { ctx, sheets } = nuovo(); const C = ctx.C, ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   const riga = (id, eq, lin, mac) => { const r = new Array(30).fill(''); r[C.ID - 1] = id; r[C.EQ - 1] = eq; r[C.LINEA - 1] = lin; r[C.MACC - 1] = mac; return r; };
-  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('F1', 'ST3-04', 'ST3', 'ASTUCCIATRICE'), riga('F1', 'ST3-02', 'ST1', 'ASTUCCIATRICE'), riga('F1', 'ST3-04', 'ST3', 'ASTUCCIATRICE'), riga('F2', 'ST3-02', 'ST3', 'RIEMPITRICE')]);
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H), riga('F1', 'LIND-04', 'LIND', 'ASTUCCIATRICE'), riga('F1', 'LIND-02', 'ST1', 'ASTUCCIATRICE'), riga('F1', 'LIND-04', 'LIND', 'ASTUCCIATRICE'), riga('F2', 'LIND-02', 'LIND', 'RIEMPITRICE')]);
   const F = sheets.Fermi.rows;
   ok(ctx.idDoppi_(sheets.Fermi) === 2 && F[1][C.ID - 1] === 'F1' && F[2][C.ID - 1] === 'F1-2' && F[3][C.ID - 1] === 'F1-3' && F[4][C.ID - 1] === 'F2', 'ID doppi (righe copiate): la copia riceve F1-2, F1-3; la prima resta F1');
   ok(F[1][C.GRUPPO - 1] === 'F1' && F[2][C.GRUPPO - 1] === 'F1' && F[3][C.GRUPPO - 1] === 'F1' && !F[4][C.GRUPPO - 1], '"Fermo n." lega le righe dello stesso fermo');
   ok(ctx.idDoppi_(sheets.Fermi) === 0, 'rilanciato: niente da fare');
   ctx.eqCoerente_(ss, sheets.Fermi, 3, C.MACC);
-  ok(F[2][C.EQ - 1] === 'ST3-04' && F[2][C.LINEA - 1] === 'ST3', 'cambiata la Macchina (nome unico): codice e linea si sistemano');
-  F[4][C.EQ - 1] = 'ST1MAR-06'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.EQ);
-  ok(F[4][C.MACC - 1] === 'BILANCIA' && F[4][C.LINEA - 1] === 'ST1 MAR', 'cambiato il Codice: macchina e linea dal foglio Equipment');
+  ok(F[2][C.EQ - 1] === 'LIND-04' && F[2][C.LINEA - 1] === 'LIND', 'cambiata la Macchina (nome unico): codice e linea si sistemano');
+  F[4][C.EQ - 1] = 'LINA-06'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.EQ);
+  ok(F[4][C.MACC - 1] === 'BILANCIA' && F[4][C.LINEA - 1] === 'LIN A', 'cambiato il Codice: macchina e linea dal foglio Equipment');
   F[4][C.LINEA - 1] = 'ST9'; ctx.eqCoerente_(ss, sheets.Fermi, 5, C.LINEA);
-  ok(F[4][C.EQ - 1] === 'ST1MAR-06' && F[4][C.LINEA - 1] === 'ST1 MAR', 'linea sbagliata: il nome unico della macchina rimette linea giusta');
+  ok(F[4][C.EQ - 1] === 'LINA-06' && F[4][C.LINEA - 1] === 'LIN A', 'linea sbagliata: il nome unico della macchina rimette linea giusta');
 }
 
 console.log('\nSoluzioni: scarto con motivo');
 {
   const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
-  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(0, 13), ['S1', new ctx.DD(), 'ST3-04', 'ST3', 'ASTUCCIATRICE', 'INCASTRO', 'flaconi incastrati', 'regolato', '', '', 'ROSSI Mario', 'DA APPROVARE', '']]);
+  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(0, 13), ['S1', new ctx.DD(), 'LIND-04', 'LIND', 'ASTUCCIATRICE', 'INCASTRO', 'flaconi incastrati', 'regolato', '', '', 'ROSSI Mario', 'DA APPROVARE', '']]);
   ctx.solColonne_(sheets.Soluzioni);
   ok(sheets.Soluzioni.rows[0][13] === 'Motivo (se scartata)' && sheets.Soluzioni.rows[0][12] === 'Approvata da', 'colonna "Motivo (se scartata)" aggiunta dopo "Approvata da"');
   let err = ''; try { ctx.approvaSoluzione_({ id: 'S1', esito: 'NO', motivo: '', manutentore: 'VERDI Anna' }); } catch (e) { err = e.message; }
@@ -475,10 +475,10 @@ console.log('\nSoluzioni: scarto con motivo');
 console.log('\nFoglio Guasti: voci per macchina');
 {
   const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
-  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)', 'Tipi di guasto'], ['TUTTE', 'vale per tutte', 'SENSORE', ' ', 'INCASTRO'], ['st3-04', 'ST3 · ASTUCCIATRICE', 'MAG. ASTUCCI', '', 'CHIUSURE AST  '], ['ST3-05', 'ST3 · BILANCIA']]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)', 'Tipi di guasto'], ['TUTTE', 'vale per tutte', 'SENSORE', ' ', 'INCASTRO'], ['lind-04', 'LIND · ASTUCCIATRICE', 'MAG. ASTUCCI', '', 'CHIUSURE AST  '], ['LIND-05', 'LIND · BILANCIA']]);
   const g = ctx.guasti_(ss);
-  ok(g['ST3-04'].join('|') === 'MAG. ASTUCCI|CHIUSURE AST' && g.TUTTE.join('|') === 'SENSORE|INCASTRO', 'righe del foglio Guasti: codice in maiuscolo, colonna B solo promemoria, celle vuote e spazi ignorati');
-  ok(Array.isArray(g['ST3-05']) && g['ST3-05'].length === 0, 'macchina senza voci: elenco vuoto (l\'app mostrerà linea + TUTTE + ALTRO)');
+  ok(g['LIND-04'].join('|') === 'MAG. ASTUCCI|CHIUSURE AST' && g.TUTTE.join('|') === 'SENSORE|INCASTRO', 'righe del foglio Guasti: codice in maiuscolo, colonna B solo promemoria, celle vuote e spazi ignorati');
+  ok(Array.isArray(g['LIND-05']) && g['LIND-05'].length === 0, 'macchina senza voci: elenco vuoto (l\'app mostrerà linea + TUTTE + ALTRO)');
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice()]); sheets.Liste.rows = [['Manutentori'], ['ROSSI Mario']];
   ok(JSON.stringify(ctx.init_().guasti) === JSON.stringify(g), 'l\'app riceve esattamente le voci del foglio Guasti');
 }
@@ -486,7 +486,7 @@ console.log('\nFoglio Guasti: voci per macchina');
 console.log('\nPiù foto in chiusura');
 {
   const { ctx, sheets } = nuovo(); const C = ctx.C;
-  const r = new Array(31).fill(''); r[C.ID - 1] = 'FX1'; r[C.EQ - 1] = 'ST3-04';
+  const r = new Array(31).fill(''); r[C.ID - 1] = 'FX1'; r[C.EQ - 1] = 'LIND-04';
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.concat(ctx.EXTRA_H.slice(0, 6)), r]);
   const files = {}; ctx.PropertiesService.getScriptProperties().setProperty('FOLDER_ID', 'F');
   ctx.DriveApp = { getFolderById: () => ({ getFilesByName: n => { let done = !files[n]; return { hasNext: () => !done, next: () => { done = true; return { getUrl: () => files[n] }; } }; },
@@ -553,35 +553,35 @@ console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecc
 {
   const { ctx, sheets } = nuovo(); const ss = ctx.SpreadsheetApp.getActiveSpreadsheet();
   const fr = code => { const r = new Array(ctx.HEAD.length).fill(''); r[ctx.C.ID - 1] = 'F' + Math.random(); r[ctx.C.EQ - 1] = code; return r; };
-  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), fr('ST3-04'), fr('ST3-02'), fr('st3-04')]);
-  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE'], ['ST3-04', '', 'Mag. astucci'], ['ST3', '', 'x'], ['TUTTE', '', 'y']]);
-  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(), ['S1', '', 'ST3-04'], ['S2', '', 'ST3-02, ST3-04'], ['S3', '', 'TUTTE']]);
-  sheets.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'ST3-04']]);
-  sheets.Compiti = new Sheet('Compiti', [['ID', 'Creato il', 'Da', 'A', 'Linea', 'Macchina (codice)'], ['C1', '', '', '', 'ST3', 'ST3-04']]);
+  sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), fr('LIND-04'), fr('LIND-02'), fr('lind-04')]);
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE'], ['LIND-04', '', 'Mag. astucci'], ['LIND', '', 'x'], ['TUTTE', '', 'y']]);
+  sheets.Soluzioni = new Sheet('Soluzioni', [ctx.SOL_H.slice(), ['S1', '', 'LIND-04'], ['S2', '', 'LIND-02, LIND-04'], ['S3', '', 'TUTTE']]);
+  sheets.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'LIND-04']]);
+  sheets.Compiti = new Sheet('Compiti', [['ID', 'Creato il', 'Da', 'A', 'Linea', 'Macchina (codice)'], ['C1', '', '', '', 'LIND', 'LIND-04']]);
   const eq = sheets.Equipment;
   ok(ctx.eqColonne_(eq) && eq.rows[0][5] === 'Nuovo codice (ITEM)' && !ctx.eqColonne_(eq), 'prima volta: aggiunge la colonna F "Nuovo codice (ITEM)"');
   eq.rows[2][5] = '000097'; eq.rows[1][5] = '000097';
   ok(ctx.codiciPiano_(ss).errori.some(e => /doppio/.test(e)), 'due macchine con lo stesso ITEM: si ferma');
-  eq.rows[1][5] = 'ST3'; ok(ctx.codiciPiano_(ss).errori.some(e => /nome di una linea/.test(e)), 'ITEM uguale al nome di una linea: si ferma');
+  eq.rows[1][5] = 'LIND'; ok(ctx.codiciPiano_(ss).errori.some(e => /nome di una linea/.test(e)), 'ITEM uguale al nome di una linea: si ferma');
   eq.rows[1][5] = '12 34'; ok(ctx.codiciPiano_(ss).errori.some(e => /spazi/.test(e)), 'ITEM con spazi: si ferma');
-  eq.rows[1][5] = 'ST1MAR-06'; ok(ctx.codiciPiano_(ss).errori.some(e => /doppio/.test(e)), 'ITEM uguale al codice attuale di un\'altra macchina: si ferma');
+  eq.rows[1][5] = 'LINA-06'; ok(ctx.codiciPiano_(ss).errori.some(e => /doppio/.test(e)), 'ITEM uguale al codice attuale di un\'altra macchina: si ferma');
   eq.rows[1][5] = '';
   const P = ctx.codiciPiano_(ss);
-  ok(!P.errori.length && P.cambi.length === 1 && P.cambi[0].da === 'ST3-04' && P.cambi[0].a === '000097', 'piano: ST3-04 → 000097');
+  ok(!P.errori.length && P.cambi.length === 1 && P.cambi[0].da === 'LIND-04' && P.cambi[0].a === '000097', 'piano: LIND-04 → 000097');
   const conti = ctx.codiciApplica_(ss, P.cambi);
-  ok(sheets.Fermi.rows[1][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[3][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[2][ctx.C.EQ - 1] === 'ST3-02' && conti.Fermi === 2, 'Fermi: storico spostato sul codice nuovo (anche scritto minuscolo), le altre macchine no');
-  ok(sheets.Guasti.rows[1][0] === '000097' && sheets.Guasti.rows[2][0] === 'ST3', 'Guasti: voci della macchina sul codice nuovo, riga di linea intatta');
-  ok(sheets.Soluzioni.rows[1][2] === '000097' && sheets.Soluzioni.rows[2][2] === 'ST3-02, 000097' && sheets.Soluzioni.rows[3][2] === 'TUTTE', 'Soluzioni: anche dentro un elenco di macchine');
+  ok(sheets.Fermi.rows[1][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[3][ctx.C.EQ - 1] === '000097' && sheets.Fermi.rows[2][ctx.C.EQ - 1] === 'LIND-02' && conti.Fermi === 2, 'Fermi: storico spostato sul codice nuovo (anche scritto minuscolo), le altre macchine no');
+  ok(sheets.Guasti.rows[1][0] === '000097' && sheets.Guasti.rows[2][0] === 'LIND', 'Guasti: voci della macchina sul codice nuovo, riga di linea intatta');
+  ok(sheets.Soluzioni.rows[1][2] === '000097' && sheets.Soluzioni.rows[2][2] === 'LIND-02, 000097' && sheets.Soluzioni.rows[3][2] === 'TUTTE', 'Soluzioni: anche dentro un elenco di macchine');
   ok(sheets.Anomalie.rows[1][2] === '000097' && sheets.Compiti.rows[1][5] === '000097', 'Anomalie e Compiti aggiornati');
-  ok(eq.rows[2][0] === '000097' && eq.rows[2][5] === '' && eq.rows[2][6] === 'ST3-04', 'Equipment: codice nuovo in A (zeri iniziali compresi), vecchio in G, F svuotata');
-  ok(ctx.eqAttuale_(ss, 'ST3-04') === '000097' && ctx.eqAttuale_(ss, 'st3-04') === '000097' && ctx.eqAttuale_(ss, 'ST3-02') === 'ST3-02', 'QR vecchio / fermo in coda: ST3-04 porta a 000097');
+  ok(eq.rows[2][0] === '000097' && eq.rows[2][5] === '' && eq.rows[2][6] === 'LIND-04', 'Equipment: codice nuovo in A (zeri iniziali compresi), vecchio in G, F svuotata');
+  ok(ctx.eqAttuale_(ss, 'LIND-04') === '000097' && ctx.eqAttuale_(ss, 'lind-04') === '000097' && ctx.eqAttuale_(ss, 'LIND-02') === 'LIND-02', 'QR vecchio / fermo in coda: LIND-04 porta a 000097');
   const app = ctx.equipment_(ss).find(x => x.code === '000097');
-  ok(app && app.prec && app.prec[0] === 'ST3-04', 'all\'app arriva anche il codice vecchio');
+  ok(app && app.prec && app.prec[0] === 'LIND-04', 'all\'app arriva anche il codice vecchio');
   { // Documenti → Dove con menu a tendina rigido sui codici di Equipment (com'è nel foglio vero): prima si fermava a metà
-    sheets.Documenti = new Sheet('Documenti', [['ID', 'Titolo', 'Dove'], ['D1', '', 'ST3-02'], ['D2', '', 'TUTTE']]);
+    sheets.Documenti = new Sheet('Documenti', [['ID', 'Titolo', 'Dove'], ['D1', '', 'LIND-02'], ['D2', '', 'TUTTE']]);
     const D = sheets.Documenti, orig = D.getRange.bind(D);
     D.getRange = (...a) => { const r = orig(...a); if (a[1] !== 3) return r; let dv = true; const sv = r.setValues.bind(r);
-      r.setValues = v => { const ok_ = new Set(sheets.Equipment.rows.slice(1).map(x => String(x[0]).toUpperCase()).concat(['TUTTE', 'ST3']));
+      r.setValues = v => { const ok_ = new Set(sheets.Equipment.rows.slice(1).map(x => String(x[0]).toUpperCase()).concat(['TUTTE', 'LIND']));
         if (dv && v.some(([x]) => x && !ok_.has(String(x).toUpperCase()))) throw new Error('viola le regole di convalida dei dati'); return sv(v); };
       r.getDataValidations = () => []; r.clearDataValidations = () => { dv = false; return r; }; r.setDataValidations = () => r; return r; };
     eq.rows[1][5] = 'IT-002';
@@ -589,13 +589,13 @@ console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecc
     ok(!k._errori && D.rows[1][2] === 'IT-002' && sheets.Fermi.rows[2][ctx.C.EQ - 1] === 'IT-002' && eq.rows[1][0] === 'IT-002', 'menu a tendina rigido in Documenti: Equipment aggiornato prima, nessun blocco a metà');
   }
   eq.rows[2][5] = 'IT-200'; ctx.codiciApplica_(ss, ctx.codiciPiano_(ss).cambi);
-  ok(eq.rows[2][6] === 'ST3-04, 000097' && ctx.eqAttuale_(ss, 'ST3-04') === 'IT-200' && sheets.Fermi.rows[1][ctx.C.EQ - 1] === 'IT-200', 'secondo cambio: tiene tutti i codici vecchi');
-  eq.rows[1][5] = 'ST3-04'; ok(ctx.codiciPiano_(ss).errori.some(e => /QR vecchi/.test(e)), 'non si può riusare il vecchio codice di un\'altra macchina');
+  ok(eq.rows[2][6] === 'LIND-04, 000097' && ctx.eqAttuale_(ss, 'LIND-04') === 'IT-200' && sheets.Fermi.rows[1][ctx.C.EQ - 1] === 'IT-200', 'secondo cambio: tiene tutti i codici vecchi');
+  eq.rows[1][5] = 'LIND-04'; ok(ctx.codiciPiano_(ss).errori.some(e => /QR vecchi/.test(e)), 'non si può riusare il vecchio codice di un\'altra macchina');
   { // ripresa dopo un blocco a metà: Fermi già col codice nuovo, Equipment ancora vecchio con F compilata
     const { ctx: c2, sheets: s2 } = nuovo(); const ss2 = c2.SpreadsheetApp.getActiveSpreadsheet();
     const r = new Array(c2.HEAD.length).fill(''); r[c2.C.EQ - 1] = 'NUOVO-9';
-    s2.Fermi = new Sheet('Fermi', [c2.HEAD.slice(), r]); s2.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'ST3-04']]);
-    c2.eqColonne_(s2.Equipment); s2.Equipment.rows.find(x => x[0] === 'ST3-04')[5] = 'NUOVO-9';
+    s2.Fermi = new Sheet('Fermi', [c2.HEAD.slice(), r]); s2.Anomalie = new Sheet('Anomalie', [['ID', 'Data', 'Equipment'], ['A1', '', 'LIND-04']]);
+    c2.eqColonne_(s2.Equipment); s2.Equipment.rows.find(x => x[0] === 'LIND-04')[5] = 'NUOVO-9';
     const k2 = c2.codiciApplica_(ss2, c2.codiciPiano_(ss2).cambi);
     ok(s2.Fermi.rows[1][c2.C.EQ - 1] === 'NUOVO-9' && s2.Anomalie.rows[1][2] === 'NUOVO-9' && s2.Equipment.rows.find(x => x[0] === 'NUOVO-9') && !k2.Fermi, 'rilancio dopo un blocco a metà: completa quello che manca');
   }
@@ -603,19 +603,19 @@ console.log('\nCambio codici macchina con il codice ITEM: tutti i fogli, QR vecc
 console.log('\nArea del fermo nel passaggio turno: niente "area?" se la linea ha un\'area sola');
 {
   const { ctx, sheets } = nuovo();
-  sheets.Equipment.rows.push(['SPL1-01', 'SPL1', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['SPL1-02', 'SPL1', 'Packaging', 'CARTONATRICE', 'SI'], ['000123', 'SPL2', 'Packaging', 'ETICHETTATRICE', 'SI', '', 'SPL2-04']);
+  sheets.Equipment.rows.push(['LINP-01', 'LINP', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['LINP-02', 'LINP', 'Packaging', 'CARTONATRICE', 'SI'], ['000123', 'LINQ', 'Packaging', 'ETICHETTATRICE', 'SI', '', 'LINQ-04']);
   const ad = ctx.areaDi_(), A = f => ad(f);
-  ok(A({ eq: 'SPL9-77', linea: 'SPL1', macc: 'ASTUCCIATRICE 2' }) === 'PACKAGING', 'codice e nome non trovati, ma SPL1 è solo Packaging → Packaging');
-  ok(A({ eq: 'spl1-01', linea: '', macc: '' }) === 'PACKAGING', 'codice scritto minuscolo');
-  ok(A({ eq: 'SPL2-04', linea: '', macc: '' }) === 'PACKAGING', 'codice vecchio (prima del cambio ITEM)');
-  ok(A({ eq: 'X', linea: 'ST3', macc: 'BOH' }) === '', 'linea con Filling e Packaging e macchina sconosciuta: resta da capire');
+  ok(A({ eq: 'SPL9-77', linea: 'LINP', macc: 'ASTUCCIATRICE 2' }) === 'PACKAGING', 'codice e nome non trovati, ma LINP è solo Packaging → Packaging');
+  ok(A({ eq: 'linp-01', linea: '', macc: '' }) === 'PACKAGING', 'codice scritto minuscolo');
+  ok(A({ eq: 'LINQ-04', linea: '', macc: '' }) === 'PACKAGING', 'codice vecchio (prima del cambio ITEM)');
+  ok(A({ eq: 'X', linea: 'LIND', macc: 'BOH' }) === '', 'linea con Filling e Packaging e macchina sconosciuta: resta da capire');
 }
 console.log('\nCerca fermi: archivio oltre 90 giorni, nome del tecnico solo per i coordinatori');
 {
   const { ctx, sheets } = nuovo(); ctx.checkKey_ = () => {}; const C = ctx.C, D = ctx.DD;
   sheets.Telefoni = new Sheet('Telefoni', [ctx.TEL_H.slice(), ['ROSSI Mario', 'T-R', 'x', new D(), new D(), 'OK'], ['VERDI Anna', 'T-V', 'x', new D(), new D(), 'OK']]);
   const riga = (id, gg, guasto, altro, man) => { const r = new Array(ctx.HEAD.length).fill(''); const t = Date.now() - gg * 864e5;
-    r[C.ID - 1] = id; r[C.INIZIO - 1] = new D(t); r[C.FINE - 1] = new D(t + 600000); r[C.STATO - 1] = 'CHIUSO'; r[C.GUASTO - 1] = guasto; r[C.ALTRO - 1] = altro; r[C.MAN - 1] = man; r[C.LINEA - 1] = 'ST3'; r[C.MACC - 1] = 'RIEMPITRICE'; r[C.EQ - 1] = 'ST3-02'; return r; };
+    r[C.ID - 1] = id; r[C.INIZIO - 1] = new D(t); r[C.FINE - 1] = new D(t + 600000); r[C.STATO - 1] = 'CHIUSO'; r[C.GUASTO - 1] = guasto; r[C.ALTRO - 1] = altro; r[C.MAN - 1] = man; r[C.LINEA - 1] = 'LIND'; r[C.MACC - 1] = 'RIEMPITRICE'; r[C.EQ - 1] = 'LIND-02'; return r; };
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(), riga('F1', 200, 'H7, SBLOCCO HOMING', 'Homing fallito asse 3', 'ROSSI Mario'), riga('F2', 150, 'SENSORE', 'regolata fibra', 'BIANCHI Luca'), riga('F3', 10, 'H7, SBLOCCO HOMING', 'recente', 'ROSSI Mario')]);
   const get = (man, dev, q) => JSON.parse(ctx.doGet({ parameter: { key: 'k', action: 'cerca', man, dev, q } }).t);
   const a = get('ROSSI Mario', 'T-R', 'homing');
@@ -638,19 +638,19 @@ console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging 
   const pD = ctx.periodoMese_(new D(2026, 8, 1), '', '', oggi);
   ok(pD.from.getMonth() === 8 && pD.to.getDate() === 30 && !pD.inCorso, 'mese che Fogli ha trasformato in data (1/9/2026): vale settembre intero');
   ok(ctx.kpiMesi_(oggi)[0] === 'novembre 2026' && ctx.kpiMesi_(oggi)[1] === 'ottobre 2026' && ctx.kpiMesi_(oggi).length === 25, 'menu: ultimi 24 mesi + Personalizzato');
-  sheets.Equipment.rows.push(['SPL1-01', 'SPL1', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['SPL2-01', 'SPL2', 'Packaging', 'CARTONATRICE', 'SI']);
+  sheets.Equipment.rows.push(['LINP-01', 'LINP', 'Packaging', 'ASTUCCIATRICE', 'SI'], ['LINQ-01', 'LINQ', 'Packaging', 'CARTONATRICE', 'SI']);
   const riga = (id, g, h, min, linea, macc, code, lotto) => { const r = new Array(ctx.HEAD.length).fill(''); const a = new D(2026, g[1], g[0], h, 0);
     r[C.ID - 1] = id; r[C.DATA - 1] = new D(2026, g[1], g[0]); r[C.INIZIO - 1] = a; r[C.FINE - 1] = new D(a.getTime() + min * 60000); r[C.STATO - 1] = 'CHIUSO';
     r[C.LINEA - 1] = linea; r[C.MACC - 1] = macc; r[C.EQ - 1] = code; r[C.LOTTO - 1] = lotto; r[C.GUASTO - 1] = 'X'; r[C.INT - 1] = 'REGOLAZIONE'; return r; };
   sheets.Fermi = new Sheet('Fermi', [ctx.HEAD.slice(),
-    riga('a', [3, 9], 8, 30, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '100'), riga('b', [4, 9], 8, 30, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '100'), riga('c', [5, 9], 8, 10, 'SPL2', 'CARTONATRICE', 'SPL2-01', '200'),
-    riga('d', [3, 10], 8, 10, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '101'), riga('e', [4, 10], 8, 20, 'SPL1', 'ASTUCCIATRICE', 'SPL1-01', '102')]);
+    riga('a', [3, 9], 8, 30, 'LINP', 'ASTUCCIATRICE', 'LINP-01', '100'), riga('b', [4, 9], 8, 30, 'LINP', 'ASTUCCIATRICE', 'LINP-01', '100'), riga('c', [5, 9], 8, 10, 'LINQ', 'CARTONATRICE', 'LINQ-01', '200'),
+    riga('d', [3, 10], 8, 10, 'LINP', 'ASTUCCIATRICE', 'LINP-01', '101'), riga('e', [4, 10], 8, 20, 'LINP', 'ASTUCCIATRICE', 'LINP-01', '102')]);
   const R = ctx.kpiConfrontoCalcola_(ctx.SpreadsheetApp.getActiveSpreadsheet(), 'PACKAGING', pO, pN);
-  const s1 = R.find(r => r.linea === 'SPL1'), tu = R.find(r => r.linea === 'TUTTE');
-  ok(s1 && s1.A.n === 2 && s1.A.occ === 2 && s1.B.n === 2 && s1.B.occ === 1, 'SPL1: ottobre 2 fermi su 1 lotto (occ 2), novembre 2 fermi su 2 lotti (occ 1)');
+  const s1 = R.find(r => r.linea === 'LINP'), tu = R.find(r => r.linea === 'TUTTE');
+  ok(s1 && s1.A.n === 2 && s1.A.occ === 2 && s1.B.n === 2 && s1.B.occ === 1, 'LINP: ottobre 2 fermi su 1 lotto (occ 2), novembre 2 fermi su 2 lotti (occ 1)');
   ok(Math.round(s1.A.mttr * 1440) === 30 && Math.round(s1.B.mttr * 1440) === 15, 'MTTR per periodo: 30 → 15 minuti');
   ok(tu && tu.A.n === 3 && tu.B.n === 2 && R[R.length - 1].linea === 'TUTTE', 'riga «Tutte le linee» dell\'area in fondo');
-  ok(!R.some(r => r.linea === 'ST3' && r.A.n), 'solo le linee dell\'area scelta (Packaging)');
+  ok(!R.some(r => r.linea === 'LIND' && r.A.n), 'solo le linee dell\'area scelta (Packaging)');
   ok(s1.A.nInt === 2 && s1.A.n === 2, 'N° interventi accanto a N° fermi');
   ctx.aggiornaKpiConfronto();
   const kc = sheets['KPI Confronto'], h7 = kc.rows[6] || [], h8 = kc.rows[7] || [];
@@ -661,10 +661,10 @@ console.log('\nKPI Confronto: due periodi, linea per linea, Filling e Packaging 
 console.log('\nGuasti: righe con un codice che in Equipment non esiste');
 {
   const { ctx, sheets } = nuovo();
-  sheets.Equipment.rows.push(['SPL2-111', 'SPL2', 'Packaging', 'ASTUCCIATRICE ROMACO PC4250', 'SI', '', 'SPL2-04']);
-  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)'], ['TUTTE', 'tutte', 'SENSORE'], ['ST3', 'linea', 'X'], ['SPL2-11', 'SPL2 · ASTUCCIATRICE ROMACO PC4250', 'MAG. ASTUCCI'], ['SPL2-04', 'vecchio', 'GUIDE'], ['SPL2-111', 'ok', 'CHIUSURE AST']]);
+  sheets.Equipment.rows.push(['LINQ-111', 'LINQ', 'Packaging', 'ASTUCCIATRICE ROMACO PC4250', 'SI', '', 'LINQ-04']);
+  sheets.Guasti = new Sheet('Guasti', [['Codice (QR) / Linea / TUTTE', 'Macchina (promemoria)'], ['TUTTE', 'tutte', 'SENSORE'], ['LIND', 'linea', 'X'], ['LINQ-11', 'LINQ · ASTUCCIATRICE ROMACO PC4250', 'MAG. ASTUCCI'], ['LINQ-04', 'vecchio', 'GUIDE'], ['LINQ-111', 'ok', 'CHIUSURE AST']]);
   const l = ctx.guastiSenzaMacchina_(ctx.SpreadsheetApp.getActiveSpreadsheet());
-  ok(l.length === 2 && l[0].code === 'SPL2-11' && l[0].forse === 'SPL2-111' && l[0].riga === 4, '«SPL2-11» segnalato, con il suggerimento SPL2-111 (dal nome nel promemoria)');
-  ok(l[1].code === 'SPL2-04' && l[1].forse === 'SPL2-111', 'codice vecchio (prima del cambio ITEM): suggerito quello nuovo');
+  ok(l.length === 2 && l[0].code === 'LINQ-11' && l[0].forse === 'LINQ-111' && l[0].riga === 4, '«LINQ-11» segnalato, con il suggerimento LINQ-111 (dal nome nel promemoria)');
+  ok(l[1].code === 'LINQ-04' && l[1].forse === 'LINQ-111', 'codice vecchio (prima del cambio ITEM): suggerito quello nuovo');
 }
 fine('Script');
