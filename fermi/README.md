@@ -63,7 +63,7 @@ L'app è fatta di due parti che vivono in posti diversi:
 | **Fermi** | Una riga per fermo. Colonne A–L **identiche al template** (Lotto, Data, Ora Inizio, Ora Fine, Manutentore, Macchina, Categoria, Tipo intervento, Tipo guasto, Altro, Durata MTTR, Intervento-Guasto), poi Linea, Turno, Codice pezzo, Foto apertura, Foto chiusura, Stato, ID fermo, Equipment, Aperto da, **Orari** (TEMPO REALE / DICHIARATI), **Registrato alle** (ora vera dell'inserimento), **Telefono**. Le righe **gialle** sono fermi ancora aperti. | L'app. Tu puoi correggere a mano un errore, ma **non toccare le colonne Stato e ID fermo**. |
 | **Equipment** | Elenco macchine: codice del QR, linea, area (**Filling** / **Packaging**), nome macchina, attivo. | Tu. |
 | **Liste** | I pulsanti uguali per tutti: Categoria, Tipo intervento, **Manutentori** e **Coordinatori** abilitati. | Tu. |
-| **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `ST3`, valgono per tutta la linea). | Tu. |
+| **Guasti** | I tipi di guasto **per macchina**: una riga per codice QR, i guasti uno per cella verso destra. Righe speciali `TUTTE` (valgono per ogni macchina) e nome linea (es. `LIND`, valgono per tutta la linea). | Tu. |
 | **Soluzioni** | Troubleshooting: dove vale (codice macchina, linea o `TUTTE`), tipo guasto, problema, soluzione, codici ricambio, allegato. | L'app (pulsante *Aggiungi soluzione*) e tu. |
 | **Documenti** | Manuali, schemi, schede formato: dove vale, tipo, titolo, descrizione, **link**. | Tu (vedi 5.6). |
 | **Anomalie** | Segnalazioni: macchina, urgenza (cella colorata), descrizione, cosa serve, foto, stato APERTA / IN CORSO / CHIUSA, chi l'ha gestita, nota. | L'app; tu puoi cambiare stato e note. |
@@ -262,11 +262,11 @@ Una riga per ogni macchina che deve avere il suo QR:
 
 | Codice (QR) | Linea | Area | Macchina | Attivo |
 |---|---|---|---|---|
-| ST3-04 | ST3 | Packaging | ASTUCCIATRICE | SI |
-| ST3-02 | ST3 | Filling | RIEMPITRICE | SI |
+| LIND-04 | LIND | Packaging | ASTUCCIATRICE | SI |
+| LIND-02 | LIND | Filling | RIEMPITRICE | SI |
 
 - **Codice (QR)**: unico, senza spazi, è quello stampato nell'etichetta. Consigliato `LINEA-SIGLA`. **Non cambiarlo** dopo aver attaccato l'etichetta.
-- **Linea**: come vuoi vederla nei KPI (ST1 MAR, ST3, SPL1…).
+- **Linea**: come vuoi vederla nei KPI (LIN A, LIND, LINP…).
 - **Area**: `Filling` (in sterile: il fermo si registra all'uscita con gli orari del batch record) o `Packaging` (fermo aperto e chiuso in tempo reale).
 - **Macchina**: il nome che finisce nella colonna Macchina del foglio Fermi (per le pivot usa sempre gli stessi nomi).
 - **Attivo**: `NO` per toglierla dall'app senza perdere lo storico.
@@ -279,7 +279,7 @@ Puoi incollare l'elenco direttamente da Excel. **Non rinumerare** le macchine ch
 
 Stampa al 100% (senza adattare alla pagina) su carta adesiva o da plastificare.
 
-> L'elenco iniziale creato da `setup()` mette Riordinatore + Filling su ogni linea con filling e le 6 macchine del secondario su ogni linea con packaging: **va controllato**, in particolare per le linee con macchine diverse (es. ST4, ST5).
+> L'elenco iniziale creato da `setup()` mette Riordinatore + Filling su ogni linea con filling e le 6 macchine del secondario su ogni linea con packaging: **va controllato**, in particolare per le linee con macchine diverse (es. LINE, LINF).
 
 ### 5.3 Liste dei pulsanti
 Foglio **Liste**: colonne **Categoria** e **Tipo intervento**, uguali per tutte le macchine. Quello che scrivi diventa un pulsante nell'app, nello stesso ordine (metti in alto le voci più usate). Le vecchie colonne Guasto Sterile / Guasto Secondario non servono più quando il foglio Guasti è compilato: puoi cancellarle.
@@ -289,8 +289,8 @@ Foglio **Liste**: colonne **Categoria** e **Tipo intervento**, uguali per tutte 
 | A: Codice (QR) / Linea / TUTTE | B: Macchina (promemoria) | C, D, E… : tipi di guasto |
 |---|---|---|
 | TUTTE | vale per tutte le macchine | FORMATO · SENSORE · USURA · SPIKE CORRENTE · ARIA COMPRESSA · ALTRO |
-| ST3-04 | ST3 · ASTUCCIATRICE | MAG. ISTRUZIONI · CHIUSURE AST · MAG. ASTUCCI · … |
-| ST6 | (riga facoltativa: vale per tutte le macchine di ST6) | … |
+| LIND-04 | LIND · ASTUCCIATRICE | MAG. ISTRUZIONI · CHIUSURE AST · MAG. ASTUCCI · … |
+| LING | (riga facoltativa: vale per tutte le macchine di LING) | … |
 
 Alla chiusura di un fermo l'app mostra: i guasti della macchina → quelli della sua linea → quelli di `TUTTE`, con **ALTRO sempre in fondo**.
 - Metti in alto i guasti più frequenti: compaiono per primi.
@@ -365,7 +365,7 @@ Una riga per documento:
 
 | Colonna | Cosa scrivere |
 |---|---|
-| **Dove** | Si sceglie dall'elenco (suggerisce mentre scrivi): codice QR della macchina (`ST3-04`), la linea (`ST3`) per tutta la linea, oppure `TUTTE`. **Vuoto = TUTTE.** L'elenco viene dal foglio Equipment (solo macchine attive) e si aggiorna da solo; per forzarlo: menu Pharma-Fix → *Aggiorna elenchi foglio Documenti* |
+| **Dove** | Si sceglie dall'elenco (suggerisce mentre scrivi): codice QR della macchina (`LIND-04`), la linea (`LIND`) per tutta la linea, oppure `TUTTE`. **Vuoto = TUTTE.** L'elenco viene dal foglio Equipment (solo macchine attive) e si aggiorna da solo; per forzarlo: menu Pharma-Fix → *Aggiorna elenchi foglio Documenti* |
 | **Tipo** | `MANUALE`, `SCHEMA`, `SCHEDA FORMATO` o `ALTRO` (le *Schede formato* vanno nella seconda scheda dell'app) |
 | **Titolo** / **Descrizione** | Quello che vede il tecnico (es. *Schema elettrico* · *rev. 3*) |
 | **Link** | Link al file su Drive/SharePoint: in Drive tasto destro → Condividi → *Chiunque nell'organizzazione con il link* → Copia link |
@@ -435,7 +435,7 @@ Il controllo dei **fermi aperti da troppo tempo** gira insieme alla **sveglia** 
 Nel foglio **Avvisi**, colonne **E–F** (celle gialle), si accendono e spengono con SI / NO:
 - **Riepilogo settimanale**: ogni **lunedì alle 7**, mail + Telegram con la settimana precedente, breve: per **PACKAGING** e per **FILLING** (mai sommati) n° fermi, ore di fermo e differenza in ore sulla settimana prima (▲ peggio, ▼ meglio), MTTR, le ore di **tutte le linee** dell'area (anche a zero, con "—"), i 2 guasti che si ripetono di più (🔁). Poi i 3 fermi più lunghi della settimana, una riga per le anomalie (nuove, chiuse, da gestire) e una per i compiti (fatti, in ritardo). Blocco **📈 GUASTI CRONICI**: le 3 coppie guasto + macchina con più ore nelle ultime 4 settimane, con la tendenza (▲ ▼ =) sulle 4 settimane prima. Se un fermo ha una macchina che non si trova in Equipment, compare in un blocco "AREA NON TROVATA".
 - **Passaggio di turno**: a **fine di ogni turno** (6, 14, 22, solo da lunedì 14:00 a sabato 6:00), su Telegram (e per mail se lo attivi), breve: n° fermi e ore del turno, ore per **PACKAGING** e **FILLING** divise per linea, i 3 fermi più lunghi, **Da sistemare** (fermi lasciati aperti, fermi senza descrizione con il nome di chi li ha registrati) e le anomalie (nuove del turno e quante da gestire). È **costruito dai dati registrati nell'app**: il dettaglio di ogni fermo resta nell'app e nel foglio Fermi.
-- **Linee a ciclo continuo** (es. `ST3`, separate da virgola): per queste linee il passaggio di turno arriva anche nel weekend (solo con i loro dati) e la sveglia / l'avviso dei fermi lunghi restano attivi 7 giorni su 7. Quando la linea torna sui 3 turni, svuota la cella **F7** del foglio Avvisi: tutto torna lunedì–sabato da solo, senza toccare lo script.
+- **Linee a ciclo continuo** (es. `LIND`, separate da virgola): per queste linee il passaggio di turno arriva anche nel weekend (solo con i loro dati) e la sveglia / l'avviso dei fermi lunghi restano attivi 7 giorni su 7. Quando la linea torna sui 3 turni, svuota la cella **F7** del foglio Avvisi: tutto torna lunedì–sabato da solo, senza toccare lo script.
 - **Backup**: ogni **domenica sera** una copia Excel del foglio nella cartella Drive **Pharma-Fix Backup**; si tengono le ultime N (8 = due mesi).
 
 Per partire: menu **Pharma-Fix → Attiva report e backup automatici** (una volta sola; Google può chiedere di nuovo le autorizzazioni). Prove subito: **Prova riepilogo settimanale**, **Prova passaggio di turno**, **Fai un backup adesso**.
@@ -464,7 +464,7 @@ Su F e I un valore fuori elenco viene accettato ma segnato col triangolino rosso
 Se qualcuno usa ancora i fogli di carta, puoi ricopiare i fermi direttamente nel foglio **Fermi**, anche in mezzo alle righe dell'app. Compila almeno:
 **Data**, **Ora Inizio**, **Ora Fine** (anche solo l'ora, es. 14:20), **Manutentore**, **Linea** (colonna M) e **Macchina** (o, meglio, il codice QR nella colonna **Equipment**), più categoria, tipo intervento, guasto, descrizione e lotto se li hai.
 
-Poi menu **Pharma-Fix → Completa fermi scritti a mano (da carta)**: lo script completa le righe senza *ID fermo* (data e ora vere, fermo a cavallo della mezzanotte, Stato CHIUSO, codice Equipment, Turno, ID, *Orari* = **CARTACEO**) così contano nei KPI, nei riepiloghi e compaiono nello storico della macchina nell'app. Alla fine ti dice quali righe non è riuscito a completare e perché (manca la linea, la macchina non si trova o è ambigua sulla linea — es. i riordinatori di ST6: in quel caso scrivi il codice nella colonna Equipment). Lo stesso controllo parte da solo prima di aggiornare i KPI e prima del riepilogo del lunedì, che riporta *da carta N*.
+Poi menu **Pharma-Fix → Completa fermi scritti a mano (da carta)**: lo script completa le righe senza *ID fermo* (data e ora vere, fermo a cavallo della mezzanotte, Stato CHIUSO, codice Equipment, Turno, ID, *Orari* = **CARTACEO**) così contano nei KPI, nei riepiloghi e compaiono nello storico della macchina nell'app. Alla fine ti dice quali righe non è riuscito a completare e perché (manca la linea, la macchina non si trova o è ambigua sulla linea — es. i riordinatori di LING: in quel caso scrivi il codice nella colonna Equipment). Lo stesso controllo parte da solo prima di aggiornare i KPI e prima del riepilogo del lunedì, che riporta *da carta N*.
 
 ### 5.15 Vestizioni (accesso all'area sterile)
 Il foglio **Convalide MF** (prima "Vestizioni") si crea da solo (con l'elenco dei Manutentori) alla prima apertura dell'app dopo l'aggiornamento. Per ogni tecnico scrivi la **Data vestizione** (ultima qualifica) e, se diversa da 12, la **Durata (mesi)**; *Scadenza* e *Giorni mancanti* si calcolano da soli. Un tecnico nuovo: aggiungi una riga con il nome scritto come in Liste.
@@ -498,11 +498,11 @@ Codici: **1 / 2 / 3** (6–14, 14–22, 22–6), **G** giornata (8:30–17:15), 
 - **Controlla registrazioni**: segnala i fermi registrati da chi quel giorno risultava a riposo, in ferie o assente.
 
 ### 5.17 Programma produzione
-Crea nel file Google un foglio chiamato **Programma**. Ogni volta che il programma cambia, copia **tutto** il foglio dell'Excel del programma (quello dell'anno, con le settimane e gli appunti) e incollalo in **A1** con **Incolla speciale → solo valori**, al posto del contenuto precedente. Lo script trova da solo la riga delle date e usa solo le righe di **riempimento** (*st1 rip pomate/gel* → ST1 TGM, *st1 rip liquidi* → ST1 MAR, *orl rip*, *st2/st3/st4/st5 rip*, *rip st6*) e di confezionamento (*spl1*, *spl2*); le righe *prep* e le altre le ignora. Se in colonna A scrivi direttamente il nome di una linea come in Equipment (es. *ST3*), vale quello.
+Crea nel file Google un foglio chiamato **Programma**. Ogni volta che il programma cambia, copia **tutto** il foglio dell'Excel del programma (quello dell'anno, con le settimane e gli appunti) e incollalo in **A1** con **Incolla speciale → solo valori**, al posto del contenuto precedente. Lo script trova da solo la riga delle date e usa solo le righe di **riempimento** (*st1 rip pomate/gel* → LIN B, *st1 rip liquidi* → LIN A, *orl rip*, *st2/st3/st4/st5 rip*, *rip st6*) e di confezionamento (*spl1*, *spl2*); le righe *prep* e le altre le ignora. Se in colonna A scrivi direttamente il nome di una linea come in Equipment (es. *LIND*), vale quello.
 Incolla **solo l'area con i dati** e **solo valori**: copiando il foglio intero con la formattazione si portano dietro migliaia di colonne vuote che rendono il file enorme e lento (era arrivato a 42 MB). Se succede: menu **Pharma-Fix → Alleggerisci foglio Programma (colonne vuote)**, oppure seleziona le colonne vuote a destra dei dati (Ctrl+Maiusc+→) → tasto destro → **Elimina colonne**.
 Nelle celle: più lotti nello stesso giorno separati da una riga vuota; il lotto è il primo numero di 6 cifre; una cella che inizia con **cf** è un cambio formato.
 - **Scheda macchina**: *In produzione oggi* (e domani) per la linea della macchina.
-- **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto). Per le linee a ciclo continuo (cella F7 del foglio Avvisi, es. ST3) compaiono prima anche i lotti del giorno precedente.
+- **Apri fermo**: i lotti del giorno diventano pulsanti (il primo è già scelto). Per le linee a ciclo continuo (cella F7 del foglio Avvisi, es. LIND) compaiono prima anche i lotti del giorno precedente.
 - Con un fermo aperto la scheda macchina non mostra il programma (in primo piano Chiudi fermo e Cosa provare).
 - **Menu del nome → Programma produzione**: tutte le linee oggi / domani / dopodomani, cambi formato in giallo.
 - **Passaggio di turno**: riga *📦 Domani cambi formato: …* (o *Oggi* per il turno che finisce al mattino), solo se ce ne sono.
@@ -575,7 +575,7 @@ I dati calcolati restano pronti nella memoria dello script: con tanti telefoni i
 | Fermo rimasto aperto (giallo) da giorni | Qualcuno ha dimenticato di chiuderlo: chiudilo dall'app (scansione QR o **Chiudi** nella home) e correggi poi a mano l'Ora Fine nel foglio se serve. |
 | `#ERROR!` nelle colonne Durata, Intervento-Guasto, Foto o nel foglio KPI | Formule scritte con il separatore sbagliato (fogli in italiano usano `;`). In Apps Script esegui **riparaFormule**: riscrive le formule e ricrea il foglio KPI. |
 | Un documento non si apre ("Richiedi l'accesso") | Il file in Drive non è condiviso: tasto destro → Condividi → *Chiunque abbia il link* (o *chiunque nell'organizzazione*). |
-| Un documento non compare sulla macchina | Nel foglio Documenti la colonna **Dove** non contiene il codice della macchina né la sua linea, oppure è scritta diversa (es. `ST3 04` invece di `ST3-04`). |
+| Un documento non compare sulla macchina | Nel foglio Documenti la colonna **Dove** non contiene il codice della macchina né la sua linea, oppure è scritta diversa (es. `LIND 04` invece di `LIND-04`). |
 | "Il foglio risponde lentamente" | Lo script si stava svegliando: i dati arrivano da soli. Se succede spesso: **Pharma-Fix → Attiva sveglia dello script** (5.10). |
 | Lotto senza lo zero iniziale (es. 12345 invece di 012345) | Corretto: i lotti ora si salvano come testo. Quelli vecchi si sistemano da soli una volta dopo l'aggiornamento (a 6 cifre); per rifarlo: **Pharma-Fix → Sistema lotti (zeri iniziali)**. |
 | L'app mostra ancora la versione vecchia | Chiudila del tutto e riaprila con rete. |
