@@ -207,6 +207,7 @@ function sistemaDurate() {
 const PERIODI = ['Ultimi 7 giorni', 'Ultimi 30 giorni', 'Ultimi 90 giorni', 'Mese corrente', 'Mese scorso', 'Anno corrente', 'Tutto', 'Personalizzato'];
 
 function onOpen() {
+  scollegaFormati_();
   SpreadsheetApp.getUi().createMenu('Pharma-Fix')
     .addItem('Aggiorna KPI', 'aggiornaValoriKpi')
     .addItem('Ricrea foglio KPI', 'aggiornaKpi')
@@ -235,7 +236,6 @@ function onOpen() {
     .addItem('Prova passaggio di turno', 'provaPassaggioTurno')
     .addItem('Fai un backup adesso', 'backupFoglio')
     .addSeparator()
-    .addItem('Formati: collega il file Base Gestione Formati', 'collegaFormati')
     .addItem('Versione dello script', 'infoVersione')
     .addToUi();
   // Foglio Convalide MF: nomi nuovi, impostazioni e colori subito all'apertura, senza aspettare l'app
@@ -1936,10 +1936,6 @@ function doGet(e) {
     const action = e.parameter.action || 'init';
     if (action === 'init') return initCache_(e.parameter.v);
     if (action === 'ping') return json_({ ok: true });
-    if (action === 'formati') { // tutti i tecnici, solo dal telefono approvato (dati letti dal file nel Drive del responsabile)
-      checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
-      return formatiJson_();
-    }
     if (action === 'cerca') { // ricerca nell'archivio vecchio (oltre 90 giorni), per tutti i tecnici
       checkTecnico_(e.parameter.man); checkTelefono_(e.parameter.man, e.parameter.dev, e.parameter.devName);
       return json_(Object.assign({ ok: true }, cercaFermi_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter.q, isCoordinatore_(e.parameter.man), e.parameter.da, e.parameter.al)));
@@ -2852,7 +2848,11 @@ function rigaVestizioni_() {
 
 function piuGiorni_(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d; }
 // Versione dello script: compare nel foglio KPI Risorse e nel menu, per controllare di aver incollato l'ultimo Code.gs
-const VERSIONE_SCRIPT = '20/11/2026 21:00';
+const VERSIONE_SCRIPT = '27/11/2026 20:00';
+// Gestione formati rimossa: cancella l'ID del vecchio file dei formati e i suoi dati in cache
+function scollegaFormati_() {
+  try { PropertiesService.getScriptProperties().deleteProperty('FORMATI_ID'); CacheService.getScriptCache().removeAll(['fmt', 'fmt2', 'fmt2:0', 'fmt2:1', 'fmt2:2', 'fmt2:3']); } catch (e) { Logger.log(e); }
+}
 function infoVersione() { SpreadsheetApp.getActiveSpreadsheet().toast('Code.gs versione ' + VERSIONE_SCRIPT, 'Pharma-Fix', 8); }
 /* =================== KPI Risorse (foglio "KPI Risorse") ===================
    Indicatori per tecnico, confrontati in modo equo: ogni intervento è paragonato agli interventi dello STESSO guasto
@@ -3445,77 +3445,5 @@ function ricodificaApplica() {
   });
   bumpVer_(); try { aggiornaValoriKpi(); } catch (e) { Logger.log(e); }
   ss.toast(n + ' fermi ricodificati nel foglio Fermi (nota sulla cella del guasto). Colonna Applicato compilata.', 'Pharma-Fix', 10);
-}
-
-/* ---------- Formati e cambi formato (solo coordinatori) ----------
-   I dati restano nel file "Base Gestione Formati Packaging" convertito in Fogli Google, nel Drive del responsabile.
-   Lo script ne conosce solo l'ID (Proprietà script FORMATI_ID, mai su GitHub) e legge i valori già calcolati dai suoi fogli
-   PRODOTTI, MACCHINE e LINEE. L'app li chiede con action=formati: risponde solo a un coordinatore dal suo telefono. */
-const FMT_CAR = ['Contenitore', 'Tappo', 'Contagocce', 'Dosaggio', 'Etichetta', 'Astuccio', 'Istruzione', 'Pezzi/astuccio', 'Cartone', 'Fardello', 'Prodotto'];
-const FMT_LINEE_X = ['ST1MAR', 'ST1TGM', 'ST2', 'ST3', 'ST4', 'ST6', 'SPL1', 'SPL2']; // colonne D–K di PRODOTTI (lette dall'intestazione)
-function collegaFormati() {
-  const ui = SpreadsheetApp.getUi();
-  const r = ui.prompt('Formati', 'Incolla l\'indirizzo (o l\'ID) del file "Base Gestione Formati" aperto con Fogli Google.\nVuoto = scollega.', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  const t = r.getResponseText().trim(), id = (t.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || [])[1] || (/^[a-zA-Z0-9_-]{20,}$/.test(t) ? t : '');
-  const props = PropertiesService.getScriptProperties();
-  if (!t) { props.deleteProperty('FORMATI_ID'); ui.alert('Formati scollegati.'); return; }
-  if (!id) { ui.alert('Indirizzo non riconosciuto: copia l\'indirizzo del file dalla barra del browser.'); return; }
-  props.setProperty('FORMATI_ID', id);
-  try { CacheService.getScriptCache().remove('fmt2'); const d = formatiDati_(true); ui.alert('Collegato: ' + d.prod.length + ' codici, ' + d.macc.length + ' macchine, ' + d.linee.length + ' linee, ' + d.ric.length + ' ricette.' + (d.avvisi.length ? '\n\nAttenzione:\n' + d.avvisi.join('\n') : '')); }
-  catch (e) { ui.alert('Non riesco a leggere il file: ' + e.message); }
-}
-function formatiJson_() {
-  const c = CacheService.getScriptCache(); let t = null;
-  try { t = cacheGet_(c, 'fmt2'); } catch (e) { Logger.log(e); }
-  if (!t) { t = JSON.stringify(Object.assign({ ok: true }, formatiDati_())); try { cachePut_(c, 'fmt2', t); } catch (e) { Logger.log(e); } }
-  return ContentService.createTextOutput(t).setMimeType(ContentService.MimeType.JSON);
-}
-// Legge il file dei formati e restituisce i dati compatti per l'app
-function formatiDati_(nuovo) {
-  const id = PropertiesService.getScriptProperties().getProperty('FORMATI_ID');
-  if (!id) throw new Error('File dei formati non collegato (menu Pharma-Fix → Formati: collega il file)');
-  const ss = SpreadsheetApp.openById(id), avvisi = [];
-  const foglio = n => { const sh = ss.getSheets().find(x => x.getName().trim().toUpperCase() === n); if (!sh) throw new Error('Nel file manca il foglio ' + n); return sh.getDataRange().getValues(); };
-  const S = v => String(v == null ? '' : v).trim();
-  // PRODOTTI: intestazioni alla riga 2, dati dalla 3
-  const P = foglio('PRODOTTI'), h = P[1].map(x => S(x).replace(/\s+/g, ' ').toUpperCase());
-  const col = (re, def) => { const i = h.findIndex(x => re.test(x)); if (i < 0 && def == null) avvisi.push('PRODOTTI: colonna non trovata ' + re); return i < 0 ? def : i; };
-  const cCod = col(/^CODICE SAP/), cDes = col(/^DESCRIZIONE/), cPrim = col(/^LINEA PRIMARIO/);
-  const cX = h.map((x, i) => [x, i]).filter(([x, i]) => i > cPrim && i < cPrim + 12 && /^(ST\d|SPL\d|ST1MAR|ST1TGM|ORL)/.test(x));
-  const cAtt = ['CONTENITORE', 'TAPPO', 'CONTAGOCCE', 'DOSAGGIO', 'ETICHETTA', 'FUSTELLA ASTUCCIO', 'ISTRUZIONE', 'PEZZI PER ASTUCCIO', 'FUSTELLA CARTONE', 'FARDELLO'].map(n => col(new RegExp('^' + n)));
-  const cFase = col(/^FASE\b/, -1), cFor = col(/^CODICE FORMATO/), cFF = col(/^FORMATO PRIMARIO \(FF\)/, -1), cEsito = col(/^ESITO$/, -1), cStato = col(/^STATO FORMATO/, -1), cRep = col(/^REPARTO/, -1);
-  const cRicP = col(/^RICETTA PRIMARIO/, -1), cRicS = col(/^RICETTA SECONDARIO/, -1);
-  const cT5 = col(/^TIPO CODICE 5/, -1), cLg = col(/^LARGHEZZA ISTRUZIONE/, -1), cCRic = col(/^CONTROLLO RICETTE/, -1), cCDiba = col(/^CONTROLLO DIBA/, -1);
-  const prod = P.slice(2).filter(r => S(r[cCod])).map(r => ({ c: S(r[cCod]), d: S(r[cDes]), lp: S(r[cPrim]).toUpperCase().replace(/\s+/g, ''),
-    ls: cX.filter(([x, i]) => S(r[i]).toUpperCase() === 'X').map(([x]) => x.replace(/\s+/g, '')), a: cAtt.map(i => S(r[i])),
-    // fase: colonna Fase se c'è (anche «Fase (…)»), altrimenti dal codice: 5… semilavorato = PRIMARIO, gli altri SECONDARIO
-    f: (cFase >= 0 && S(r[cFase]) ? S(r[cFase]).toUpperCase() : /^5/.test(S(r[cCod])) ? 'PRIMARIO' : 'SECONDARIO'), fmt: S(r[cFor]), ff: cFF >= 0 ? S(r[cFF]) : '', es: cEsito >= 0 ? S(r[cEsito]) : '', st: cStato >= 0 ? S(r[cStato]) : '', rep: cRep >= 0 ? S(r[cRep]) : '',
-    rp: cRicP >= 0 ? S(r[cRicP]) : '', rs: cRicS >= 0 ? S(r[cRicS]) : '',
-    t5: cT5 >= 0 ? S(r[cT5]).toUpperCase() : '', lg: cLg >= 0 ? S(r[cLg]).toUpperCase() : '', cr: cCRic >= 0 ? S(r[cCRic]) : '', cd: cCDiba >= 0 ? S(r[cCDiba]) : '' }));
-  // MACCHINE: intestazioni alla riga 1
-  const M = foglio('MACCHINE'), hm = M[0].map(x => S(x).replace(/\s+/g, ' ').toUpperCase());
-  const cm = n => { const e = hm.indexOf(n); return e >= 0 ? e : hm.findIndex(x => x.indexOf(n) === 0); };
-  const iC = cm('CONTENITORE'), car = FMT_CAR.map((n, k) => iC + k);
-  const macc = M.slice(1).filter(r => S(r[cm('MACCHINA_ID')])).map(r => ({ id: S(r[cm('MACCHINA_ID')]), l: S(r[cm('LINEA_ID')]).toUpperCase().replace(/\s+/g, ''), pos: Number(r[cm('POS')]) || 0,
-    n: S(r[cm('MACCHINA')]), fn: S(r[cm('FUNZIONE')]), fase: S(r[cm('FASE')]).toUpperCase(), q: S(r[cm('LAVORA QUANDO')]).toUpperCase() || 'SEMPRE',
-    m: car.map(i => S(r[i]).toUpperCase().slice(0, 1)), ver: S(r[cm('VERIFICATA')]).toUpperCase() !== 'NO',
-    hr: cm('HA RICETTE?') >= 0 ? !/^NO/.test(S(r[cm('HA RICETTE?')]).toUpperCase()) : true }));
-  if (iC < 0) avvisi.push('MACCHINE: colonna Contenitore non trovata');
-  // RICETTE (facoltativo): una riga per ricetta reale di ogni macchina, intestazioni alla riga 2.
-  // Ogni ricetta vale per i codici con gli stessi valori nelle colonne compilate (contenitore, dosaggio, fustella astuccio, larghezza istruzione, fustella cartone, media fill)
-  let ric = [];
-  const shR = ss.getSheets().find(x => x.getName().trim().toUpperCase() === 'RICETTE');
-  if (shR) {
-    const R = shR.getDataRange().getValues(), hr = (R[1] || []).map(x => S(x).replace(/\s+/g, ' ').toUpperCase());
-    const cr = n => hr.findIndex(x => x.indexOf(n) === 0);
-    const k = { id: cr('MACCHINA_ID'), co: cr('CONTENITORE'), do: cr('DOSAGGIO'), fa: cr('FUSTELLA ASTUCCIO'), lg: cr('LARGHEZZA'), fc: cr('FUSTELLA CARTONE'), mf: cr('MEDIA FILL'), nome: cr('NOME RICETTA'), n: cr('N° CODICI') };
-    if (k.id < 0 || k.nome < 0) avvisi.push('RICETTE: colonne Macchina_ID o Nome ricetta non trovate');
-    else ric = R.slice(2).filter(r => S(r[k.id]) && S(r[k.nome])).map(r => ({ id: S(r[k.id]), co: k.co >= 0 ? S(r[k.co]) : '', do: k.do >= 0 ? S(r[k.do]) : '', fa: k.fa >= 0 ? S(r[k.fa]) : '',
-      lg: k.lg >= 0 ? S(r[k.lg]).toUpperCase() : '', fc: k.fc >= 0 ? S(r[k.fc]) : '', mf: k.mf >= 0 ? S(r[k.mf]).toUpperCase() : '', nome: S(r[k.nome]), n: k.n >= 0 ? Number(r[k.n]) || 0 : 0 }));
-  }
-  const L = foglio('LINEE'), hl = L[0].map(x => S(x).toUpperCase());
-  const linee = L.slice(1).filter(r => S(r[0])).map(r => ({ id: S(r[0]).toUpperCase().replace(/\s+/g, ''), rep: S(r[hl.indexOf('REPARTO')]), pro: S(r[hl.findIndex(x => /^PROSEGUE/.test(x))]) }));
-  return { prod: prod, macc: macc, linee: linee, ric: ric, car: FMT_CAR, avvisi: avvisi, letto: Date.now() };
 }
 
