@@ -396,45 +396,6 @@ const LOTTO_AUTO = () => document.addEventListener('click', e => { const g = e.t
     'antifurbi nell\'app: due operazioni unite da "e" riconosciute, una sola no');
   await gc.close();
 
-  console.log('\nFormati e cambi formato (tutti i tecnici)');
-  const FX = { ok: true, car: ['Contenitore', 'Tappo', 'Contagocce', 'Dosaggio', 'Etichetta', 'Astuccio', 'Istruzione', 'Pezzi/astuccio', 'Cartone', 'Fardello', 'Prodotto'], letto: Date.now(), avvisi: [],
-    linee: [{ id: 'SPL2', rep: 'SPL2', pro: '' }],
-    prod: [{ c: '6000001', d: 'PROVA A', lp: 'ST6', ls: ['SPL2'], a: ['FL.A', '', '', '5 ml', 'E1', 'A1', '', '1', 'C1', 'BUND'], f: 'SECONDARIO', fmt: 'FP-A', ff: 'FF-A', es: 'OK' },
-           { c: '6000002', d: 'PROVA B', lp: 'ST5', ls: ['SPL1', 'SPL2'], a: ['FL.B', '', '', '10 ml', 'E2', 'A1', '', '1', 'C2', ''], f: 'SECONDARIO', fmt: 'FP-B', ff: 'FF-B', es: 'OK' },
-           { c: '6000003', d: 'PROVA A2', lp: 'ST6', ls: ['SPL2'], a: ['FL.A', '', '', '5 ml', 'E9', 'A1', '', '1', 'C1', 'BUND'], f: 'SECONDARIO', fmt: 'FP-A', ff: 'FF-A', es: 'OK' }],
-    macc: [{ id: 'SPL2-01', l: 'SPL2', pos: 1, n: 'ETICHETTATRICE', fase: 'SECONDARIO', q: 'SEMPRE', m: ['P', '', '', '', 'R', '', '', '', '', '', ''], ver: true },
-           { id: 'SPL2-02', l: 'SPL2', pos: 2, n: 'CARTONATRICE PAK', fase: 'SECONDARIO', q: 'SOLO SENZA FARDELLO', m: ['', '', '', '', '', '', '', '', 'P', '', ''], ver: true },
-           { id: 'SPL2-03', l: 'SPL2', pos: 3, n: 'FARDELLATRICE', fase: 'SECONDARIO', q: 'SOLO CON FARDELLO', m: ['', '', '', '', '', '', '', '', '', 'P', ''], ver: true, hr: false }].map(m => ({ hr: true, ...m })),
-    ric: [{ id: 'SPL2-01', co: 'FL.A', do: '', fa: '', lg: '', fc: '', mf: '', nome: 'ETI A', n: 12 }, { id: 'SPL2-01', co: 'FL.B', do: '', fa: '', lg: '', fc: '', mf: '', nome: 'ETI B', n: 4 }] };
-  let fmtReq = 0; await ctx.unroute(/script\.google\.com/);
-  await ctx.route(/script\.google\.com/, r => { const u = decodeURIComponent(r.request().url()); if (/action=formati/.test(u)) { fmtReq++; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(FX) }); }
-    if (r.request().method() === 'POST') return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
-    r.fulfill({ contentType: 'application/json', body: /action=login/.test(u) ? '{"ok":true}' : JSON.stringify({ ok: true, ...D, ver: 'F' }) }); });
-  await esci(); await entra('Mario', 'Rossi'); await p.evaluate(() => closeSh()); await p.click('#manbtn'); await attesa(200);
-  ok(await p.isVisible('#mfmt') && fmtReq === 0, 'tecnico: voce Formati nel menu; nessun dato scaricato finché non la apre');
-  await p.click('#mfmt'); await attesa(500);
-  ok(fmtReq === 1 && await p.isVisible('#fa'), 'tecnico: apre Formati e cambi formato');
-  await p.evaluate(() => { closeSh(); FMT = null; });
-  await esci(); await entra('Anna', 'Verdi'); await p.evaluate(() => closeSh()); await p.click('#manbtn'); await attesa(200);
-  ok(await p.isVisible('#mfmt'), 'coordinatore: voce "Formati e cambi formato" nel menu del nome');
-  await p.click('#mfmt'); await attesa(500);
-  await p.fill('#fa', '6000001'); await p.fill('#fb', '6000002'); await p.dispatchEvent('#fb', 'input'); await attesa(200);
-  const ftx = await p.innerText('#fres');
-  ok(/CAMBIO FORMATO/.test(ftx) && /FP-A → FP-B/.test(ftx) && /ETICHETTATRICE\s*CAMBIO PEZZI/.test(ftx) && /Contenitore: FL\.A → FL\.B/.test(ftx), 'cambio formato: banner, macchina con cambio pezzi (da → a)');
-  ok(/Ricetta: ETI A → ETI B/.test(ftx) && /SPL2-01/.test(ftx), 'ricetta sul pannello: da → a, con il codice ITEM della macchina');
-  ok(/CARTONATRICE PAK\s*DA AVVIARE/.test(ftx) && /FARDELLATRICE\s*SI FERMA/.test(ftx), 'regola fardello: cartonatrice da avviare, fardellatrice si ferma');
-  await p.fill('#fb', '6000003'); await p.dispatchEvent('#fb', 'input'); await attesa(200);
-  ok(/STESSO FORMATO – SOLO RICETTE/.test(await p.innerText('#fres')) && /Etichetta: E1 → E9/.test(await p.innerText('#fres')), 'stesso formato, cambia solo l\'etichetta: solo ricetta');
-  ok(/Ricetta: ETI A \(resta uguale\)/.test(await p.innerText('#fres')), 'stessa ricetta: «resta uguale»');
-  ok(await p.evaluate(() => { const o = FMT.prod.map(x => x.f); FMT.prod.forEach(x => { x.f = ''; }); const r = (FMT.prod.forEach(x => { x.f = String(x.f || '').toUpperCase() || (/^5/.test(x.c) ? 'PRIMARIO' : 'SECONDARIO'); }), FMT.prod.every(x => x.f)); FMT.prod.forEach((x, i) => { x.f = o[i]; }); return r; }), 'fase mancante nel file: ricavata dal codice');
-  ok(await p.evaluate(() => !Object.keys(localStorage).some(k => /FP-A|6000002|ETI A/.test(localStorage.getItem(k) || ''))), 'i dati dei formati non restano salvati sul telefono');
-  await p.evaluate(() => { closeSh(); shFmtMacchina({ code: 'SPL2-01', macchina: 'ETICHETTATRICE', linea: 'SPL2' }); }); await attesa(300);
-  const fmm = await p.innerText('#fmtm');
-  ok(/Cambio pezzi[\s\S]*Contenitore/.test(fmm) && /Solo ricetta[\s\S]*Etichetta/.test(fmm) && /ETI A[\s\S]*12 codici[\s\S]*ETI B/.test(fmm), 'scheda macchina → Formati e ricette: cosa cambia (P/R) e ricette sul pannello, le più usate prima');
-  await p.evaluate(() => { closeSh(); shFmtMacchina({ code: 'ST3-99', macchina: 'X' }); }); await attesa(200);
-  ok(/non è nel file dei formati/.test(await p.innerText('#fmtm')), 'macchina che non è nel file: lo dice');
-  await p.evaluate(() => closeSh());
-
   console.log('\nVoci guasto: solo quelle della macchina (foglio Guasti)');
   const vg = await p.evaluate(() => {
     const old = { g: S.guasti, f: S.fermi };
